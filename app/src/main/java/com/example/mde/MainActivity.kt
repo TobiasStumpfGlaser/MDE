@@ -1,25 +1,17 @@
 package com.example.mde
 
-import android.app.AlertDialog
 import android.content.Intent
 import android.os.Bundle
-import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import android.os.Handler
 import android.os.Looper
 import android.view.MotionEvent
+import android.widget.*
 
-data class Article(
-    val barcode: String,
-    val name: String,
-    var quantity: Int,
-    val location: String
-)
 
 class MainActivity : AppCompatActivity() {
     private var timeoutMillis: Long = 300_000 //Nur init Wert - wird später aus Settings gelesen
-    private var currentArticle: Article? = null
     private lateinit var handler: Handler
     private lateinit var timeoutRunnable: Runnable
     private lateinit var settings: AppSettings
@@ -48,101 +40,48 @@ class MainActivity : AppCompatActivity() {
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
 
-        // UI Elemente
-        val etBarcode = findViewById<EditText>(R.id.etBarcode)
-        val tvArticleInfo = findViewById<TextView>(R.id.tvArticleInfo)
-        val btnScan = findViewById<Button>(R.id.btnScan)
-        val btnAdd = findViewById<Button>(R.id.btnAdd)
-        val btnRemove = findViewById<Button>(R.id.btnRemove)
+        val btnInfoScan = findViewById<Button>(R.id.btnInfoScan)
+        val btnPickList = findViewById<Button>(R.id.btnPickList)
+        val btnDropList = findViewById<Button>(R.id.btnDropList)
+        val btnSingleAdd = findViewById<Button>(R.id.btnSingleAdd)
+        val btnSingleRemove = findViewById<Button>(R.id.btnSingleRemove)
+        val btnTransfer = findViewById<Button>(R.id.btnTransfer)
+        val btnInventory = findViewById<Button>(R.id.btnInventory)
 
-        fun showQuantityDialog(title: String, onConfirm: (Int) -> Unit) {
-            val input = EditText(this)
-            input.inputType = android.text.InputType.TYPE_CLASS_NUMBER
-            input.hint = "Anzahl eingeben"
-
-            val dialog = AlertDialog.Builder(this)
-                .setTitle(title)
-                .setView(input)
-                .setPositiveButton("Bestätigen", null)
-                .setNegativeButton("Abbrechen") { d, _ -> d.dismiss() }
-                .create()
-
-            dialog.setOnShowListener {
-                val button = dialog.getButton(AlertDialog.BUTTON_POSITIVE)
-                button.setOnClickListener {
-                    val qty = input.text.toString().toIntOrNull()
-                    if (qty == null || qty <= 0) {
-                        Toast.makeText(this, "Bitte gültige Menge eingeben!", Toast.LENGTH_SHORT).show()
-                    } else {
-                        onConfirm(qty)
-                        dialog.dismiss()
-                    }
-                }
-            }
-
-            dialog.show()
+        btnInfoScan.setOnClickListener {
+            val intent = Intent(this@MainActivity, InfoScanActivity::class.java)
+            startActivity(intent)
         }
 
-        // Scan Button
-        btnScan.setOnClickListener {
-            sendTcpRequest(
-                serverIp = "192.168.151.100",
-                port = 5000,
-                message = "TEST"
-            ) { response ->
-                tvArticleInfo.text = "Antwort vom Server: $response"
-            }
-        }
-
-        // Zubuchung
-        btnAdd.setOnClickListener {
-            currentArticle?.let { article ->
-                showQuantityDialog("Zubuchung") { qty ->
-                    article.quantity += qty
-                    tvArticleInfo.text = "Name: ${article.name}\nMenge: ${article.quantity}\nStandort: ${article.location}"
-                }
-            } ?: Toast.makeText(this, "Kein Artikel ausgewählt!", Toast.LENGTH_SHORT).show()
-        }
-
-        // Entnahme
-        btnRemove.setOnClickListener {
-            currentArticle?.let { article ->
-                showQuantityDialog("Entnahme") { qty ->
-                    article.quantity = (article.quantity - qty).coerceAtLeast(0)
-                    tvArticleInfo.text = "Name: ${article.name}\nMenge: ${article.quantity}\nStandort: ${article.location}"
-                }
-            } ?: Toast.makeText(this, "Kein Artikel ausgewählt!", Toast.LENGTH_SHORT).show()
-        }
-    }
-
-    /* ================= TCP HELPER ================= */
-    fun sendTcpRequest(
-        serverIp: String,
-        port: Int,
-        message: String,
-        onResult: (String) -> Unit
-    ) {
-        Thread {
-            try {
-                val socket = java.net.Socket(serverIp, port)
-                val writer = socket.getOutputStream()
-                val reader = socket.getInputStream().bufferedReader()
-
-                writer.write((message + "\n").toByteArray())
-                writer.flush()
-
-                val response = reader.readLine()
-                socket.close()
-
-                runOnUiThread {
-                    onResult(response ?: "Keine Antwort")
-                }
-            } catch (e: Exception) {
-                runOnUiThread {
-                    onResult("FEHLER: ${e.message}")
-                }
-            }
-        }.start()
+//        btnPickList.setOnClickListener {
+//            val intent = Intent(this@MainActivity, ListRemoveActivity::class.java)
+//            startActivity(intent)
+//        }
+//
+//        btnDropList.setOnClickListener {
+//            val intent = Intent(this@MainActivity, ListAddActivity::class.java)
+//            startActivity(intent)
+//        }
+//
+//        btnSingleAdd.setOnClickListener {
+//            val intent = Intent(this@MainActivity, SingleAddActivity::class.java)
+//            startActivity(intent)
+//        }
+//
+//        btnSingleRemove.setOnClickListener {
+//            val intent = Intent(this@MainActivity, SingleRemoveActivity::class.java)
+//            startActivity(intent)
+//        }
+//
+//        btnTransfer.setOnClickListener {
+//            val intent = Intent(this@MainActivity, TransferActivity::class.java)
+//            startActivity(intent)
+//        }
+//
+//        btnInventory.setOnClickListener {
+//            val intent = Intent(this@MainActivity, InventoryActivity::class.java)
+//            startActivity(intent)
+//        }
     }
 
     /* ================= Inaktivität ================= */

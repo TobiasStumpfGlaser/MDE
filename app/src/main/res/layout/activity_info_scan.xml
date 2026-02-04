@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:background="@color/grayBackground">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:background="@color/cardview_dark_background"
+        app:title="BW MDE App"
+        app:titleTextColor="@color/white"
+        app:layout_constraintTop_toTopOf="parent"/>
+
+    <LinearLayout
+        android:layout_width="370dp"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:layout_marginTop="40dp"
+        app:layout_constraintTop_toBottomOf="@id/toolbar"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent">
+
+        <EditText
+            android:id="@+id/etBarcode"
+            android:layout_width="match_parent"
+            android:layout_height="70dp"
+            android:background="@android:drawable/edit_text"
+            android:hint="Barcode scannen"
+            android:textAlignment="center"/>
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="24dp"/>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnScan"
+            android:layout_width="match_parent"
+            android:layout_height="70dp"
+            android:background="@android:drawable/edit_text"
+            android:text="Info abrufen"/>
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>

@@ -3,6 +3,7 @@ package com.example.mde
 import androidx.appcompat.app.AppCompatActivity
 import android.os.Bundle
 import android.widget.*
+import androidx.appcompat.widget.Toolbar
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -11,6 +12,14 @@ class SettingsActivity : AppCompatActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_settings)
+
+        val toolbar = findViewById<Toolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar)
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+        toolbar.navigationIcon?.setColorFilter(
+            resources.getColor(android.R.color.white, theme),
+            android.graphics.PorterDuff.Mode.SRC_ATOP
+        )
 
         settings = AppSettings(this)
 

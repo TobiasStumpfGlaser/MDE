@@ -48,7 +48,7 @@
             android:layout_height="16dp" />
 
         <!-- Erneut verbinden -->
-        <Button
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnReconnect"
             android:layout_width="match_parent"
             android:layout_height="70dp"
@@ -96,7 +96,7 @@
             android:layout_width="match_parent"
             android:layout_height="80dp" />
 
-        <Button
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnLogin"
             android:layout_width="match_parent"
             android:layout_height="70dp"
