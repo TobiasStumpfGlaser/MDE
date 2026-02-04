@@ -1,6 +1,5 @@
 package com.example.mde
 
-import com.example.mde.BuildConfig
 import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
