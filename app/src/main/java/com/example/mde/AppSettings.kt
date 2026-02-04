@@ -15,9 +15,9 @@ class AppSettings(context: Context) {
     get() = prefs.getInt("server_port", 5000)
     set(value) = prefs.edit().putInt("server_port", value).apply()
 
-    var timeoutMs: Int
-    get() = prefs.getInt("timeout_ms", 1000)
-    set(value) = prefs.edit().putInt("timeout_ms", value).apply()
+    var timeoutS: Int
+    get() = prefs.getInt("timeout_s", 3000)
+    set(value) = prefs.edit().putInt("timeout_s", value).apply()
 
     var logoutTimeSec: Int
     get() = prefs.getInt("logout_time_sec", 300)

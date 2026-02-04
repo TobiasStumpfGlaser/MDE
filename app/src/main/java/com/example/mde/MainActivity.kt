@@ -6,6 +6,9 @@ import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import android.os.Handler
+import android.os.Looper
+import android.view.MotionEvent
 
 data class Article(
     val barcode: String,
@@ -15,12 +18,31 @@ data class Article(
 )
 
 class MainActivity : AppCompatActivity() {
-
+    private var timeoutMillis: Long = 300_000 //Nur init Wert - wird später aus Settings gelesen
     private var currentArticle: Article? = null
+    private lateinit var handler: Handler
+    private lateinit var timeoutRunnable: Runnable
+    private lateinit var settings: AppSettings
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        // Handler erst nach onCreate initialisieren
+        handler = Handler(Looper.getMainLooper())
+
+        // Runnable auch hier, nicht als Property
+        timeoutRunnable = Runnable {
+            val intent = Intent(this@MainActivity, LoginActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+            startActivity(intent)
+            finish()
+        }
+
+        resetInactivityTimer()
+
+        settings = AppSettings(this) // Context übergeben
+        timeoutMillis = settings.logoutTimeSec * 1000L
 
         // Toolbar
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
@@ -121,6 +143,31 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }.start()
+    }
+
+    /* ================= Inaktivität ================= */
+    override fun onResume() {
+        super.onResume()
+        resetInactivityTimer()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        stopInactivityTimer()
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
+        resetInactivityTimer()
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun resetInactivityTimer() {
+        handler.removeCallbacks(timeoutRunnable)
+        handler.postDelayed(timeoutRunnable, timeoutMillis)
+    }
+
+    private fun stopInactivityTimer() {
+        handler.removeCallbacks(timeoutRunnable)
     }
 
     /* ================= MENU ================= */

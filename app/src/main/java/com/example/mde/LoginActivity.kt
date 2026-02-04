@@ -7,6 +7,7 @@ import android.os.Bundle
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
+import androidx.appcompat.widget.Toolbar
 import kotlinx.coroutines.*
 import java.io.*
 import java.net.InetSocketAddress
@@ -14,31 +15,31 @@ import java.net.Socket
 
 class LoginActivity : AppCompatActivity() {
 
+    private lateinit var settings: AppSettings
     private lateinit var txtServerStatus: TextView
     private lateinit var btnReconnect: Button
     private lateinit var txtUsername: AutoCompleteTextView
     private lateinit var txtPin: EditText
     private lateinit var btnLogin: Button
-
-    private val serverIp = "192.168.151.100"
-    private val serverPort = 5000
-
     private var serverConnected = false
     private var serverConnecting = false
     private var reconnectDialogVisible = false
     private var retryDialogVisible = false
-
     private val userList = mutableListOf<String>()
     private var userListLoaded = false
-
     // Map für Username -> PIN (aus Server)
     private val userPinMap = mutableMapOf<String, String>()
-
     private val ioScope = CoroutineScope(Dispatchers.IO)
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
+
+        settings = AppSettings(this) // Context übergeben
+
+        // Toolbar
+        val toolbar = findViewById<Toolbar>(R.id.toolbar)
+        setSupportActionBar(toolbar)
 
         txtServerStatus = findViewById(R.id.txtServerStatus)
         btnReconnect = findViewById(R.id.btnReconnect)
@@ -117,7 +118,7 @@ class LoginActivity : AppCompatActivity() {
         ioScope.launch {
             try {
                 Socket().use { socket ->
-                    socket.connect(InetSocketAddress(serverIp, serverPort), 3000)
+                    socket.connect(InetSocketAddress(settings.serverIp , settings.serverPort), settings.timeoutS * 1000)
                 }
                 runOnUiThread {
                     serverConnected = true
@@ -157,8 +158,8 @@ class LoginActivity : AppCompatActivity() {
     private suspend fun requestUserList(): Boolean = withContext(Dispatchers.IO) {
         try {
             val socket = Socket()
-            socket.connect(InetSocketAddress(serverIp, serverPort), 1000)
-            socket.soTimeout = 1000
+            socket.connect(InetSocketAddress(settings.serverIp , settings.serverPort), settings.timeoutS * 1000)
+            socket.soTimeout = settings.timeoutS * 1000
 
             val writer = PrintWriter(
                 BufferedWriter(OutputStreamWriter(socket.getOutputStream())),
@@ -285,5 +286,21 @@ class LoginActivity : AppCompatActivity() {
         intent.putExtra("USERNAME", username)
         startActivity(intent)
         finish()
+    }
+
+    /* ================= MENU ================= */
+    override fun onCreateOptionsMenu(menu: android.view.Menu?): Boolean {
+        menuInflater.inflate(R.menu.login_menu, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.menu_settings -> {
+                startActivity(Intent(this, SettingsActivity::class.java))
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 }

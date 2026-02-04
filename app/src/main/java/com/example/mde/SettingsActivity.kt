@@ -24,7 +24,7 @@ class SettingsActivity : AppCompatActivity() {
         // Laden
         etIp.setText(settings.serverIp)
         etPort.setText(settings.serverPort.toString())
-        etTimeout.setText(settings.timeoutMs.toString())
+        etTimeout.setText(settings.timeoutS.toString())
         etLogout.setText(settings.logoutTimeSec.toString())
         etWerk.setText(settings.werkNummer)
 
@@ -32,7 +32,7 @@ class SettingsActivity : AppCompatActivity() {
         btnSave.setOnClickListener {
             settings.serverIp = etIp.text.toString()
             settings.serverPort = etPort.text.toString().toInt()
-            settings.timeoutMs = etTimeout.text.toString().toInt()
+            settings.timeoutS = etTimeout.text.toString().toInt()
             settings.logoutTimeSec = etLogout.text.toString().toInt()
             settings.werkNummer = etWerk.text.toString()
 
