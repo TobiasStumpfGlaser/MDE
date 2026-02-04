@@ -17,11 +17,6 @@ data class Article(
 class MainActivity : AppCompatActivity() {
 
     private var currentArticle: Article? = null
-    private val dummyArticles = mutableListOf(
-        Article("12345", "Laptop", 10, "Lager A"),
-        Article("67890", "Maus", 50, "Lager B"),
-        Article("54321", "Tastatur", 20, "Lager A")
-    )
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -136,14 +131,6 @@ class MainActivity : AppCompatActivity() {
 
     override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
         return when (item.itemId) {
-            R.id.menu_version -> {
-                AlertDialog.Builder(this)
-                    .setTitle("Info")
-                    .setMessage("App-Version: V1.4")
-                    .setPositiveButton("OK", null)
-                    .show()
-                true
-            }
             R.id.menu_logout -> {
                 val intent = Intent(this, LoginActivity::class.java)
                 intent.flags = Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TASK

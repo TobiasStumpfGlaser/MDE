@@ -1,5 +1,6 @@
 package com.example.mde
 
+import com.example.mde.BuildConfig
 import android.app.AlertDialog
 import android.content.Intent
 import android.graphics.Color
@@ -45,6 +46,9 @@ class LoginActivity : AppCompatActivity() {
         txtUsername = findViewById(R.id.txtUsername)
         txtPin = findViewById(R.id.txtPin)
         btnLogin = findViewById(R.id.btnLogin)
+
+        val txtVersion = findViewById<TextView>(R.id.txtVersion)
+        txtVersion.text = "App-Version: ${BuildConfig.VERSION_NAME}"
 
         btnReconnect.setOnClickListener {
             connectToServer()
