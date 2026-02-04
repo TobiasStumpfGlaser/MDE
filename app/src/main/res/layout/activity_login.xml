@@ -1,0 +1,126 @@
+<?xml version="1.0" encoding="utf-8"?>
+<androidx.constraintlayout.widget.ConstraintLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:app="http://schemas.android.com/apk/res-auto"
+    xmlns:tools="http://schemas.android.com/tools"
+    android:layout_width="match_parent"
+    android:layout_height="match_parent"
+    android:fitsSystemWindows="true"
+    android:background="@color/grayBackground">
+
+    <androidx.appcompat.widget.Toolbar
+        android:id="@+id/toolbar"
+        android:layout_width="match_parent"
+        android:layout_height="72dp"
+        android:background="@color/cardview_dark_background"
+        android:elevation="4dp"
+        android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
+        app:layout_constraintBaseline_toTopOf="parent"
+        app:title="BW MDE App"
+        app:titleTextColor="@color/white"/>
+
+    <!-- Login Bereich -->
+    <LinearLayout
+        android:id="@+id/loginContainer"
+        android:layout_width="370dp"
+        android:layout_height="578dp"
+        android:orientation="vertical"
+        android:layout_marginTop="30dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintLeft_toLeftOf="parent"
+        app:layout_constraintRight_toRightOf="parent"
+        app:layout_constraintTop_toTopOf="parent">
+
+        <!-- Server Status -->
+        <TextView
+            android:id="@+id/txtServerStatus"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="Server: nicht verbunden"
+            android:textAlignment="center"
+            android:textColor="@color/white"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="16dp" />
+
+        <!-- Erneut verbinden -->
+        <Button
+            android:id="@+id/btnReconnect"
+            android:layout_width="match_parent"
+            android:layout_height="70dp"
+            android:background="@android:drawable/edit_text"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="Erneut verbinden" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="80dp" />
+
+        <!-- Username -->
+        <AutoCompleteTextView
+            android:id="@+id/txtUsername"
+            android:layout_width="match_parent"
+            android:layout_height="70dp"
+            android:background="@android:drawable/edit_text"
+            android:completionThreshold="0"
+            android:hint="Benutzer"
+            android:inputType="text"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:textAlignment="center" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="16dp" />
+
+        <!-- PIN -->
+
+        <EditText
+            android:id="@+id/txtPin"
+            android:layout_width="match_parent"
+            android:layout_height="70dp"
+            android:background="@android:drawable/edit_text"
+            android:hint="PIN"
+            android:inputType="numberPassword"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:textAlignment="center" />
+
+        <!-- LOGIN BUTTON -->
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="80dp" />
+
+        <Button
+            android:id="@+id/btnLogin"
+            android:layout_width="match_parent"
+            android:layout_height="70dp"
+            android:background="@android:drawable/edit_text"
+            android:text="Login" />
+
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="40dp" />
+
+        <!-- Server Status -->
+        <TextView
+            android:id="@+id/txtVersion"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:paddingStart="16dp"
+            android:paddingEnd="16dp"
+            android:text="App-Version: V1.4"
+            android:textAlignment="center"
+            android:textColor="@color/white"
+            android:textSize="20sp"
+            android:textStyle="bold" />
+
+    </LinearLayout>
+
+</androidx.constraintlayout.widget.ConstraintLayout>
