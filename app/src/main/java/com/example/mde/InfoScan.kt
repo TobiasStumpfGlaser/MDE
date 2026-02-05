@@ -10,7 +10,6 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 
@@ -28,14 +27,13 @@ data class Artikel(
 
 class InfoScanActivity : AppCompatActivity() {
 
-    private lateinit var handler: Handler
-    private lateinit var timeoutRunnable: Runnable
-    private var timeoutMillis = 0L
-
     private lateinit var etFilter: AutoCompleteTextView
     private lateinit var tvArtikelInfo: TextView
     private lateinit var btnClear: Button
-
+    private lateinit var btnReloadArtikel: Button
+    private lateinit var handler: Handler
+    private lateinit var timeoutRunnable: Runnable
+    private var timeoutMillis = 0L
     private var artikelListe: List<Artikel> = listOf()
     private lateinit var adapter: ArrayAdapter<String>
 
@@ -63,6 +61,7 @@ class InfoScanActivity : AppCompatActivity() {
         etFilter = findViewById(R.id.etBarcode)
         tvArtikelInfo = findViewById(R.id.tvArtikelInfo)
         btnClear = findViewById(R.id.btnClear)
+        btnReloadArtikel = findViewById(R.id.btnReloadArtikel)
 
         // Adapter für Dropdown
         adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, mutableListOf())
@@ -89,12 +88,20 @@ class InfoScanActivity : AppCompatActivity() {
 
         // Clear-Button
         btnClear.setOnClickListener {
+            val infoText = tvArtikelInfo.text.toString()
+            if (infoText.isNotBlank() &&
+                !infoText.contains("Keine Verbindung") &&
+                !infoText.contains("Fehler")
+            ) {
+                tvArtikelInfo.text = ""
+            }
             etFilter.text.clear()
-            tvArtikelInfo.text = ""
-            etFilter.showDropDown() // optional Dropdown wieder anzeigen
+            etFilter.showDropDown()
         }
 
-        // Direkt beim Start laden
+        btnReloadArtikel.setOnClickListener {
+            loadArtikelList()
+        }
         loadArtikelList()
     }
 
@@ -102,13 +109,7 @@ class InfoScanActivity : AppCompatActivity() {
         fetchArtikelList(
             onSuccess = { liste ->
                 if (liste.isEmpty()) {
-                    AlertDialog.Builder(this)
-                        .setTitle("Fehler")
-                        .setMessage("Keine Artikel vom Server erhalten.\nErneut versuchen?")
-                        .setPositiveButton("Ja") { _, _ -> loadArtikelList() }
-                        .setNegativeButton("Nein") { _, _ -> tvArtikelInfo.text = "Keine Artikel verfügbar" }
-                        .setCancelable(false)
-                        .show()
+                    tvArtikelInfo.text = "Keine Artikel vom Server erhalten."
                     return@fetchArtikelList
                 }
 
@@ -120,13 +121,7 @@ class InfoScanActivity : AppCompatActivity() {
                 tvArtikelInfo.text = ""
             },
             onFailure = { message ->
-                AlertDialog.Builder(this)
-                    .setTitle("Fehler")
-                    .setMessage("Fehler beim Laden der Artikel:\n$message\n\nErneut versuchen?")
-                    .setPositiveButton("Ja") { _, _ -> loadArtikelList() }
-                    .setNegativeButton("Nein") { _, _ -> tvArtikelInfo.text = "Keine Verbindung" }
-                    .setCancelable(false)
-                    .show()
+                tvArtikelInfo.text = "Fehler beim Laden der Artikel:\n$message"
             }
         )
     }
