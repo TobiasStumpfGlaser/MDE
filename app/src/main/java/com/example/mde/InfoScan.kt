@@ -10,9 +10,17 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import java.net.ConnectException
+import java.net.InetSocketAddress
+import java.net.Socket
+import java.net.SocketTimeoutException
 
+// =======================
+// Datenmodell
+// =======================
 data class Artikel(
     val artNr: String,
     val bez: String,
@@ -25,23 +33,46 @@ data class Artikel(
     val liefBestNr: String
 )
 
+// =======================
+// Activity
+// =======================
 class InfoScanActivity : AppCompatActivity() {
 
+    // Views
     private lateinit var etFilter: AutoCompleteTextView
     private lateinit var tvArtikelInfo: TextView
     private lateinit var btnClear: Button
     private lateinit var btnReloadArtikel: Button
-    private lateinit var handler: Handler
-    private lateinit var timeoutRunnable: Runnable
-    private var timeoutMillis = 0L
-    private var artikelListe: List<Artikel> = listOf()
+
+    // Artikel
+    private var artikelListe: List<Artikel> = emptyList()
     private lateinit var adapter: ArrayAdapter<String>
 
+    // Inaktivitäts-Timeout
+    private lateinit var handler: Handler
+    private lateinit var timeoutRunnable: Runnable
+    private var logoutTimeoutMillis = 0L
+
+    // =======================
+    // Lifecycle
+    // =======================
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_info_scan)
 
-        // Toolbar
+        setupToolbar()
+        setupTimeout()
+        setupViews()
+        setupDropdown()
+
+        // Initial laden
+        loadArtikelList()
+    }
+
+    // =======================
+    // Toolbar
+    // =======================
+    private fun setupToolbar() {
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -49,108 +80,127 @@ class InfoScanActivity : AppCompatActivity() {
             resources.getColor(android.R.color.white, theme),
             android.graphics.PorterDuff.Mode.SRC_ATOP
         )
+    }
 
-        timeoutMillis = AppSettings(this).logoutTimeSec * 1000L
+    // =======================
+    // Timeout (User)
+    // =======================
+    private fun setupTimeout() {
+        val settings = AppSettings(this)
+        logoutTimeoutMillis = settings.logoutTimeSec * 1000L
+
         handler = Handler(Looper.getMainLooper())
         timeoutRunnable = Runnable {
             startActivity(Intent(this, LoginActivity::class.java))
             finish()
         }
+    }
 
-        // Views
+    // =======================
+    // Views
+    // =======================
+    private fun setupViews() {
         etFilter = findViewById(R.id.etBarcode)
         tvArtikelInfo = findViewById(R.id.tvArtikelInfo)
         btnClear = findViewById(R.id.btnClear)
         btnReloadArtikel = findViewById(R.id.btnReloadArtikel)
 
-        // Adapter für Dropdown
-        adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, mutableListOf())
-        etFilter.setAdapter(adapter)
-        etFilter.threshold = 1
-
-        // Wenn ein Element ausgewählt wird → Info anzeigen
-        etFilter.setOnItemClickListener { _, _, position, _ ->
-            val selectedText = adapter.getItem(position)
-            val artikel = artikelListe.find { it.artNr + " | " + it.bez == selectedText }
-            artikel?.let {
-                tvArtikelInfo.text = """
-                    Artikel: ${it.artNr}
-                    Bezeichnung: ${it.bez}
-                    Lagerorte: ${it.lagerorte.joinToString(", ")}
-                    Bestand: ${it.bestand}
-                    Mindestbestand: ${it.mindestbestand}
-                    Bestell-Menge: ${it.empfBestMenge}
-                    Groß-Info: ${it.grossInfo}
-                    LiefBestNr: ${it.liefBestNr}
-                """.trimIndent()
-            }
-        }
-
-        // Clear-Button
         btnClear.setOnClickListener {
-            val infoText = tvArtikelInfo.text.toString()
-            if (infoText.isNotBlank() &&
-                !infoText.contains("Keine Verbindung") &&
-                !infoText.contains("Fehler")
-            ) {
+            if (tvArtikelInfo.text.isNotBlank()) {
                 tvArtikelInfo.text = ""
             }
             etFilter.text.clear()
-            etFilter.showDropDown()
         }
 
         btnReloadArtikel.setOnClickListener {
             loadArtikelList()
         }
-        loadArtikelList()
     }
 
+    // =======================
+    // Dropdown / Filter
+    // =======================
+    private fun setupDropdown() {
+        adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_dropdown_item_1line,
+            mutableListOf()
+        )
+        etFilter.setAdapter(adapter)
+        etFilter.threshold = 1
+
+        etFilter.setOnItemClickListener { _, _, position, _ ->
+            val selected = adapter.getItem(position) ?: return@setOnItemClickListener
+            val artikel = artikelListe.find { "${it.artNr} | ${it.bez}" == selected }
+
+            artikel?.let {
+                tvArtikelInfo.text = """
+                    Artikelnummer: ${it.artNr}
+                    Bezeichnung: ${it.bez}
+                    Lagerorte: ${it.lagerorte.joinToString(", ")}
+                    Bestand: ${it.bestand}
+                    Mindestbestand: ${it.mindestbestand}
+                    Empf. Bestellmenge: ${it.empfBestMenge}
+                    Bestell-Trigger: ${it.bestellTrigger}
+                    Groß-Info: ${it.grossInfo}
+                    LiefBestNr: ${it.liefBestNr}
+                """.trimIndent()
+            }
+        }
+    }
+
+    // =======================
+    // Artikel laden
+    // =======================
     private fun loadArtikelList() {
         fetchArtikelList(
             onSuccess = { liste ->
-                if (liste.isEmpty()) {
-                    tvArtikelInfo.text = "Keine Artikel vom Server erhalten."
-                    return@fetchArtikelList
-                }
-
                 artikelListe = liste
-                val items = artikelListe.map { "${it.artNr} | ${it.bez}" }
                 adapter.clear()
-                adapter.addAll(items)
+                adapter.addAll(liste.map { "${it.artNr} | ${it.bez}" })
                 adapter.notifyDataSetChanged()
                 tvArtikelInfo.text = ""
             },
             onFailure = { message ->
-                tvArtikelInfo.text = "Fehler beim Laden der Artikel:\n$message"
+                showReloadDialog(message)
             }
         )
     }
 
-    // Timeout / Inaktivität
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        resetTimeout()
-        return super.dispatchTouchEvent(ev)
+    // =======================
+    // Dialog
+    // =======================
+    private fun showReloadDialog(message: String) {
+        AlertDialog.Builder(this)
+            .setTitle("Serverfehler")
+            .setMessage("$message\n\nErneut versuchen?")
+            .setPositiveButton("Ja") { _, _ -> loadArtikelList() }
+            .setNegativeButton("Nein") { _, _ ->
+                tvArtikelInfo.text = "Keine Verbindung zum Server"
+            }
+            .setCancelable(false)
+            .show()
     }
 
-    private fun resetTimeout() {
-        handler.removeCallbacks(timeoutRunnable)
-        handler.postDelayed(timeoutRunnable, timeoutMillis)
-    }
-
-    override fun onResume() { super.onResume(); resetTimeout() }
-    override fun onPause() { super.onPause(); handler.removeCallbacks(timeoutRunnable) }
-
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == android.R.id.home) { finish(); return true }
-        return super.onOptionsItemSelected(item)
-    }
-
+    // =======================
     // Netzwerk
-    private fun fetchArtikelList(onSuccess: (List<Artikel>) -> Unit, onFailure: (String) -> Unit) {
+    // =======================
+    private fun fetchArtikelList(
+        onSuccess: (List<Artikel>) -> Unit,
+        onFailure: (String) -> Unit
+    ) {
         Thread {
             try {
-                val socket = java.net.Socket(AppSettings(this).serverIp, AppSettings(this).serverPort)
-                socket.soTimeout = AppSettings(this).timeoutS * 1000
+                val settings = AppSettings(this)
+                val serverTimeout = settings.timeoutS * 1000
+
+                val socket = Socket()
+                socket.connect(
+                    InetSocketAddress(settings.serverIp, settings.serverPort),
+                    serverTimeout
+                )
+                socket.soTimeout = serverTimeout
+
                 val writer = socket.getOutputStream()
                 val reader = socket.getInputStream().bufferedReader()
 
@@ -159,46 +209,106 @@ class InfoScanActivity : AppCompatActivity() {
 
                 val response = StringBuilder()
                 var line: String?
+
                 while (reader.readLine().also { line = it } != null) {
                     response.append(line).append("\n")
                     if (line!!.contains("{/GetArtikel}")) break
                 }
+
                 socket.close()
 
                 val liste = parseArtikelResponse(response.toString())
-                runOnUiThread { onSuccess(liste) }
 
+                runOnUiThread {
+                    if (liste.isEmpty()) {
+                        onFailure("Keine Artikel vom Server erhalten")
+                    } else {
+                        onSuccess(liste)
+                    }
+                }
+
+            } catch (e: SocketTimeoutException) {
+                runOnUiThread {
+                    onFailure("Server-Zeitüberschreitung (${AppSettings(this).timeoutS}s)")
+                }
+            } catch (e: ConnectException) {
+                runOnUiThread {
+                    onFailure("Server nicht erreichbar")
+                }
             } catch (e: Exception) {
-                runOnUiThread { onFailure(e.message ?: "Unbekannter Fehler") }
+                runOnUiThread {
+                    onFailure(e.message ?: "Unbekannter Fehler")
+                }
             }
         }.start()
     }
 
+    // =======================
+    // Parser
+    // =======================
     private fun parseArtikelResponse(raw: String): List<Artikel> {
         val liste = mutableListOf<Artikel>()
-        val lines = raw.lines()
-        var startParsing = false
-        for (line in lines) {
-            if (line.contains("{GetArtikel}")) { startParsing = true; continue }
-            if (line.contains("{/GetArtikel}")) break
-            if (!startParsing || line.isBlank()) continue
-            val parts = line.split("|")
-            if (parts.size < 14) continue
-            val lagerorte = parts.subList(2, 8)
-            liste.add(
-                Artikel(
-                    artNr = parts[0],
-                    bez = parts[1],
-                    lagerorte = lagerorte,
-                    bestand = parts[8].toIntOrNull() ?: 0,
-                    empfBestMenge = parts[9].toIntOrNull() ?: 0,
-                    bestellTrigger = parts[10].toIntOrNull() ?: 0,
-                    mindestbestand = parts[11].toIntOrNull() ?: 0,
-                    grossInfo = parts[12],
-                    liefBestNr = parts[13]
-                )
-            )
+        var parse = false
+
+        raw.lines().forEach { line ->
+            when {
+                line.contains("{GetArtikel}") -> parse = true
+                line.contains("{/GetArtikel}") -> return@forEach
+                !parse || line.isBlank() -> return@forEach
+                else -> {
+                    val p = line.split("|")
+                    if (p.size < 14) return@forEach
+
+                    liste.add(
+                        Artikel(
+                            artNr = p[0],
+                            bez = p[1],
+                            lagerorte = p.subList(2, 8),
+                            bestand = p[8].toIntOrNull() ?: 0,
+                            empfBestMenge = p[9].toIntOrNull() ?: 0,
+                            bestellTrigger = p[10].toIntOrNull() ?: 0,
+                            mindestbestand = p[11].toIntOrNull() ?: 0,
+                            grossInfo = p[12],
+                            liefBestNr = p[13]
+                        )
+                    )
+                }
+            }
         }
         return liste
+    }
+
+    // =======================
+    // Inaktivitäts-Handling
+    // =======================
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        resetTimeout()
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun resetTimeout() {
+        handler.removeCallbacks(timeoutRunnable)
+        handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        resetTimeout()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        handler.removeCallbacks(timeoutRunnable)
+    }
+
+    // =======================
+    // Navigation
+    // =======================
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == android.R.id.home) {
+            finish()
+            return true
+        }
+        return super.onOptionsItemSelected(item)
     }
 }

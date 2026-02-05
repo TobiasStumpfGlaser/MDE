@@ -11,7 +11,7 @@ import android.widget.*
 
 
 class MainActivity : AppCompatActivity() {
-    private var timeoutMillis: Long = 300_000 //Nur init Wert - wird später aus Settings gelesen
+    private var timeoutMillis: Long = 0L
     private lateinit var handler: Handler
     private lateinit var timeoutRunnable: Runnable
     private lateinit var settings: AppSettings
