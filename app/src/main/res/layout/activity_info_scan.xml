@@ -46,6 +46,13 @@
             android:text="Zurücksetzen"
             android:background="@android:drawable/edit_text"/>
 
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnScan"
+            android:layout_width="match_parent"
+            android:layout_height="70dp"
+            android:text="Scanner aktivieren"
+            android:background="@android:drawable/edit_text" />
+
         <View
             android:layout_width="match_parent"
             android:layout_height="16dp"/>

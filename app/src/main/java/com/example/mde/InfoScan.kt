@@ -39,6 +39,7 @@ data class Artikel(
 class InfoScanActivity : AppCompatActivity() {
 
     // Views
+    private lateinit var btnScan: Button
     private lateinit var etFilter: AutoCompleteTextView
     private lateinit var tvArtikelInfo: TextView
     private lateinit var btnClear: Button
@@ -104,6 +105,7 @@ class InfoScanActivity : AppCompatActivity() {
         tvArtikelInfo = findViewById(R.id.tvArtikelInfo)
         btnClear = findViewById(R.id.btnClear)
         btnReloadArtikel = findViewById(R.id.btnReloadArtikel)
+        btnScan = findViewById(R.id.btnScan)
 
         btnClear.setOnClickListener {
             if (tvArtikelInfo.text.isNotBlank()) {
@@ -115,7 +117,37 @@ class InfoScanActivity : AppCompatActivity() {
         btnReloadArtikel.setOnClickListener {
             loadArtikelList()
         }
+
+        btnScan.setOnClickListener {
+            val intent = Intent(this, ScannerActivity::class.java)
+            startActivityForResult(intent, 1001)
+        }
     }
+
+        // Ergebnis abfangen
+        override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+            super.onActivityResult(requestCode, resultCode, data)
+            if (requestCode == 1001 && resultCode == RESULT_OK) {
+                val barcode = data?.getStringExtra("barcode")
+                if (!barcode.isNullOrEmpty()) {
+                    etFilter.setText(barcode)
+                    etFilter.showDropDown()
+                    val artikel = artikelListe.find { it.artNr == barcode }
+                    artikel?.let {
+                        tvArtikelInfo.text = """
+                    Artikel: ${it.artNr}
+                    Bezeichnung: ${it.bez}
+                    Lagerorte: ${it.lagerorte.joinToString(", ")}
+                    Bestand: ${it.bestand}
+                    Mindestbestand: ${it.mindestbestand}
+                    Bestell-Menge: ${it.empfBestMenge}
+                    Groß-Info: ${it.grossInfo}
+                    LiefBestNr: ${it.liefBestNr}
+                """.trimIndent()
+                    }
+                }
+            }
+        }
 
     // =======================
     // Dropdown / Filter
