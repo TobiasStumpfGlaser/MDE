@@ -44,67 +44,11 @@
 
         <!-- Listen Ausbuchung -->
         <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnPickList"
+            android:id="@+id/btnMaterialBook"
             android:layout_width="match_parent"
             android:layout_height="70dp"
             android:background="@android:drawable/edit_text"
-            android:text="Listen-Ausbuchung"
+            android:text="Material Buchung"
             android:textSize="20sp"/>
-
-        <View android:layout_height="20dp" android:layout_width="match_parent"/>
-
-        <!-- Listen Einbuchung -->
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnDropList"
-            android:layout_width="match_parent"
-            android:layout_height="70dp"
-            android:background="@android:drawable/edit_text"
-            android:text="Listen-Einbuchung"
-            android:textSize="20sp"/>
-
-        <View android:layout_height="20dp" android:layout_width="match_parent"/>
-
-        <!-- Einzel Einbuchung -->
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnSingleAdd"
-            android:layout_width="match_parent"
-            android:layout_height="70dp"
-            android:background="@android:drawable/edit_text"
-            android:text="Einzel-Einbuchung"
-            android:textSize="20sp"/>
-
-        <View android:layout_height="20dp" android:layout_width="match_parent"/>
-
-        <!-- Einzel Ausbuchung -->
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnSingleRemove"
-            android:layout_width="match_parent"
-            android:layout_height="70dp"
-            android:background="@android:drawable/edit_text"
-            android:text="Einzel-Ausbuchung"
-            android:textSize="20sp"/>
-
-        <View android:layout_height="20dp" android:layout_width="match_parent"/>
-
-        <!-- Umbuchung -->
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnTransfer"
-            android:layout_width="match_parent"
-            android:layout_height="70dp"
-            android:background="@android:drawable/edit_text"
-            android:text="Einzel-Umbuchung"
-            android:textSize="20sp"/>
-
-        <View android:layout_height="20dp" android:layout_width="match_parent"/>
-
-        <!-- Istwert -->
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnInventory"
-            android:layout_width="match_parent"
-            android:layout_height="70dp"
-            android:background="@android:drawable/edit_text"
-            android:text="Erfassung gez. Istwert"
-            android:textSize="20sp"/>
-
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>

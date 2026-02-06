@@ -13,12 +13,15 @@ import android.widget.*
 class MainActivity : AppCompatActivity() {
     private var timeoutMillis: Long = 0L
     private lateinit var handler: Handler
+    private lateinit var username: String
     private lateinit var timeoutRunnable: Runnable
     private lateinit var settings: AppSettings
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
+
+        username = intent.getStringExtra("USERNAME") ?: ""
 
         // Handler erst nach onCreate initialisieren
         handler = Handler(Looper.getMainLooper())
@@ -41,47 +44,18 @@ class MainActivity : AppCompatActivity() {
         setSupportActionBar(toolbar)
 
         val btnInfoScan = findViewById<Button>(R.id.btnInfoScan)
-        val btnPickList = findViewById<Button>(R.id.btnPickList)
-        val btnDropList = findViewById<Button>(R.id.btnDropList)
-        val btnSingleAdd = findViewById<Button>(R.id.btnSingleAdd)
-        val btnSingleRemove = findViewById<Button>(R.id.btnSingleRemove)
-        val btnTransfer = findViewById<Button>(R.id.btnTransfer)
-        val btnInventory = findViewById<Button>(R.id.btnInventory)
+        val btnMaterialBook = findViewById<Button>(R.id.btnMaterialBook)
 
         btnInfoScan.setOnClickListener {
             val intent = Intent(this@MainActivity, InfoScanActivity::class.java)
             startActivity(intent)
         }
 
-//        btnPickList.setOnClickListener {
-//            val intent = Intent(this@MainActivity, ListRemoveActivity::class.java)
-//            startActivity(intent)
-//        }
-//
-//        btnDropList.setOnClickListener {
-//            val intent = Intent(this@MainActivity, ListAddActivity::class.java)
-//            startActivity(intent)
-//        }
-//
-//        btnSingleAdd.setOnClickListener {
-//            val intent = Intent(this@MainActivity, SingleAddActivity::class.java)
-//            startActivity(intent)
-//        }
-//
-//        btnSingleRemove.setOnClickListener {
-//            val intent = Intent(this@MainActivity, SingleRemoveActivity::class.java)
-//            startActivity(intent)
-//        }
-//
-//        btnTransfer.setOnClickListener {
-//            val intent = Intent(this@MainActivity, TransferActivity::class.java)
-//            startActivity(intent)
-//        }
-//
-//        btnInventory.setOnClickListener {
-//            val intent = Intent(this@MainActivity, InventoryActivity::class.java)
-//            startActivity(intent)
-//        }
+        btnMaterialBook.setOnClickListener {
+            val intent = Intent(this@MainActivity, MaterialBuchungActivity::class.java)
+            intent.putExtra("USERNAME", username)
+            startActivity(intent)
+        }
     }
 
     /* ================= Inaktivität ================= */

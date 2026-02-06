@@ -17,17 +17,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.Light.NoActionBar">
         <activity
-            android:name=".ScannerActivity"
-            android:exported="false"
-            android:label="@string/title_activity_scanner"
-            android:screenOrientation="portrait"
-            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
-        <activity
             android:name=".LoginActivity"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />
-
                 <category android:name="android.intent.category.LAUNCHER" />
             </intent-filter>
         </activity>
@@ -38,6 +31,14 @@
         <activity
             android:name=".InfoScanActivity"
             android:parentActivityName=".MainActivity" />
+        <activity
+            android:name=".MaterialBuchungActivity"
+            android:parentActivityName=".MainActivity" />
+        <activity
+            android:name=".ScannerActivity"
+            android:label="@string/title_activity_scanner"
+            android:screenOrientation="portrait"
+            android:theme="@style/Theme.AppCompat.Light.NoActionBar" />
     </application>
 
 </manifest>
