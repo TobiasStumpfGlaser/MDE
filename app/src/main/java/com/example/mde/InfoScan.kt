@@ -1,6 +1,7 @@
 package com.example.mde
 
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -130,6 +131,14 @@ class InfoScanActivity : AppCompatActivity() {
             if (requestCode == 1001 && resultCode == RESULT_OK) {
                 val barcode = data?.getStringExtra("barcode")
                 if (!barcode.isNullOrEmpty()) {
+                    // Prüfen, ob der Barcode in der Liste vorhanden ist
+                    val matchedArtikel = artikelListe.find { it.artNr == barcode }
+                    if (matchedArtikel == null) {
+                        tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
+                        tvArtikelInfo.setTextColor(Color.RED)
+                    } else {
+                        tvArtikelInfo.text = ""
+                    }
                     etFilter.setText(barcode)
                     etFilter.showDropDown()
                     val artikel = artikelListe.find { it.artNr == barcode }

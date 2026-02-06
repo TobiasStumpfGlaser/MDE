@@ -72,6 +72,15 @@
 
             <View android:layout_width="match_parent" android:layout_height="24dp"/>
 
+            <!-- Scan Button -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnScanArtikel"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:background="@android:drawable/edit_text"
+                android:text="Scan"/>
+            <View android:layout_width="match_parent" android:layout_height="16dp"/>
+
             <!-- Buchen Button -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnBuchen"
@@ -82,7 +91,7 @@
 
             <View android:layout_width="match_parent" android:layout_height="16dp"/>
 
-            <!-- Buchen Button -->
+            <!-- Clear Button -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnClear"
                 android:layout_width="match_parent"

@@ -50,7 +50,7 @@
             android:id="@+id/btnScan"
             android:layout_width="match_parent"
             android:layout_height="70dp"
-            android:text="Scanner aktivieren"
+            android:text="Scan"
             android:background="@android:drawable/edit_text" />
 
         <View

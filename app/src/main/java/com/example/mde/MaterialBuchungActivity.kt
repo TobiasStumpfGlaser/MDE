@@ -2,6 +2,7 @@ package com.example.mde
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.graphics.Color
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -17,7 +18,6 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class MaterialBuchungActivity : AppCompatActivity() {
-
     private lateinit var settings: AppSettings
     private lateinit var txtArtikel: AutoCompleteTextView
     private lateinit var txtProjekt: AutoCompleteTextView
@@ -58,6 +58,13 @@ class MaterialBuchungActivity : AppCompatActivity() {
         btnBuchen = findViewById(R.id.btnBuchen)
         txtStatus = findViewById(R.id.txtStatus)
         btnClear = findViewById(R.id.btnClear)
+        val btnScanArtikel = findViewById<Button>(R.id.btnScanArtikel)
+        btnScanArtikel.setOnClickListener {
+            // ScannerActivity starten und Ergebnis erhalten
+            val intent = Intent(this, ScannerActivity::class.java)
+            startActivityForResult(intent, 1001)
+        }
+
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
@@ -88,12 +95,32 @@ class MaterialBuchungActivity : AppCompatActivity() {
         btnClear.setOnClickListener {
             txtArtikel.text.clear()
             txtProjekt.text.clear()
+            txtStatus.text = "";
             edtMenge.text.clear()
         }
     }
 
-    /* ======================= LOAD ARTIKEL ======================= */
+    // Ergebnis abfangen
+    override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
+        super.onActivityResult(requestCode, resultCode, data)
+        if (requestCode == 1001 && resultCode == RESULT_OK) {
+            val barcode = data?.getStringExtra("barcode")
+            if (!barcode.isNullOrEmpty()) {
+                // Prüfen, ob der Barcode in der Liste vorhanden ist
+                val matchedArtikel = artikelListe.find { it == barcode }
+                txtArtikel.setText(barcode)
+                txtArtikel.showDropDown()
+                if (matchedArtikel == null) {
+                    txtStatus.text = "⚠ Kein Artikel gefunden!"
+                    txtStatus.setTextColor(Color.RED)
+                } else {
+                    txtStatus.text = ""
+                }
+            }
+        }
+    }
 
+    /* ======================= LOAD ARTIKEL ======================= */
     private fun loadArtikel() {
         ioScope.launch {
             try {
