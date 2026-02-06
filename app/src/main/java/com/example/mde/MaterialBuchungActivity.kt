@@ -1,7 +1,11 @@
 package com.example.mde
 
 import android.app.AlertDialog
+import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.MotionEvent
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
@@ -21,22 +25,31 @@ class MaterialBuchungActivity : AppCompatActivity() {
     private lateinit var btnBuchen: Button
     private lateinit var btnClear: Button
     private lateinit var txtStatus: TextView
-
     private lateinit var artikelAdapter: ArrayAdapter<String>
     private lateinit var projektAdapter: ArrayAdapter<String>
-
     private val artikelListe = mutableListOf<String>()
     private val projektListe = mutableListOf<String>()
-
     private val ioScope = CoroutineScope(Dispatchers.IO)
-
     private lateinit var username: String
+
+    // Inaktivitäts-Timeout
+    private lateinit var handler: Handler
+    private lateinit var timeoutRunnable: Runnable
+    private var logoutTimeoutMillis = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_material_buchung)
 
         settings = AppSettings(this)
+
+        logoutTimeoutMillis = settings.logoutTimeSec * 1000L
+        handler = Handler(Looper.getMainLooper())
+        timeoutRunnable = Runnable {
+            startActivity(Intent(this, LoginActivity::class.java))
+            finish()
+        }
+
         username = intent.getStringExtra("USERNAME") ?: "?"
 
         txtArtikel = findViewById(R.id.txtArtikel)
@@ -95,6 +108,29 @@ class MaterialBuchungActivity : AppCompatActivity() {
                 showError("Artikel konnten nicht geladen werden")
             }
         }
+    }
+
+    // =======================
+    // Inaktivitäts-Handling
+    // =======================
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        resetTimeout()
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun resetTimeout() {
+        handler.removeCallbacks(timeoutRunnable)
+        handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
+    }
+
+    override fun onResume() {
+        super.onResume()
+        resetTimeout()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        handler.removeCallbacks(timeoutRunnable)
     }
 
     /* ======================= LOAD PROJEKTE ======================= */
