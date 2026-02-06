@@ -18,12 +18,15 @@ import java.text.SimpleDateFormat
 import java.util.*
 
 class MaterialBuchungActivity : AppCompatActivity() {
+    private var artikelGeladen = false
+    private var projekteGeladen = false
     private lateinit var settings: AppSettings
     private lateinit var txtArtikel: AutoCompleteTextView
     private lateinit var txtProjekt: AutoCompleteTextView
     private lateinit var edtMenge: EditText
     private lateinit var btnBuchen: Button
     private lateinit var btnClear: Button
+    private lateinit var btnReloadData: Button
     private lateinit var txtStatus: TextView
     private lateinit var artikelAdapter: ArrayAdapter<String>
     private lateinit var projektAdapter: ArrayAdapter<String>
@@ -58,6 +61,7 @@ class MaterialBuchungActivity : AppCompatActivity() {
         btnBuchen = findViewById(R.id.btnBuchen)
         txtStatus = findViewById(R.id.txtStatus)
         btnClear = findViewById(R.id.btnClear)
+        btnReloadData = findViewById(R.id.btnReloadData)
         val btnScanArtikel = findViewById<Button>(R.id.btnScanArtikel)
         btnScanArtikel.setOnClickListener {
             // ScannerActivity starten und Ergebnis erhalten
@@ -90,6 +94,10 @@ class MaterialBuchungActivity : AppCompatActivity() {
 
         btnBuchen.setOnClickListener {
             onBuchen()
+        }
+
+        btnReloadData.setOnClickListener {
+            onReloadData()
         }
 
         btnClear.setOnClickListener {
@@ -130,9 +138,13 @@ class MaterialBuchungActivity : AppCompatActivity() {
                     artikelListe.clear()
                     artikelListe.addAll(list)
                     artikelAdapter.notifyDataSetChanged()
+
+                    artikelGeladen = true
+                    checkDataLoaded()
                 }
             } catch (e: Exception) {
                 showError("Artikel konnten nicht geladen werden")
+                txtStatus.text = "❌ Verbindungsfehler"
             }
         }
     }
@@ -171,27 +183,45 @@ class MaterialBuchungActivity : AppCompatActivity() {
                     projektListe.clear()
                     projektListe.addAll(list)
                     projektAdapter.notifyDataSetChanged()
+
+                    projekteGeladen = true
+                    checkDataLoaded()
                 }
             } catch (e: Exception) {
                 showError("Projekte konnten nicht geladen werden")
+                txtStatus.text = "❌ Verbindungsfehler"
             }
         }
     }
+    /* ======================= RELOAD ======================= */
+    private fun onReloadData() {
+        loadArtikel()
+        loadProjekte()
+    }
 
+    private fun checkDataLoaded() {
+        if (artikelGeladen && projekteGeladen) {
+            txtStatus.text = "✅ Daten aktualisiert"
+        }
+    }
     /* ======================= BUCHEN ======================= */
 
     private fun onBuchen() {
+        txtStatus.text = ""
         val artikel = txtArtikel.text.toString()
         val projekt = txtProjekt.text.toString()
-        val mengeStr = edtMenge.text.toString()
+        val mengeStr = edtMenge.text.toString().trim()
 
         if (artikel.isBlank() || projekt.isBlank() || mengeStr.isBlank()) {
             showError("Bitte alle Felder ausfüllen")
             return
         }
 
-        val menge = mengeStr.toIntOrNull()
-        if (menge == null || menge == 0) {
+        // Komma -> Punkt ersetzen
+        val normalizedMenge = mengeStr.replace(",", ".")
+        val serverMenge = mengeStr.replace(".", ",")
+        val menge = normalizedMenge.toDoubleOrNull()
+        if (menge == null || menge == 0.0) {
             showError("Ungültige Menge")
             return
         }
@@ -200,22 +230,21 @@ class MaterialBuchungActivity : AppCompatActivity() {
             .setTitle("Buchung bestätigen")
             .setMessage("Artikel:\n$artikel\n\nProjekt:\n$projekt\n\nMenge: $menge")
             .setPositiveButton("Buchen") { _, _ ->
-                sendBuchung(artikel, projekt, menge)
+                sendBuchung(artikel, projekt, serverMenge)
             }
             .setNegativeButton("Abbrechen", null)
             .show()
     }
 
-    private fun sendBuchung(artikel: String, projekt: String, menge: Int) {
+    private fun sendBuchung(artikel: String, projekt: String, menge: String) {
         ioScope.launch {
             try {
                 val now = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
-
                 val payload = """
-{SetBuchungen}
-$artikel||$menge|FORMULAR|$projekt|10|$username|$now|
-{/SetBuchungen}
-""".trimIndent()
+                {SetBuchungen}
+                $artikel||$menge|FORMULAR|$projekt|10|$username|$now|
+                {/SetBuchungen}
+                """.trimIndent()
 
                 val response = sendCommand(payload)
 
@@ -231,6 +260,7 @@ $artikel||$menge|FORMULAR|$projekt|10|$username|$now|
             } catch (e: Exception) {
                 runOnUiThread {
                     showRetryDialog(artikel, projekt, menge)
+                    txtStatus.text = "❌ Verbindungsfehler"
                 }
             }
         }
@@ -290,7 +320,7 @@ $artikel||$menge|FORMULAR|$projekt|10|$username|$now|
         }
     }
 
-    private fun showRetryDialog(artikel: String, projekt: String, menge: Int) {
+    private fun showRetryDialog(artikel: String, projekt: String, menge: String) {
         AlertDialog.Builder(this)
             .setTitle("Timeout")
             .setMessage("Buchung erneut senden?")

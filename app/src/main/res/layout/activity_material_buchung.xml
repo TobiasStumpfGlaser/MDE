@@ -67,7 +67,7 @@
                 android:layout_height="70dp"
                 android:background="@android:drawable/edit_text"
                 android:hint="Menge (+ / -)"
-                android:inputType="numberSigned"
+                android:inputType="text"
                 android:textAlignment="center"/>
 
             <View android:layout_width="match_parent" android:layout_height="24dp"/>
@@ -98,6 +98,16 @@
                 android:layout_height="70dp"
                 android:background="@android:drawable/edit_text"
                 android:text="Zurücksetzen"/>
+
+            <View android:layout_width="match_parent" android:layout_height="16dp"/>
+
+            <!-- Reload Data Button -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnReloadData"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:background="@android:drawable/edit_text"
+                android:text="Daten Aktualisieren"/>
 
             <View android:layout_width="match_parent" android:layout_height="16dp"/>
 
