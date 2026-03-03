@@ -241,15 +241,15 @@ class MaterialBuchungActivity : AppCompatActivity() {
             try {
                 val now = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
                 val payload = """
-                {SetBuchungen}
+                {SetBuchung}
                 $artikel||$menge|FORMULAR|$projekt|10|$username|$now|
-                {/SetBuchungen}
+                {/SetBuchung}
                 """.trimIndent()
 
                 val response = sendCommand(payload)
 
                 runOnUiThread {
-                    if (response.trim() == "ok") {
+                    if (response.contains("{SetBuchung}\nok\n{/SetBuchung}")) {
                         txtStatus.text = "✅ Buchung erfolgreich"
                     } else {
                         showError(response)
