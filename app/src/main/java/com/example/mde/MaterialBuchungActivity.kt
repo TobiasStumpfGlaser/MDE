@@ -132,7 +132,11 @@ class MaterialBuchungActivity : AppCompatActivity() {
     private fun loadArtikel() {
         ioScope.launch {
             try {
-                val response = sendCommand("{GetArtikel}")
+                val request = "{GetArtikel}"
+                val logfileName = "GetArtikel"
+                TcpLogHelper.logRequest(this@MaterialBuchungActivity, logfileName, request)
+                val response = sendCommand(request)
+                TcpLogHelper.logResponse(this@MaterialBuchungActivity, logfileName, response)
                 val list = parseSimpleList(response)
                 runOnUiThread {
                     artikelListe.clear()
@@ -177,7 +181,11 @@ class MaterialBuchungActivity : AppCompatActivity() {
     private fun loadProjekte() {
         ioScope.launch {
             try {
-                val response = sendCommand("{GetProjekte}")
+                val request = "{GetProjekte}"
+                val logfileName = "GetProjekte"
+                TcpLogHelper.logRequest(this@MaterialBuchungActivity, logfileName, request)
+                val response = sendCommand(request)
+                TcpLogHelper.logResponse(this@MaterialBuchungActivity, logfileName, response)
                 val list = parseProjektList(response)
                 runOnUiThread {
                     projektListe.clear()
@@ -240,14 +248,16 @@ class MaterialBuchungActivity : AppCompatActivity() {
         ioScope.launch {
             try {
                 val now = SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
-                val payload = """
+                val request = """
                 {SetBuchung}
                 $artikel||$menge|FORMULAR|$projekt|10|$username|$now|
                 {/SetBuchung}
                 """.trimIndent()
 
-                val response = sendCommand(payload)
-
+                val logfileName = "SetBuchung"
+                TcpLogHelper.logRequest(this@MaterialBuchungActivity, logfileName, request)
+                val response = sendCommand(request)
+                TcpLogHelper.logResponse(this@MaterialBuchungActivity, logfileName, response)
                 runOnUiThread {
                     if (response.contains("{SetBuchung}\nok\n{/SetBuchung}")) {
                         txtStatus.text = "✅ Buchung erfolgreich"

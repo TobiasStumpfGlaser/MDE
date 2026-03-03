@@ -166,8 +166,10 @@ class LoginActivity : AppCompatActivity() {
                 true
             )
             val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
-
-            writer.println("{GetBediener}")
+            val request = "{GetBediener}"
+            val logfileName = "GetBediener"
+            writer.println(request)
+            TcpLogHelper.logRequest(this@LoginActivity, logfileName, request)
 
             val response = StringBuilder()
             var line: String?
@@ -175,6 +177,7 @@ class LoginActivity : AppCompatActivity() {
                 response.append(line).append("\n")
                 if (line!!.contains("{/GetBediener}")) break
             }
+            TcpLogHelper.logResponse(this@LoginActivity, logfileName, response.toString())
 
             socket.close()
 

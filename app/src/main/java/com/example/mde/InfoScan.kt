@@ -26,6 +26,7 @@ data class Artikel(
     val artNr: String,
     val bez: String,
     val lagerorte: List<String>,
+    val masseinheit: String,
     val bestand: Int,
     val empfBestMenge: Int,
     val bestellTrigger: Int,
@@ -147,6 +148,7 @@ class InfoScanActivity : AppCompatActivity() {
                     Artikel: ${it.artNr}
                     Bezeichnung: ${it.bez}
                     Lagerorte: ${it.lagerorte.joinToString(", ")}
+                    Maßeinheit: ${it.masseinheit}
                     Bestand: ${it.bestand}
                     Mindestbestand: ${it.mindestbestand}
                     Bestell-Menge: ${it.empfBestMenge}
@@ -179,6 +181,7 @@ class InfoScanActivity : AppCompatActivity() {
                     Artikelnummer: ${it.artNr}
                     Bezeichnung: ${it.bez}
                     Lagerorte: ${it.lagerorte.joinToString(", ")}
+                    Maßeinheit: ${it.masseinheit}
                     Bestand: ${it.bestand}
                     Mindestbestand: ${it.mindestbestand}
                     Empf. Bestellmenge: ${it.empfBestMenge}
@@ -305,12 +308,13 @@ class InfoScanActivity : AppCompatActivity() {
                             artNr = p[0],
                             bez = p[1],
                             lagerorte = p.subList(2, 8),
-                            bestand = p[8].toIntOrNull() ?: 0,
-                            empfBestMenge = p[9].toIntOrNull() ?: 0,
-                            bestellTrigger = p[10].toIntOrNull() ?: 0,
-                            mindestbestand = p[11].toIntOrNull() ?: 0,
-                            grossInfo = p[12],
-                            liefBestNr = p[13]
+                            masseinheit = p[8],
+                            bestand = p[9].toIntOrNull() ?: 0,
+                            empfBestMenge = p[10].toIntOrNull() ?: 0,
+                            bestellTrigger = p[11].toIntOrNull() ?: 0,
+                            mindestbestand = p[12].toIntOrNull() ?: 0,
+                            grossInfo = p[13],
+                            liefBestNr = p[14]
                         )
                     )
                 }

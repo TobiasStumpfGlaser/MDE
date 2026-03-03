@@ -24,12 +24,11 @@
         android:id="@+id/mainContainer"
         android:layout_width="370dp"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
         android:layout_marginTop="24dp"
-        app:layout_constraintTop_toBottomOf="@id/toolbar"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:orientation="vertical"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintTop_toBottomOf="@id/toolbar">
 
         <!-- Info Scan -->
         <androidx.appcompat.widget.AppCompatButton
@@ -38,9 +37,11 @@
             android:layout_height="70dp"
             android:background="@android:drawable/edit_text"
             android:text="Info Scan"
-            android:textSize="20sp"/>
+            android:textSize="20sp" />
 
-        <View android:layout_height="20dp" android:layout_width="match_parent"/>
+        <View
+            android:layout_width="match_parent"
+            android:layout_height="20dp" />
 
         <!-- Listen Ausbuchung -->
         <androidx.appcompat.widget.AppCompatButton
@@ -49,6 +50,6 @@
             android:layout_height="70dp"
             android:background="@android:drawable/edit_text"
             android:text="Material Buchung"
-            android:textSize="20sp"/>
+            android:textSize="20sp" />
     </LinearLayout>
 </androidx.constraintlayout.widget.ConstraintLayout>
