@@ -10,13 +10,16 @@
     <!-- Toolbar -->
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="72dp"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:minHeight="?attr/actionBarSize"
         android:background="@color/cardview_dark_background"
         android:elevation="4dp"
         app:title="BW MDE App"
         app:titleTextColor="@color/white"
-        app:layout_constraintTop_toTopOf="parent"/>
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
 
     <!-- Kamera Preview -->
     <androidx.camera.view.PreviewView
@@ -34,7 +37,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:orientation="horizontal"
-        android:layout_margin="8dp"
+        android:padding="16dp"
         android:gravity="center"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
@@ -43,18 +46,21 @@
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnConfirm"
             android:layout_width="0dp"
-            android:layout_weight="1"
             android:layout_height="60dp"
+            android:layout_weight="1"
+            android:layout_marginEnd="8dp"
             android:text="Bestätigen"
             android:background="@android:drawable/edit_text"/>
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnCancel"
             android:layout_width="0dp"
-            android:layout_weight="1"
             android:layout_height="60dp"
+            android:layout_weight="1"
+            android:layout_marginStart="8dp"
             android:text="Abbrechen"
             android:background="@android:drawable/edit_text"/>
+
     </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>

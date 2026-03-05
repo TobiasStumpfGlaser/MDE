@@ -47,4 +47,22 @@ object TcpLogHelper {
             e.printStackTrace()
         }
     }
+
+    private fun getLogDir(context: Context): File {
+        val dir = File(context.getExternalFilesDir(null), "tcp_logs")
+        if (!dir.exists()) dir.mkdirs()
+        return dir
+    }
+
+    /** Löscht alle TCP-Logs beim App-Start */
+    fun clearLogs(context: Context) {
+        try {
+            val dir = getLogDir(context)
+            if (dir.exists() && dir.isDirectory) {
+                dir.listFiles()?.forEach { it.delete() }
+            }
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
+    }
 }

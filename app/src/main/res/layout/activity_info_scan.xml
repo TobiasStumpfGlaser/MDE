@@ -7,67 +7,94 @@
     android:background="@color/grayBackground"
     android:fitsSystemWindows="true">
 
+    <!-- Toolbar -->
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="72dp"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:minHeight="?attr/actionBarSize"
         android:background="@color/cardview_dark_background"
         app:title="BW MDE App"
         app:titleTextColor="@color/white"
-        app:layout_constraintTop_toTopOf="parent"/>
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
 
-    <LinearLayout
-        android:id="@+id/searchContainer"
+    <!-- Scrollbarer Inhalt -->
+    <ScrollView
         android:layout_width="0dp"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_marginTop="16dp"
-        android:padding="8dp"
+        android:layout_height="0dp"
         app:layout_constraintTop_toBottomOf="@id/toolbar"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <AutoCompleteTextView
-            android:id="@+id/etBarcode"
-            android:layout_width="match_parent"
-            android:layout_height="70dp"
-            android:background="@android:drawable/edit_text"
-            android:hint="Artikelnummer oder Suchbegriff"
-            android:textAlignment="center"/>
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="16dp"/>
-
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnClear"
-            android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:text="Zurücksetzen"
-            android:background="@android:drawable/edit_text"/>
-
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnScan"
-            android:layout_width="match_parent"
-            android:layout_height="70dp"
-            android:text="Scan"
-            android:background="@android:drawable/edit_text" />
-
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="16dp"/>
-
-        <TextView
-            android:id="@+id/tvArtikelInfo"
+        <LinearLayout
+            android:id="@+id/searchContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:textColor="@color/white"
-            android:textSize="20dp"/>
+            android:orientation="vertical"
+            android:padding="24dp">
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnReloadArtikel"
-            android:layout_width="match_parent"
-            android:layout_height="60dp"
-            android:text="Artikel erneut laden"/>
-    </LinearLayout>
+            <!-- Suche -->
+            <AutoCompleteTextView
+                android:id="@+id/etBarcode"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:background="@android:drawable/edit_text"
+                android:hint="Artikelnummer oder Suchbegriff"
+                android:textAlignment="center"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+
+            <!-- Clear -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnClear"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:text="Zurücksetzen"
+                android:background="@android:drawable/edit_text"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+
+            <!-- Scan -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnScan"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:text="Scan"
+                android:background="@android:drawable/edit_text"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="24dp"/>
+
+            <!-- Artikel Info -->
+            <TextView
+                android:id="@+id/tvArtikelInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textSize="20sp"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+
+            <!-- Reload -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnReloadArtikel"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:text="Artikel erneut laden"
+                android:background="@android:drawable/edit_text"/>
+
+        </LinearLayout>
+
+    </ScrollView>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

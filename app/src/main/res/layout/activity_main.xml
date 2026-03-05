@@ -10,46 +10,58 @@
     <!-- Toolbar -->
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="72dp"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:minHeight="?attr/actionBarSize"
         android:background="@color/cardview_dark_background"
         android:elevation="4dp"
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
         app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
         app:title="BW MDE App"
         app:titleTextColor="@color/white"/>
 
-    <!-- Hauptcontainer -->
-    <LinearLayout
-        android:id="@+id/mainContainer"
-        android:layout_width="370dp"
-        android:layout_height="wrap_content"
-        android:layout_marginTop="24dp"
-        android:orientation="vertical"
-        app:layout_constraintEnd_toEndOf="parent"
+    <!-- Scrollbarer Hauptbereich -->
+    <ScrollView
+        android:layout_width="0dp"
+        android:layout_height="0dp"
+        app:layout_constraintTop_toBottomOf="@id/toolbar"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toBottomOf="@id/toolbar">
+        app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Info Scan -->
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnInfoScan"
+        <LinearLayout
+            android:id="@+id/mainContainer"
             android:layout_width="match_parent"
-            android:layout_height="70dp"
-            android:background="@android:drawable/edit_text"
-            android:text="Info Scan"
-            android:textSize="20sp" />
+            android:layout_height="wrap_content"
+            android:orientation="vertical"
+            android:padding="24dp">
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="20dp" />
+            <!-- Info Scan -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnInfoScan"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:background="@android:drawable/edit_text"
+                android:text="Info Scan"
+                android:textSize="20sp" />
 
-        <!-- Listen Ausbuchung -->
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnMaterialBook"
-            android:layout_width="match_parent"
-            android:layout_height="70dp"
-            android:background="@android:drawable/edit_text"
-            android:text="Material Buchung"
-            android:textSize="20sp" />
-    </LinearLayout>
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="20dp" />
+
+            <!-- Material Buchung -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnMaterialBook"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:background="@android:drawable/edit_text"
+                android:text="Material Buchung"
+                android:textSize="20sp" />
+
+        </LinearLayout>
+
+    </ScrollView>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

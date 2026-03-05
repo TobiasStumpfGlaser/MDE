@@ -7,137 +7,144 @@
     android:fitsSystemWindows="true"
     android:background="@color/grayBackground">
 
+    <!-- Toolbar -->
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
-        android:layout_width="match_parent"
-        android:layout_height="72dp"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:minHeight="?attr/actionBarSize"
         android:background="@color/cardview_dark_background"
         app:title="BW MDE App"
         app:titleTextColor="@color/white"
-        app:layout_constraintTop_toTopOf="parent"/>
+        app:layout_constraintTop_toTopOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"/>
 
-    <LinearLayout
-        android:layout_width="370dp"
-        android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:layout_marginTop="40dp"
+    <!-- Scrollbarer Inhalt -->
+    <ScrollView
+        android:layout_width="0dp"
+        android:layout_height="0dp"
         app:layout_constraintTop_toBottomOf="@id/toolbar"
+        app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
-        <!-- Titel -->
-        <TextView
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="Grundeinstellungen"
-            android:textSize="20sp"
-            android:textStyle="bold"
-            android:gravity="center"
-            android:textColorLink="@color/white"
-            android:textColorHint="@color/white"
-            android:textColor="@color/white"
-            android:paddingBottom="24dp" />
+            android:orientation="vertical"
+            android:padding="24dp">
 
-        <!-- Server IP -->
-        <TextView
-            android:layout_width="match_parent"
-            android:text="Server IP"
-            android:textColorLink="@color/white"
-            android:textColorHint="@color/white"
-            android:textColor="@color/white"
-            android:layout_height="20dp" />
-        <EditText
-            android:id="@+id/etServerIp"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:hint="Server IP"
-            android:inputType="text"
-            android:background="@android:drawable/edit_text"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp" />
+            <!-- Titel -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Grundeinstellungen"
+                android:textSize="20sp"
+                android:textStyle="bold"
+                android:gravity="center"
+                android:textColor="@color/white"
+                android:paddingBottom="24dp" />
 
-        <!-- Server Port -->
-        <TextView
-            android:layout_width="match_parent"
-            android:text="Server Port"
-            android:textColorLink="@color/white"
-            android:textColorHint="@color/white"
-            android:textColor="@color/white"
-            android:layout_height="20dp" />
-        <EditText
-            android:id="@+id/etServerPort"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:hint="Server Port"
-            android:inputType="number"
-            android:background="@android:drawable/edit_text"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp" />
+            <!-- Server IP -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Server IP"
+                android:textColor="@color/white" />
 
-        <!-- Timeout -->
-        <TextView
-            android:layout_width="match_parent"
-            android:text="Timeout Kommunikation (Sekunden)"
-            android:textColorLink="@color/white"
-            android:textColorHint="@color/white"
-            android:textColor="@color/white"
-            android:layout_height="20dp" />
-        <EditText
-            android:id="@+id/etTimeout"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:hint="Timeout Kommunikation (Sekunden)"
-            android:inputType="number"
-            android:background="@android:drawable/edit_text"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp" />
+            <EditText
+                android:id="@+id/etServerIp"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:hint="Server IP"
+                android:inputType="text"
+                android:background="@android:drawable/edit_text"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
 
-        <!-- Logout Zeit -->
-        <TextView
-            android:layout_width="match_parent"
-            android:text="Timeout Inaktivität (Sekunden)"
-            android:textColorLink="@color/white"
-            android:textColorHint="@color/white"
-            android:textColor="@color/white"
-            android:layout_height="20dp" />
-        <EditText
-            android:id="@+id/etLogoutTime"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:hint="Timeout Inaktivität (Sekunden)"
-            android:inputType="number"
-            android:background="@android:drawable/edit_text"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp" />
+            <!-- Server Port -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Server Port"
+                android:textColor="@color/white" />
 
-        <!-- Werksnummer -->
-        <TextView
-            android:layout_width="match_parent"
-            android:text="Werksnummer"
-            android:textColorLink="@color/white"
-            android:textColorHint="@color/white"
-            android:textColor="@color/white"
-            android:layout_height="20dp" />
-        <EditText
-            android:id="@+id/etWerkNummer"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:hint="Werksnummer"
-            android:inputType="text"
-            android:background="@android:drawable/edit_text"
-            android:paddingStart="16dp"
-            android:paddingEnd="16dp" />
+            <EditText
+                android:id="@+id/etServerPort"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:hint="Server Port"
+                android:inputType="number"
+                android:background="@android:drawable/edit_text"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
 
-        <View
-            android:layout_width="match_parent"
-            android:layout_height="24dp" />
+            <!-- Timeout -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Timeout Kommunikation (Sekunden)"
+                android:textColor="@color/white" />
 
-        <!-- Speichern -->
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnSave"
-            android:layout_width="match_parent"
-            android:layout_height="56dp"
-            android:background="@android:drawable/edit_text"
-            android:text="Speichern" />
-    </LinearLayout>
+            <EditText
+                android:id="@+id/etTimeout"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:hint="Timeout Kommunikation (Sekunden)"
+                android:inputType="number"
+                android:background="@android:drawable/edit_text"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
+
+            <!-- Logout Zeit -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Timeout Inaktivität (Sekunden)"
+                android:textColor="@color/white" />
+
+            <EditText
+                android:id="@+id/etLogoutTime"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:hint="Timeout Inaktivität (Sekunden)"
+                android:inputType="number"
+                android:background="@android:drawable/edit_text"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
+
+            <!-- Werksnummer -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Werksnummer"
+                android:textColor="@color/white" />
+
+            <EditText
+                android:id="@+id/etWerkNummer"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:hint="Werksnummer"
+                android:inputType="text"
+                android:background="@android:drawable/edit_text"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="24dp" />
+
+            <!-- Speichern -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnSave"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:background="@android:drawable/edit_text"
+                android:text="Speichern" />
+
+        </LinearLayout>
+
+    </ScrollView>
+
 </androidx.constraintlayout.widget.ConstraintLayout>

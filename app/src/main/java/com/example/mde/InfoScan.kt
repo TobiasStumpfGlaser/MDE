@@ -235,33 +235,18 @@ class InfoScanActivity : AppCompatActivity() {
     ) {
         Thread {
             try {
+
                 val settings = AppSettings(this)
-                val serverTimeout = settings.timeoutS * 1000
 
-                val socket = Socket()
-                socket.connect(
-                    InetSocketAddress(settings.serverIp, settings.serverPort),
-                    serverTimeout
+                val response = TcpClient.sendCommand(
+                    context = this,
+                    settings = settings,
+                    command = "GetArtikel",
+                    request = "{GetArtikel}",
+                    endTag = "{/GetArtikel}"
                 )
-                socket.soTimeout = serverTimeout
 
-                val writer = socket.getOutputStream()
-                val reader = socket.getInputStream().bufferedReader()
-
-                writer.write("{GetArtikel}\n".toByteArray())
-                writer.flush()
-
-                val response = StringBuilder()
-                var line: String?
-
-                while (reader.readLine().also { line = it } != null) {
-                    response.append(line).append("\n")
-                    if (line!!.contains("{/GetArtikel}")) break
-                }
-
-                socket.close()
-
-                val liste = parseArtikelResponse(response.toString())
+                val liste = parseArtikelResponse(response)
 
                 runOnUiThread {
                     if (liste.isEmpty()) {
@@ -271,18 +256,24 @@ class InfoScanActivity : AppCompatActivity() {
                     }
                 }
 
-            } catch (e: SocketTimeoutException) {
+            } catch (e: java.net.SocketTimeoutException) {
+
                 runOnUiThread {
                     onFailure("Server-Zeitüberschreitung (${AppSettings(this).timeoutS}s)")
                 }
-            } catch (e: ConnectException) {
+
+            } catch (e: java.net.ConnectException) {
+
                 runOnUiThread {
                     onFailure("Server nicht erreichbar")
                 }
+
             } catch (e: Exception) {
+
                 runOnUiThread {
                     onFailure(e.message ?: "Unbekannter Fehler")
                 }
+
             }
         }.start()
     }

@@ -9,12 +9,11 @@ import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import kotlinx.coroutines.*
-import java.io.*
 import java.net.InetSocketAddress
 import java.net.Socket
 
 class LoginActivity : AppCompatActivity() {
-
+    private var requestRunning = false
     private lateinit var settings: AppSettings
     private lateinit var txtServerStatus: TextView
     private lateinit var btnReconnect: Button
@@ -35,6 +34,7 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_login)
 
+        TcpLogHelper.clearLogs(this)
         settings = AppSettings(this) // Context übergeben
 
         // Toolbar
@@ -142,58 +142,50 @@ class LoginActivity : AppCompatActivity() {
     /* ================= GET BEDIENER ================= */
 
     private fun requestUserListWithRetry() {
+
+        if (requestRunning) return   // <<< WICHTIG
+        requestRunning = true
+        UiLoadingHelper.show(this, "Lade Benutzerliste...")
+
         ioScope.launch {
             val success = requestUserList()
-            if (!success) {
-                runOnUiThread {
-                    showRetryDialog(
-                        "Timeout beim Laden der Benutzer",
-                        onRetry = { requestUserListWithRetry() }
-                    )
+
+            withContext(Dispatchers.Main) {
+                UiLoadingHelper.hide()
+                requestRunning = false       // <<< Hier wieder freigeben
+
+                if (!success) {
+                    runOnUiThread {
+                        showRetryDialog(
+                            "Timeout beim Laden der Benutzer",
+                            onRetry = { requestUserListWithRetry() }
+                        )
+                    }
                 }
             }
         }
     }
 
     private suspend fun requestUserList(): Boolean = withContext(Dispatchers.IO) {
-        try {
-            val socket = Socket()
-            socket.connect(InetSocketAddress(settings.serverIp , settings.serverPort), settings.timeoutS * 1000)
-            socket.soTimeout = settings.timeoutS * 1000
 
-            val writer = PrintWriter(
-                BufferedWriter(OutputStreamWriter(socket.getOutputStream())),
-                true
-            )
-            val reader = BufferedReader(InputStreamReader(socket.getInputStream()))
-            val request = "{GetBediener}"
-            val logfileName = "GetBediener"
-            writer.println(request)
-            TcpLogHelper.logRequest(this@LoginActivity, logfileName, request)
+        val response = TcpClient.sendCommand(
+            context = this@LoginActivity,
+            settings = settings,
+            command = "GetBediener",
+            request = "{GetBediener}",
+            endTag = "{/GetBediener}"
+        )
 
-            val response = StringBuilder()
-            var line: String?
-            while (reader.readLine().also { line = it } != null) {
-                response.append(line).append("\n")
-                if (line!!.contains("{/GetBediener}")) break
-            }
-            TcpLogHelper.logResponse(this@LoginActivity, logfileName, response.toString())
+        if (response.isEmpty()) return@withContext false
 
-            socket.close()
-
-            runOnUiThread {
-                parseUserList(response.toString())
-                userListLoaded = true
-                txtUsername.showDropDown()
-            }
-            true
-
-        } catch (e: Exception) {
-            false
+        runOnUiThread {
+            parseUserList(response)
+            userListLoaded = true
+            txtUsername.showDropDown()
         }
-    }
 
-    /* ================= PARSING ================= */
+        true
+    }
 
     private fun parseUserList(raw: String) {
         userList.clear()
@@ -201,18 +193,15 @@ class LoginActivity : AppCompatActivity() {
 
         raw.lines().forEach { line ->
             val parts = line.split("|")
-            if (parts.size == 3 && parts[0] != "Initial") {
+            if (parts.size >= 3 && parts[0] != "Initial") {
                 val name = parts[2]
                 val pin = parts[1]
                 userList.add(name)
                 userPinMap[name] = pin
             }
         }
-        val adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_dropdown_item_1line,
-            userList
-        )
+
+        val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, userList)
         txtUsername.setAdapter(adapter)
     }
 
