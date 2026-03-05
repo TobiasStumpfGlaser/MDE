@@ -1,79 +1,85 @@
 package com.example.mde
 
 import android.content.Context
-import android.util.Log
 import java.io.*
 import java.net.InetSocketAddress
 import java.net.Socket
+import java.net.SocketTimeoutException
 
 object TcpClient {
 
+    private var socket: Socket? = null
+    private var writer: BufferedWriter? = null
+    private var reader: BufferedReader? = null
+
+    // Prüft, ob Verbindung offen ist
+    private fun isConnected(): Boolean {
+        return socket?.isConnected == true && socket?.isClosed == false
+    }
+
+    // Verbindung aufbauen, falls noch nicht offen
+    private fun ensureConnection(settings: AppSettings) {
+        if (isConnected()) return
+
+        socket?.close()
+        socket = Socket()
+        socket!!.connect(InetSocketAddress(settings.serverIp, settings.serverPort), settings.timeoutS * 1000)
+        socket!!.soTimeout = settings.timeoutS * 1000
+        reader = BufferedReader(InputStreamReader(socket!!.getInputStream(), Charsets.ISO_8859_1))
+        writer = BufferedWriter(OutputStreamWriter(socket!!.getOutputStream(), Charsets.ISO_8859_1))
+    }
+
+    // Universelle Funktion zum Senden von Befehlen
     fun sendCommand(
         context: Context,
         settings: AppSettings,
         command: String,
         request: String,
-        endTag: String? = null
+        endTag: String,
     ): String {
+        return try {
+            ensureConnection(settings) // Verbindung prüfen/aufbauen
 
-        val response = StringBuilder()
+            TcpLogHelper.logRequest(context, command, request)
 
-        try {
-            Socket().use { socket ->
+            // Request senden
+            writer!!.write(request + "\n")
+            writer!!.flush()
 
-                socket.connect(
-                    InetSocketAddress(settings.serverIp, settings.serverPort),
-                    settings.timeoutS * 1000
-                )
-
-                socket.soTimeout = settings.timeoutS * 1000
-
-                val writer = PrintWriter(
-                    BufferedWriter(OutputStreamWriter(socket.getOutputStream())),
-                    true
-                )
-
-                val input = socket.getInputStream()
-
-                // Request senden
-                writer.println(request)
-
-                TcpLogHelper.logRequest(context, command, request)
-
-                val buffer = ByteArray(1024)
-
-                try {
-                    while (true) {
-
-                        val bytesRead = input.read(buffer)
-
-                        if (bytesRead == -1) break
-
-                        val chunk = String(buffer, 0, bytesRead)
-
-                        response.append(chunk)
-
-                        Log.d("TCP", chunk)
-
-                        TcpLogHelper.logResponse(context, command, chunk)
-
-                        // EndTag erkannt → fertig
-                        if (endTag != null && response.contains(endTag)) {
-                            break
-                        }
-                    }
-
-                } catch (e: java.net.SocketTimeoutException) {
-
-                    // Timeout = Server sendet nichts mehr
-                    Log.d("TCP", "SocketTimeout erreicht → Ende Response")
+            // Response lesen
+            val response = StringBuilder()
+            val buffer = ByteArray(16 * 1024) // 16 KB Puffer
+            var read: Int
+            while (true) {
+                read = try {
+                    socket!!.getInputStream().read(buffer)
+                } catch (e: SocketTimeoutException) {
+                    break
                 }
+                if (read == -1) break
+
+                val chunk = String(buffer, 0, read, Charsets.ISO_8859_1)
+                response.append(chunk)
+
+                if (response.contains(endTag)) break
             }
+            val StringResponse = response.toString()
+            TcpLogHelper.logResponse(context, command, StringResponse)
+            StringResponse
 
         } catch (e: Exception) {
-            Log.e("TCP", "TCP Fehler", e)
+            e.printStackTrace()
+            ""
         }
+    }
 
-        return response.toString()
+    // Verbindung schließen (z.B. beim Logout)
+    fun closeConnection() {
+        try {
+            socket?.close()
+        } catch (_: Exception) {}
+        socket = null
+        writer = null
+        reader = null
     }
 }
