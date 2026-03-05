@@ -103,7 +103,7 @@ class MaterialBuchungActivity : AppCompatActivity() {
         btnClear.setOnClickListener {
             txtArtikel.text.clear()
             txtProjekt.text.clear()
-            txtStatus.text = "";
+            txtStatus.text = ""
             edtMenge.text.clear()
         }
     }
