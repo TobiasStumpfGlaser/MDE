@@ -216,6 +216,59 @@ class InfoScanActivity : AppCompatActivity() {
             etFilter.isFocusableInTouchMode = false
             etFilter.keyListener = null
         }
+
+        etFilter.addTextChangedListener(object : android.text.TextWatcher {
+
+            override fun afterTextChanged(s: android.text.Editable?) {
+
+                val input = s.toString().trim()
+
+                if (input.isEmpty()) {
+                    tvArtikelInfo.text = ""
+                    return
+                }
+
+                val matches = artikelListe.filter {
+                    it.artNr.contains(input, true) ||
+                            it.bez.contains(input, true)
+                }
+
+                when (matches.size) {
+
+                    0 -> {
+                        tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
+                        tvArtikelInfo.setTextColor(Color.RED)
+                    }
+
+                    1 -> {
+                        val artikel = matches.first()
+
+                        tvArtikelInfo.setTextColor(Color.BLACK)
+                        showArtikelInfo(artikel)
+
+                        val text = "${artikel.artNr} | ${artikel.bez}"
+                        etFilter.setText(text)
+                        etFilter.setSelection(text.length)
+
+                        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                        imm.hideSoftInputFromWindow(etFilter.windowToken, 0)
+
+                        etFilter.clearFocus()
+                        etFilter.isFocusable = false
+                        etFilter.isFocusableInTouchMode = false
+                        etFilter.keyListener = null
+                    }
+
+                    else -> {
+                        tvArtikelInfo.text = ""
+                        etFilter.showDropDown()
+                    }
+                }
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
     }
 
     // =======================
@@ -252,6 +305,14 @@ class InfoScanActivity : AppCompatActivity() {
                         adapter.addAll(liste.map { "${it.artNr} | ${it.bez}" })
                         adapter.notifyDataSetChanged()
                         tvArtikelInfo.text = ""
+
+                        // Fokus auf Scanner-Feld setzen
+                        etFilter.isFocusable = true
+                        etFilter.isFocusableInTouchMode = true
+                        etFilter.requestFocus()
+
+                        // Cursor ans Ende
+                        etFilter.setSelection(etFilter.text.length)
                     }
                 }
 
