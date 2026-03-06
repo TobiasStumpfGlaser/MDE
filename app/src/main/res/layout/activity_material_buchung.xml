@@ -37,9 +37,9 @@
             android:orientation="vertical"
             android:padding="24dp">
 
-            <!-- Artikel -->
+            <!-- Artikel (BaseActivity ID: etBarcode) -->
             <AutoCompleteTextView
-                android:id="@+id/txtArtikel"
+                android:id="@+id/etBarcode"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
                 android:background="@android:drawable/edit_text"
@@ -79,13 +79,38 @@
                 android:layout_width="match_parent"
                 android:layout_height="24dp"/>
 
-            <!-- Scan -->
+            <!-- Artikel Info (BaseActivity ID: tvArtikelInfo) -->
+            <TextView
+                android:id="@+id/tvArtikelInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textSize="16sp"
+                android:padding="8dp"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+
+            <!-- Scan Button (BaseActivity ID: btnScan) -->
             <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnScanArtikel"
+                android:id="@+id/btnScan"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
                 android:background="@android:drawable/edit_text"
                 android:text="Scan"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+
+            <!-- Reload Artikel Button (BaseActivity ID: btnReloadArtikel) -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnReloadArtikel"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:background="@android:drawable/edit_text"
+                android:text="Neu laden"/>
 
             <View
                 android:layout_width="match_parent"
@@ -115,13 +140,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="16dp"/>
 
-            <!-- Reload -->
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnReloadData"
-                android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
-                android:text="Daten Aktualisieren"/>
+
 
             <View
                 android:layout_width="match_parent"

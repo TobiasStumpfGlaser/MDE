@@ -34,6 +34,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected lateinit var btnReloadArtikel: Button
 
     protected var artikelListe: List<Artikel> = emptyList()
+    protected var projektListe: List<String> = emptyList()
+
     protected lateinit var adapter: ArrayAdapter<String>
 
     private lateinit var handler: Handler
@@ -43,8 +45,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     private var requestRunning = false
     private val ioScope = CoroutineScope(Dispatchers.IO)
 
-    // TextWatcher kontrollieren, damit er temporär deaktiviert werden kann
-    private var textWatcherEnabled = true
+    protected var textWatcherEnabled = true
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -55,7 +56,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         setupViews()
         setupDropdown()
 
-        loadArtikelList()
+        loadArtikelUndProjekteSequential()
     }
 
     private fun setupToolbar() {
@@ -63,7 +64,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
 
-        // Weißer Pfeil
         toolbar.navigationIcon?.setTint(resources.getColor(android.R.color.white, theme))
     }
 
@@ -79,8 +79,10 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     private fun setupViews() {
+
         etFilter = findViewById(R.id.etBarcode)
         etFilterKeyListener = etFilter.keyListener
+
         tvArtikelInfo = findViewById(R.id.tvArtikelInfo)
         btnClear = findViewById(R.id.btnClear)
         btnReloadArtikel = findViewById(R.id.btnReloadArtikel)
@@ -92,13 +94,11 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             etFilter.isFocusable = true
             etFilter.isFocusableInTouchMode = true
             etFilter.keyListener = etFilterKeyListener
-
-            // TextWatcher wieder aktivieren
             textWatcherEnabled = true
         }
 
         btnReloadArtikel.setOnClickListener {
-            loadArtikelList()
+            loadArtikelUndProjekteSequential()
         }
 
         btnScan.setOnClickListener {
@@ -107,26 +107,107 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
+    protected fun loadArtikelUndProjekteSequential() {
+
+        if (requestRunning) return
+        requestRunning = true
+
+        UiLoadingHelper.show(this, "Lade Artikelliste...")
+
+        ioScope.launch {
+
+            try {
+
+                val settings = AppSettings(this@BaseArtikelScanActivity)
+
+                val artikelResponse = TcpClient.sendCommand(
+                    context = this@BaseArtikelScanActivity,
+                    settings = settings,
+                    command = "GetArtikel",
+                    request = "{GetArtikel}",
+                    endTag = "{/GetArtikel}"
+                )
+
+                val artikel = parseArtikelResponse(artikelResponse)
+
+                withContext(Dispatchers.Main) {
+
+                    artikelListe = artikel
+
+                    if (!::adapter.isInitialized) {
+                        adapter = ArrayAdapter(
+                            this@BaseArtikelScanActivity,
+                            android.R.layout.simple_dropdown_item_1line,
+                            mutableListOf()
+                        )
+                        etFilter.setAdapter(adapter)
+                    }
+
+                    adapter.clear()
+                    adapter.addAll(artikel.map { "${it.artNr} | ${it.bez}" })
+                    adapter.notifyDataSetChanged()
+
+                    UiLoadingHelper.show(this@BaseArtikelScanActivity, "Lade Projekte...")
+                }
+
+                val projekteResponse = TcpClient.sendCommand(
+                    context = this@BaseArtikelScanActivity,
+                    settings = settings,
+                    command = "GetProjekte",
+                    request = "{GetProjekte}",
+                    endTag = "{/GetProjekte}"
+                )
+
+                val projekte = parseProjektList(projekteResponse)
+
+                withContext(Dispatchers.Main) {
+
+                    projektListe = projekte
+
+                    UiLoadingHelper.hide()
+                    requestRunning = false
+
+                    onProjekteGeladen()
+                }
+
+            } catch (e: Exception) {
+
+                withContext(Dispatchers.Main) {
+
+                    UiLoadingHelper.hide()
+                    requestRunning = false
+                    showReloadDialog(e.message ?: "Server Fehler")
+                }
+            }
+        }
+    }
+
+    protected open fun onProjekteGeladen() {}
+
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
 
         if (requestCode == 1001 && resultCode == RESULT_OK) {
+
             val barcode = data?.getStringExtra("barcode")?.trim()
+
             if (!barcode.isNullOrEmpty()) {
+
                 val matchedArtikel = artikelListe.find { it.artNr == barcode }
 
-                // Barcode immer ins EditText setzen
                 etFilter.setText(barcode)
                 etFilter.setSelection(barcode.length)
 
                 if (matchedArtikel == null) {
+
                     tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
                     tvArtikelInfo.setTextColor(Color.RED)
+
                 } else {
+
                     tvArtikelInfo.setTextColor(Color.WHITE)
                     showArtikelInfo(matchedArtikel)
 
-                    // Optional: EditText readonly nach Auswahl
                     etFilter.clearFocus()
                     etFilter.isFocusable = false
                     etFilter.isFocusableInTouchMode = false
@@ -137,6 +218,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     protected fun showArtikelInfo(artikel: Artikel) {
+
         val infoLines = listOf(
             "Artikelnummer: ${artikel.artNr}",
             "Bezeichnung: ${artikel.bez}",
@@ -153,10 +235,15 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         val finalSpannable = SpannableStringBuilder()
 
         infoLines.forEachIndexed { index, line ->
-            val spannable = SpannableString(line + if (index < infoLines.size - 1) "\n" else "")
+
+            val spannable = SpannableString(
+                line + if (index < infoLines.size - 1) "\n" else ""
+            )
+
             val colonIndex = line.indexOf(":")
+
             if (colonIndex != -1) {
-                // Links vom ":" fett
+
                 spannable.setSpan(
                     StyleSpan(Typeface.BOLD),
                     0,
@@ -164,7 +251,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
             }
-            // Gesamte Zeile weiß
+
             spannable.setSpan(
                 ForegroundColorSpan(Color.WHITE),
                 0,
@@ -179,17 +266,25 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     private fun setupDropdown() {
-        adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, mutableListOf())
+
+        adapter = ArrayAdapter(
+            this,
+            android.R.layout.simple_dropdown_item_1line,
+            mutableListOf()
+        )
+
         etFilter.setAdapter(adapter)
         etFilter.threshold = 1
 
         etFilter.setOnItemClickListener { _, _, position, _ ->
+
             val selected = adapter.getItem(position) ?: return@setOnItemClickListener
             val artNr = selected.split("|")[0].trim()
+
             val artikel = artikelListe.find { it.artNr == artNr }
+
             artikel?.let { showArtikelInfo(it) }
 
-            // Temporär TextWatcher deaktivieren
             textWatcherEnabled = false
             etFilter.setText(selected)
             etFilter.setSelection(selected.length)
@@ -197,6 +292,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
             imm.hideSoftInputFromWindow(etFilter.windowToken, 0)
+
             etFilter.clearFocus()
             etFilter.isFocusable = false
             etFilter.isFocusableInTouchMode = false
@@ -204,31 +300,41 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
 
         etFilter.addTextChangedListener(object : android.text.TextWatcher {
+
             override fun afterTextChanged(s: android.text.Editable?) {
+
                 if (!textWatcherEnabled) return
 
                 val input = s.toString().trim()
+
                 if (input.isEmpty()) {
                     tvArtikelInfo.text = ""
                     return
                 }
 
                 val filterText = input.split("|")[0].trim()
+
                 val matches = artikelListe.filter {
-                    it.artNr.contains(filterText, true) ||
-                            it.bez.contains(filterText, true)
+
+                    it.artNr.contains(filterText, true)
+                            || it.bez.contains(filterText, true)
                 }
 
                 when (matches.size) {
+
                     0 -> {
                         tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
                         tvArtikelInfo.setTextColor(Color.RED)
                     }
+
                     1 -> {
+
                         val artikel = matches.first()
+
                         showArtikelInfo(artikel)
 
                         val text = "${artikel.artNr} | ${artikel.bez}"
+
                         textWatcherEnabled = false
                         etFilter.setText(text)
                         etFilter.setSelection(text.length)
@@ -242,6 +348,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         etFilter.isFocusableInTouchMode = false
                         etFilter.keyListener = null
                     }
+
                     else -> {
                         tvArtikelInfo.text = ""
                         etFilter.showDropDown()
@@ -254,64 +361,63 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         })
     }
 
-    private fun loadArtikelList() {
-        if (requestRunning) return
-        requestRunning = true
-        UiLoadingHelper.show(this, "Lade Artikelliste...")
-
-        ioScope.launch {
-            try {
-                val settings = AppSettings(this@BaseArtikelScanActivity)
-                val response = TcpClient.sendCommand(
-                    context = this@BaseArtikelScanActivity,
-                    settings = settings,
-                    command = "GetArtikel",
-                    request = "{GetArtikel}",
-                    endTag = "{/GetArtikel}"
-                )
-
-                val liste = parseArtikelResponse(response)
-
-                withContext(Dispatchers.Main) {
-                    UiLoadingHelper.hide()
-                    requestRunning = false
-
-                    if (liste.isEmpty()) {
-                        showReloadDialog("Keine Artikel vom Server erhalten")
-                    } else {
-                        artikelListe = liste
-                        adapter.clear()
-                        adapter.addAll(liste.map { "${it.artNr} | ${it.bez}" })
-                        adapter.notifyDataSetChanged()
-
-                        etFilter.isFocusable = true
-                        etFilter.isFocusableInTouchMode = true
-                        etFilter.requestFocus()
-                        etFilter.setSelection(etFilter.text.length)
-                    }
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    UiLoadingHelper.hide()
-                    requestRunning = false
-                    showReloadDialog(e.message ?: "Server Fehler")
-                }
-            }
+    protected fun showError(msg: String) {
+        runOnUiThread {
+            AlertDialog.Builder(this)
+                .setTitle("Fehler")
+                .setMessage(msg)
+                .setPositiveButton("OK", null)
+                .show()
         }
     }
 
+    private fun showReloadDialog(message: String) {
+
+        AlertDialog.Builder(this)
+            .setTitle("Serverfehler")
+            .setMessage("$message\n\nErneut versuchen?")
+            .setPositiveButton("Ja") { _, _ ->
+                loadArtikelUndProjekteSequential()
+            }
+            .setNegativeButton("Nein", null)
+            .setCancelable(false)
+            .show()
+    }
+
+    private fun parseProjektList(raw: String): List<String> {
+
+        val list = mutableListOf<String>()
+
+        raw.lines().forEach {
+
+            val parts = it.split("|")
+
+            if (parts.size == 2 && !it.startsWith("{")) {
+                list.add("${parts[0]} – ${parts[1]}")
+            }
+        }
+
+        return list
+    }
+
     private fun parseArtikelResponse(raw: String): List<Artikel> {
+
         val liste = mutableListOf<Artikel>()
         var parse = false
 
         raw.lines().forEach { line ->
+
             when {
+
                 line.contains("{GetArtikel}") -> parse = true
                 line.contains("{/GetArtikel}") -> return@forEach
                 !parse || line.isBlank() -> return@forEach
+
                 else -> {
+
                     val p = line.split("|")
-                    if (p.size < 14) return@forEach
+                    if (p.size < 15) return@forEach
+
                     liste.add(
                         Artikel(
                             artNr = p[0],
@@ -329,17 +435,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 }
             }
         }
-        return liste
-    }
 
-    private fun showReloadDialog(message: String) {
-        AlertDialog.Builder(this)
-            .setTitle("Serverfehler")
-            .setMessage("$message\n\nErneut versuchen?")
-            .setPositiveButton("Ja") { _, _ -> loadArtikelList() }
-            .setNegativeButton("Nein", null)
-            .setCancelable(false)
-            .show()
+        return liste
     }
 
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
@@ -363,10 +460,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
+
         if (item.itemId == android.R.id.home) {
             finish()
             return true
         }
+
         return super.onOptionsItemSelected(item)
     }
 }
