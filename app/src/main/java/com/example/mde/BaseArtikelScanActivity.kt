@@ -20,6 +20,7 @@ import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.graphics.Typeface
 import android.text.SpannableStringBuilder
+import android.view.View
 
 abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
@@ -80,23 +81,29 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     private fun setupViews() {
 
-        etFilter = findViewById(R.id.etBarcode)
-        etFilterKeyListener = etFilter.keyListener
-
-        tvArtikelInfo = findViewById(R.id.tvArtikelInfo)
-        btnClear = findViewById(R.id.btnClear)
-        btnReloadArtikel = findViewById(R.id.btnReloadArtikel)
-        btnScan = findViewById(R.id.btnScan)
-
-        btnClear.setOnClickListener {
-            btnClearClicked()
+        etFilter = findViewById(R.id.etBarcode) ?: AutoCompleteTextView(this).apply {
+            visibility = View.GONE
+        }
+        tvArtikelInfo = findViewById(R.id.tvArtikelInfo) ?: TextView(this).apply {
+            visibility = View.GONE
+        }
+        btnClear = findViewById(R.id.btnClear) ?: Button(this).apply {
+            visibility = View.GONE
+        }
+        btnReloadArtikel = findViewById(R.id.btnReloadArtikel) ?: Button(this).apply {
+            visibility = View.GONE
+        }
+        btnScan = findViewById(R.id.btnScan) ?: Button(this).apply {
+            visibility = View.GONE
         }
 
+        etFilterKeyListener = etFilter.keyListener
+
+        btnClear.setOnClickListener { btnClearClicked() }
         btnReloadArtikel.setOnClickListener {
             btnClearClicked()
             loadArtikelUndProjekteSequential()
         }
-
         btnScan.setOnClickListener {
             val intent = Intent(this, ScannerActivity::class.java)
             startActivityForResult(intent, 1001)
