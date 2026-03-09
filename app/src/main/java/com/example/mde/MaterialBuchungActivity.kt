@@ -49,6 +49,15 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         btnBuchen.setOnClickListener {
             onBuchen()
         }
+
+    }
+
+    override fun btnClearClicked() {
+        super.btnClearClicked()
+
+        txtProjekt.text.clear()
+        edtMenge.text.clear()
+        txtStatus.text = ""
     }
 
     override fun onProjekteGeladen() {
@@ -65,6 +74,8 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         val artikel = etFilter.text.toString().trim()
         val projekt = txtProjekt.text.toString().trim()
         val mengeStr = edtMenge.text.toString().trim()
+
+        txtStatus.text = ""
 
         if (artikel.isBlank() || projekt.isBlank() || mengeStr.isBlank()) {
             showError("Bitte alle Felder ausfüllen")
@@ -112,7 +123,7 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
 
                 val request = """
                     {SetBuchung}
-                    $artikel||$menge|FORMULAR|$projekt|10|$username|$now|
+                    $artikel||$menge|FORMULAR|$projekt|${settings.werkNummer}|$username|$now|
                     {/SetBuchung}
                 """.trimIndent()
 
@@ -137,8 +148,8 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
                 )
 
                 withContext(Dispatchers.Main) {
-
-                    if (response.contains("{SetBuchung}\nok\n{/SetBuchung}")) {
+                    val cleaned = response.replace("\r", "").trim()
+                    if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
                         txtStatus.text = "✅ Buchung erfolgreich"
                     } else {
                         showError("Buchung fehlgeschlagen:\n$response")

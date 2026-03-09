@@ -89,15 +89,11 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         btnScan = findViewById(R.id.btnScan)
 
         btnClear.setOnClickListener {
-            tvArtikelInfo.text = ""
-            etFilter.text.clear()
-            etFilter.isFocusable = true
-            etFilter.isFocusableInTouchMode = true
-            etFilter.keyListener = etFilterKeyListener
-            textWatcherEnabled = true
+            btnClearClicked()
         }
 
         btnReloadArtikel.setOnClickListener {
+            btnClearClicked()
             loadArtikelUndProjekteSequential()
         }
 
@@ -105,6 +101,15 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             val intent = Intent(this, ScannerActivity::class.java)
             startActivityForResult(intent, 1001)
         }
+    }
+
+    open fun btnClearClicked(){
+        tvArtikelInfo.text = ""
+        etFilter.text.clear()
+        etFilter.isFocusable = true
+        etFilter.isFocusableInTouchMode = true
+        etFilter.keyListener = etFilterKeyListener
+        textWatcherEnabled = true
     }
 
     protected fun loadArtikelUndProjekteSequential() {
@@ -377,6 +382,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             .setTitle("Serverfehler")
             .setMessage("$message\n\nErneut versuchen?")
             .setPositiveButton("Ja") { _, _ ->
+                btnClearClicked()
                 loadArtikelUndProjekteSequential()
             }
             .setNegativeButton("Nein", null)
