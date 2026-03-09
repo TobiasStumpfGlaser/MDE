@@ -41,7 +41,7 @@
                 android:id="@+id/etPickFilter"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Artikel/Projekt suchen"
+                android:hint="Picklist Nummer"
                 android:inputType="text"
                 android:completionThreshold="1"
                 android:padding="8dp"
@@ -55,6 +55,15 @@
                 android:layout_height="0dp"
                 android:layout_weight="1"
                 android:scrollbars="vertical"/>
+
+            <!-- Pick-Details unten -->
+            <androidx.recyclerview.widget.RecyclerView
+                android:id="@+id/rvPickDetails"
+                android:layout_width="match_parent"
+                android:layout_height="0dp"
+                android:layout_weight="1"
+                android:scrollbars="vertical"
+                android:paddingTop="8dp"/>
         </LinearLayout>
 
     </ScrollView>
