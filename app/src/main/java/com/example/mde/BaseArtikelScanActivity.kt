@@ -7,20 +7,21 @@ import android.os.Handler
 import android.os.Looper
 import android.view.MenuItem
 import android.view.MotionEvent
+import android.view.View
 import android.view.inputmethod.InputMethodManager
 import android.widget.*
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
-import kotlinx.coroutines.*
 import com.example.mde.model.Artikel
+import kotlinx.coroutines.*
 import android.text.SpannableString
 import android.text.Spanned
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.graphics.Typeface
 import android.text.SpannableStringBuilder
-import android.view.View
+import java.util.*
 
 abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
@@ -48,6 +49,16 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     protected var textWatcherEnabled = true
 
+    /** --- Abstrakte Buchungs-Views, Child müssen definieren --- */
+    protected abstract val buchungProjektView: AutoCompleteTextView?
+    protected abstract val buchungMengeView: EditText?
+    protected abstract val buchungStatusView: TextView?
+
+    /** --- Child müssen implementieren --- */
+    protected abstract fun getSettings(): AppSettings
+    protected abstract fun getUsername(): String
+    protected abstract fun getWerkNummer(): String
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(getLayoutId())
@@ -64,14 +75,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-
         toolbar.navigationIcon?.setTint(resources.getColor(android.R.color.white, theme))
     }
 
     private fun setupTimeout() {
         val settings = AppSettings(this)
         logoutTimeoutMillis = settings.logoutTimeSec * 1000L
-
         handler = Handler(Looper.getMainLooper())
         timeoutRunnable = Runnable {
             startActivity(Intent(this, LoginActivity::class.java))
@@ -80,22 +89,11 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     private fun setupViews() {
-
-        etFilter = findViewById(R.id.etBarcode) ?: AutoCompleteTextView(this).apply {
-            visibility = View.GONE
-        }
-        tvArtikelInfo = findViewById(R.id.tvArtikelInfo) ?: TextView(this).apply {
-            visibility = View.GONE
-        }
-        btnClear = findViewById(R.id.btnClear) ?: Button(this).apply {
-            visibility = View.GONE
-        }
-        btnReloadArtikel = findViewById(R.id.btnReloadArtikel) ?: Button(this).apply {
-            visibility = View.GONE
-        }
-        btnScan = findViewById(R.id.btnScan) ?: Button(this).apply {
-            visibility = View.GONE
-        }
+        etFilter = findViewById(R.id.etBarcode) ?: AutoCompleteTextView(this).apply { visibility = View.GONE }
+        tvArtikelInfo = findViewById(R.id.tvArtikelInfo) ?: TextView(this).apply { visibility = View.GONE }
+        btnClear = findViewById(R.id.btnClear) ?: Button(this).apply { visibility = View.GONE }
+        btnReloadArtikel = findViewById(R.id.btnReloadArtikel) ?: Button(this).apply { visibility = View.GONE }
+        btnScan = findViewById(R.id.btnScan) ?: Button(this).apply { visibility = View.GONE }
 
         etFilterKeyListener = etFilter.keyListener
 
@@ -110,26 +108,28 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
-    open fun btnClearClicked(){
+    open fun btnClearClicked() {
         tvArtikelInfo.text = ""
         etFilter.text.clear()
         etFilter.isFocusable = true
         etFilter.isFocusableInTouchMode = true
         etFilter.keyListener = etFilterKeyListener
         textWatcherEnabled = true
+
+        // Child Buchungs-Views optional leeren
+        buchungProjektView?.text?.clear()
+        buchungMengeView?.text?.clear()
+        buchungStatusView?.text = ""
     }
 
     protected fun loadArtikelUndProjekteSequential() {
 
         if (requestRunning) return
         requestRunning = true
-
         UiLoadingHelper.show(this, "Lade Artikelliste...")
 
         ioScope.launch {
-
             try {
-
                 val settings = AppSettings(this@BaseArtikelScanActivity)
 
                 val artikelResponse = TcpClient.sendCommand(
@@ -143,9 +143,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 val artikel = parseArtikelResponse(artikelResponse)
 
                 withContext(Dispatchers.Main) {
-
                     artikelListe = artikel
-
                     if (!::adapter.isInitialized) {
                         adapter = ArrayAdapter(
                             this@BaseArtikelScanActivity,
@@ -154,11 +152,9 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         )
                         etFilter.setAdapter(adapter)
                     }
-
                     adapter.clear()
                     adapter.addAll(artikel.map { "${it.artNr} | ${it.bez}" })
                     adapter.notifyDataSetChanged()
-
                     UiLoadingHelper.show(this@BaseArtikelScanActivity, "Lade Projekte...")
                 }
 
@@ -173,19 +169,14 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 val projekte = parseProjektList(projekteResponse)
 
                 withContext(Dispatchers.Main) {
-
                     projektListe = projekte
-
                     UiLoadingHelper.hide()
                     requestRunning = false
-
                     onProjekteGeladen()
                 }
 
             } catch (e: Exception) {
-
                 withContext(Dispatchers.Main) {
-
                     UiLoadingHelper.hide()
                     requestRunning = false
                     showReloadDialog(e.message ?: "Server Fehler")
@@ -198,28 +189,19 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
-
         if (requestCode == 1001 && resultCode == RESULT_OK) {
-
             val barcode = data?.getStringExtra("barcode")?.trim()
-
             if (!barcode.isNullOrEmpty()) {
-
                 val matchedArtikel = artikelListe.find { it.artNr == barcode }
-
                 etFilter.setText(barcode)
                 etFilter.setSelection(barcode.length)
 
                 if (matchedArtikel == null) {
-
                     tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
                     tvArtikelInfo.setTextColor(Color.RED)
-
                 } else {
-
                     tvArtikelInfo.setTextColor(Color.WHITE)
                     showArtikelInfo(matchedArtikel)
-
                     etFilter.clearFocus()
                     etFilter.isFocusable = false
                     etFilter.isFocusableInTouchMode = false
@@ -248,30 +230,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         val finalSpannable = SpannableStringBuilder()
 
         infoLines.forEachIndexed { index, line ->
-
-            val spannable = SpannableString(
-                line + if (index < infoLines.size - 1) "\n" else ""
-            )
-
+            val spannable = SpannableString(line + if (index < infoLines.size - 1) "\n" else "")
             val colonIndex = line.indexOf(":")
-
             if (colonIndex != -1) {
-
-                spannable.setSpan(
-                    StyleSpan(Typeface.BOLD),
-                    0,
-                    colonIndex,
-                    Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-                )
+                spannable.setSpan(StyleSpan(Typeface.BOLD), 0, colonIndex, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             }
-
-            spannable.setSpan(
-                ForegroundColorSpan(Color.WHITE),
-                0,
-                spannable.length,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-
+            spannable.setSpan(ForegroundColorSpan(Color.WHITE), 0, spannable.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
             finalSpannable.append(spannable)
         }
 
@@ -280,22 +244,14 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     private fun setupDropdown() {
 
-        adapter = ArrayAdapter(
-            this,
-            android.R.layout.simple_dropdown_item_1line,
-            mutableListOf()
-        )
-
+        adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, mutableListOf())
         etFilter.setAdapter(adapter)
         etFilter.threshold = 1
 
         etFilter.setOnItemClickListener { _, _, position, _ ->
-
             val selected = adapter.getItem(position) ?: return@setOnItemClickListener
             val artNr = selected.split("|")[0].trim()
-
             val artikel = artikelListe.find { it.artNr == artNr }
-
             artikel?.let { showArtikelInfo(it) }
 
             textWatcherEnabled = false
@@ -313,55 +269,35 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
 
         etFilter.addTextChangedListener(object : android.text.TextWatcher {
-
             override fun afterTextChanged(s: android.text.Editable?) {
-
                 if (!textWatcherEnabled) return
-
                 val input = s.toString().trim()
-
                 if (input.isEmpty()) {
                     tvArtikelInfo.text = ""
                     return
                 }
-
                 val filterText = input.split("|")[0].trim()
-
-                val matches = artikelListe.filter {
-
-                    it.artNr.contains(filterText, true)
-                            || it.bez.contains(filterText, true)
-                }
-
+                val matches = artikelListe.filter { it.artNr.contains(filterText, true) || it.bez.contains(filterText, true) }
                 when (matches.size) {
-
                     0 -> {
                         tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
                         tvArtikelInfo.setTextColor(Color.RED)
                     }
-
                     1 -> {
-
                         val artikel = matches.first()
-
                         showArtikelInfo(artikel)
-
                         val text = "${artikel.artNr} | ${artikel.bez}"
-
                         textWatcherEnabled = false
                         etFilter.setText(text)
                         etFilter.setSelection(text.length)
                         textWatcherEnabled = true
-
                         val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                         imm.hideSoftInputFromWindow(etFilter.windowToken, 0)
-
                         etFilter.clearFocus()
                         etFilter.isFocusable = false
                         etFilter.isFocusableInTouchMode = false
                         etFilter.keyListener = null
                     }
-
                     else -> {
                         tvArtikelInfo.text = ""
                         etFilter.showDropDown()
@@ -385,7 +321,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     private fun showReloadDialog(message: String) {
-
         AlertDialog.Builder(this)
             .setTitle("Serverfehler")
             .setMessage("$message\n\nErneut versuchen?")
@@ -399,39 +334,25 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     private fun parseProjektList(raw: String): List<String> {
-
         val list = mutableListOf<String>()
-
         raw.lines().forEach {
-
             val parts = it.split("|")
-
-            if (parts.size == 2 && !it.startsWith("{")) {
-                list.add("${parts[0]} – ${parts[1]}")
-            }
+            if (parts.size == 2 && !it.startsWith("{")) list.add("${parts[0]} – ${parts[1]}")
         }
-
         return list
     }
 
     private fun parseArtikelResponse(raw: String): List<Artikel> {
-
         val liste = mutableListOf<Artikel>()
         var parse = false
-
         raw.lines().forEach { line ->
-
             when {
-
                 line.contains("{GetArtikel}") -> parse = true
                 line.contains("{/GetArtikel}") -> return@forEach
                 !parse || line.isBlank() -> return@forEach
-
                 else -> {
-
                     val p = line.split("|")
                     if (p.size < 15) return@forEach
-
                     liste.add(
                         Artikel(
                             artNr = p[0],
@@ -450,7 +371,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 }
             }
         }
-
         return liste
     }
 
@@ -475,12 +395,84 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-
         if (item.itemId == android.R.id.home) {
             finish()
             return true
         }
-
         return super.onOptionsItemSelected(item)
+    }
+
+    /** --- Buchung wiederverwendbar --- */
+    protected fun doBuchen() {
+
+        val artikel = etFilter.text.toString().trim()
+        val projekt = buchungProjektView?.text?.toString()?.trim()
+        val mengeStr = buchungMengeView?.text?.toString()?.trim()
+
+        buchungStatusView?.text = ""
+
+        if (artikel.isBlank() || projekt.isNullOrBlank() || mengeStr.isNullOrBlank()) {
+            showError("Bitte alle Felder ausfüllen")
+            return
+        }
+
+        val menge = mengeStr.replace(",", ".").toDoubleOrNull()
+        if (menge == null || menge == 0.0) {
+            showError("Ungültige Menge")
+            return
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Buchung bestätigen")
+            .setMessage("Artikel: $artikel\nProjekt: $projekt\nMenge: $menge")
+            .setPositiveButton("Buchen") { _, _ ->
+                val serverMenge = mengeStr.replace(".", ",")
+                sendBuchung(artikel, projekt, serverMenge)
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
+    private fun sendBuchung(artikel: String, projekt: String, menge: String) {
+
+        val statusView = buchungStatusView
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
+
+                val request = """
+                    {SetBuchung}
+                    $artikel||$menge|FORMULAR|$projekt|${getWerkNummer()}|${getUsername()}|$now|
+                    {/SetBuchung}
+                """.trimIndent()
+
+                TcpLogHelper.logRequest(this@BaseArtikelScanActivity, "SetBuchung", request)
+
+                val response = TcpClient.sendCommand(
+                    context = this@BaseArtikelScanActivity,
+                    settings = getSettings(),
+                    command = "SetBuchung",
+                    request = request,
+                    endTag = "{/SetBuchung}"
+                )
+
+                TcpLogHelper.logResponse(this@BaseArtikelScanActivity, "SetBuchung", response)
+
+                withContext(Dispatchers.Main) {
+                    val cleaned = response.replace("\r", "").trim()
+                    if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
+                        statusView?.text = "✅ Buchung erfolgreich"
+                    } else {
+                        showError("Buchung fehlgeschlagen:\n$response")
+                    }
+                }
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    statusView?.text = "❌ Verbindungsfehler"
+                }
+            }
+        }
     }
 }
