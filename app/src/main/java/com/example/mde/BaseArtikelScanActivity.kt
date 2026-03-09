@@ -28,7 +28,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     abstract fun getLayoutId(): Int
 
     protected lateinit var etFilterKeyListener: android.text.method.KeyListener
-
+    protected open var skiploading: Boolean = false
     protected lateinit var btnScan: Button
     protected lateinit var etFilter: AutoCompleteTextView
     protected lateinit var tvArtikelInfo: TextView
@@ -68,7 +68,9 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         setupViews()
         setupDropdown()
 
-        loadArtikelUndProjekteSequential()
+        if (!skiploading) {
+            loadArtikelUndProjekteSequential()
+        }
     }
 
     private fun setupToolbar() {
