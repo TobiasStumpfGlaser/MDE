@@ -3,7 +3,6 @@ package com.example.mde
 import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
-import android.text.SpannableString
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.style.StyleSpan
@@ -31,6 +30,8 @@ class PickListActivity : BaseArtikelScanActivity() {
     private lateinit var settings: AppSettings
     private lateinit var username: String
 
+    private lateinit var etPickDetailFilter: AutoCompleteTextView
+    private var pickDetailsOriginal: List<PickDetail> = emptyList()
     private lateinit var etPickFilter: AutoCompleteTextView
     private lateinit var pickListView: RecyclerView
     private lateinit var pickAdapter: PickAdapter
@@ -55,6 +56,8 @@ class PickListActivity : BaseArtikelScanActivity() {
         etPickFilter = findViewById(R.id.etPickFilter)
         pickListView = findViewById(R.id.rvPickList)
         pickDetailsView = findViewById(R.id.rvPickDetails)
+        etPickDetailFilter = findViewById(R.id.etPickDetailFilter)
+        setupDetailFilter()
 
         // Pickliste
         pickAdapter = PickAdapter(emptyList())
@@ -71,6 +74,35 @@ class PickListActivity : BaseArtikelScanActivity() {
 
         setupPickFilter()
         loadPickList()
+    }
+
+    private fun setupDetailFilter() {
+
+        etPickDetailFilter.addTextChangedListener(object : android.text.TextWatcher {
+
+            override fun afterTextChanged(s: android.text.Editable?) {
+
+                val input = s.toString().trim()
+
+                val filtered = pickDetailsOriginal.filter {
+
+                    it.artNr.contains(input, true) ||
+                            it.menge.contains(input, true) ||
+                            it.pos.contains(input, true) ||
+                            it.info.contains(input, true)
+
+                }
+
+                pickDetailsAdapter.updateList(filtered)
+
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+
+        })
+
     }
 
     private fun setupPickFilter() {
@@ -196,7 +228,10 @@ class PickListActivity : BaseArtikelScanActivity() {
 
                 withContext(Dispatchers.Main) {
                     pickDetailsListe = details
+                    pickDetailsOriginal = details
+
                     pickDetailsAdapter.updateList(pickDetailsListe)
+                    etPickDetailFilter.visibility = View.VISIBLE
                     pickDetailsView.visibility = View.VISIBLE
                 }
 

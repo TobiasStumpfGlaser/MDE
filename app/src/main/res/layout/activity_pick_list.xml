@@ -48,6 +48,18 @@
                 android:background="@android:drawable/edit_text"
                 android:layout_marginBottom="8dp"/>
 
+            <AutoCompleteTextView
+                android:id="@+id/etPickDetailFilter"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Artikel filtern"
+                android:inputType="text"
+                android:padding="8dp"
+                android:background="@android:drawable/edit_text"
+                android:visibility="gone"
+                android:layout_marginTop="8dp"
+                android:layout_marginBottom="8dp"/>
+
             <!-- Scrollbare Liste der Picklisten-Einträge -->
             <androidx.recyclerview.widget.RecyclerView
                 android:id="@+id/rvPickList"
