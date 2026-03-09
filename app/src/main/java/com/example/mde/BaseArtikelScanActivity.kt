@@ -227,7 +227,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         val infoLines = listOf(
             "Artikelnummer: ${artikel.artNr}",
             "Bezeichnung: ${artikel.bez}",
-            "Lagerorte: ${artikel.lagerorte.joinToString(", ")}",
+            "Lagerorte W1: ${artikel.lagerorteW1.joinToString(", ")}",
+            "Lagerorte W2: ${artikel.lagerorteW2.joinToString(", ")}",
             "Maßeinheit: ${artikel.masseinheit}",
             "Bestand: ${artikel.bestand}",
             "Mindestbestand: ${artikel.mindestbestand}",
@@ -428,9 +429,10 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         Artikel(
                             artNr = p[0],
                             bez = p[1],
-                            lagerorte = p.subList(2, 8),
+                            lagerorteW1 = p.subList(2, 5),
+                            lagerorteW2 = p.subList(5, 8),
                             masseinheit = p[8],
-                            bestand = p[9].toIntOrNull() ?: 0,
+                            bestand = p[9],
                             empfBestMenge = p[10].toIntOrNull() ?: 0,
                             bestellTrigger = p[11].toIntOrNull() ?: 0,
                             mindestbestand = p[12].toIntOrNull() ?: 0,

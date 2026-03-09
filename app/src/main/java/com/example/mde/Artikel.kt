@@ -3,9 +3,10 @@ package com.example.mde.model
 data class Artikel(
     val artNr: String,
     val bez: String,
-    val lagerorte: List<String>,
+    val lagerorteW1: List<String>,
+    val lagerorteW2: List<String>,
     val masseinheit: String,
-    val bestand: Int,
+    val bestand: String,
     val empfBestMenge: Int,
     val bestellTrigger: Int,
     val mindestbestand: Int,

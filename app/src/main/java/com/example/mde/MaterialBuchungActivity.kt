@@ -49,7 +49,6 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         btnBuchen.setOnClickListener {
             onBuchen()
         }
-
     }
 
     override fun btnClearClicked() {
