@@ -90,14 +90,33 @@ class PickListActivity : BaseArtikelScanActivity() {
     // --------------------------------------------------
     private fun setupPickFilter() {
         etPickFilter.addTextChangedListener(object : TextWatcher {
+            var ignoreChanges = false  // Flag, um rekursive Calls zu verhindern
+
             override fun afterTextChanged(s: Editable?) {
+                if (ignoreChanges) return
+
                 val input = s.toString().trim()
                 val filtered = pickListe.filter {
                     it.nummer.contains(input, true) ||
                             it.projektNr.contains(input, true) ||
                             it.projektName.contains(input, true)
                 }
+
                 pickAdapter.updateList(filtered)
+
+                // Wenn genau ein Treffer vorhanden → Details laden
+                if (filtered.size == 1) {
+                    ignoreChanges = true
+                    val pickNummer = filtered[0].nummer
+                    etPickFilter.setText(pickNummer)
+                    etPickFilter.setSelection(pickNummer.length)
+                    ignoreChanges = false
+
+                    pickListView.visibility = View.GONE
+                    loadPickDetails(pickNummer)
+                } else {
+                    pickListView.visibility = if (filtered.isEmpty()) View.GONE else View.VISIBLE
+                }
             }
 
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -127,7 +146,7 @@ class PickListActivity : BaseArtikelScanActivity() {
 
                 pickDetailsAdapter.updateList(filtered)
 
-                if (filtered.size == 1 && filtered[0].artNr.equals(input, true)) {
+                if (filtered.size == 1) {
                     etPickDetailFilter.setText("")
                     showPickDialog(filtered[0])
                 }
@@ -149,13 +168,13 @@ class PickListActivity : BaseArtikelScanActivity() {
         val btnChangeAmount = dialogView.findViewById<View>(R.id.btnChangeAmount)
         val btnSerials = dialogView.findViewById<View>(R.id.btnSerials)
 
-        fun updateDialogMessage() {
-            tvMessage.text = """
-            Artikel: ${item.artNr}
-            Menge: ${item.menge}
-            Pos: ${item.pos}
-            Info: ${item.info}
-        """.trimIndent()
+        fun updateDialogMessage(text: String = """
+        Artikel: ${item.artNr}
+        Menge: ${item.menge}
+        Pos: ${item.pos}
+        Info: ${item.info}
+    """.trimIndent()) {
+            tvMessage.text = text
         }
 
         updateDialogMessage()
@@ -170,24 +189,24 @@ class PickListActivity : BaseArtikelScanActivity() {
             val menge = item.menge
 
             if (artikel.isBlank() || projekt.isBlank() || menge.isBlank()) {
-                showMessageDialog("Fehler: Alle Felder müssen ausgefüllt sein!")
+                showMessageDialog("❌ Fehler: Alle Felder müssen ausgefüllt sein!")
                 return@setOnClickListener
             }
 
-            // Dialog sofort schließen
-            dialog.dismiss()
+            // Statusdialog vorbereiten
+            val statusText = TextView(this).apply {
+                text = "Buchung läuft…"
+                setPadding(50, 50, 50, 50)
+                textSize = 18f
+            }
 
-            // Statusfenster wie "Lade Artikelliste..."
             val statusDialog = AlertDialog.Builder(this)
-                .setView(TextView(this).apply {
-                    text = "Buchung läuft…"
-                    setPadding(50, 50, 50, 50)
-                    textSize = 18f
-                })
+                .setView(statusText)
                 .setCancelable(false)
                 .create()
             statusDialog.show()
 
+            // Netzwerkcall in IO
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
@@ -212,30 +231,38 @@ class PickListActivity : BaseArtikelScanActivity() {
 
                     withContext(Dispatchers.Main) {
                         val cleaned = response.replace("\r", "").trim()
-                        statusDialog.dismiss()
                         if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
-                            // Erfolg kurz anzeigen wie InfoOverlay
-                            val infoDialog = AlertDialog.Builder(this@PickListActivity)
-                                .setMessage("✅ Buchung erfolgreich")
-                                .setCancelable(false)
-                                .create()
-                            infoDialog.show()
+                            // Buchung OK → Text ändern, warten, Dialog schließen
+                            statusText.text = "✅ Buchung erfolgreich"
+                            pickDetailsListe = pickDetailsListe.filter { it != item }
+                            pickDetailsOriginal = pickDetailsOriginal.filter { it != item }
+                            pickDetailsAdapter.updateList(pickDetailsListe)
+
+                            // 1 Sekunde warten und Dialog schließen
                             CoroutineScope(Dispatchers.Main).launch {
                                 delay(1000)
-                                infoDialog.dismiss()
-                                pickDetailsListe = pickDetailsListe.filter { it != item }
-                                pickDetailsOriginal = pickDetailsOriginal.filter { it != item }
-                                pickDetailsAdapter.updateList(pickDetailsListe)
+                                statusDialog.dismiss()
+                                dialog.dismiss() // Hauptdialog optional schließen
                             }
                         } else {
-                            showMessageDialog("❌ Buchung fehlgeschlagen:\n$response")
+                            withContext(Dispatchers.Main) {
+                                // Text ändern
+                                statusText.text = "❌ Buchung fehlgeschlagen:\n$response"
+                                // 1 Sekunde warten und Dialog schließen
+                                CoroutineScope(Dispatchers.Main).launch {
+                                    delay(2000)
+                                    statusDialog.dismiss()
+                                }
+                            }
                         }
                     }
 
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        statusDialog.dismiss()
-                        showMessageDialog("❌ Fehler bei der Buchung:\n${e.message}")
+                        statusText.text = "❌ Fehler bei der Buchung:\n${e.message}"
+                        statusDialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK") { _, _ ->
+                            statusDialog.dismiss()
+                        }
                     }
                 }
             }
@@ -427,6 +454,10 @@ class PickListActivity : BaseArtikelScanActivity() {
                     pickDetailsAdapter.updateList(details)
                     etPickDetailFilter.visibility = View.VISIBLE
                     pickDetailsView.visibility = View.VISIBLE
+
+                    // Cursor in Artikel-Filter setzen
+                    etPickDetailFilter.requestFocus()
+                    etPickDetailFilter.setSelection(etPickDetailFilter.text.length)
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
