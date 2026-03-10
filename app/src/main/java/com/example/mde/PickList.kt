@@ -20,7 +20,13 @@ import java.util.Date
 import java.util.Locale
 
 data class PickItem(val nummer: String, val projektNr: String, val projektName: String)
-data class PickDetail(val artNr: String, var menge: String, val pos: String, val info: String)
+data class PickDetail(
+    val artNr: String,
+    var menge: String,
+    val pos: String,
+    val info: String,
+    var serials: List<String> = emptyList()
+)
 
 class PickListActivity : BaseArtikelScanActivity() {
 
@@ -93,6 +99,7 @@ class PickListActivity : BaseArtikelScanActivity() {
                 }
                 pickAdapter.updateList(filtered)
             }
+
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
@@ -132,7 +139,7 @@ class PickListActivity : BaseArtikelScanActivity() {
     }
 
     // --------------------------------------------------
-    // Pick-Dialog
+    // Pick-Dialog mit Seriennummern
     // --------------------------------------------------
     private fun showPickDialog(item: PickDetail) {
         val dialogView = layoutInflater.inflate(R.layout.dialog_pick_options, null)
@@ -144,37 +151,20 @@ class PickListActivity : BaseArtikelScanActivity() {
 
         fun updateDialogMessage() {
             tvMessage.text = """
-                Artikel: ${item.artNr}
-                Menge: ${item.menge}
-                Pos: ${item.pos}
-                Info: ${item.info}
-            """.trimIndent()
+            Artikel: ${item.artNr}
+            Menge: ${item.menge}
+            Pos: ${item.pos}
+            Info: ${item.info}
+        """.trimIndent()
         }
 
-        updateDialogMessage() // initial setzen
+        updateDialogMessage()
 
         val dialog = AlertDialog.Builder(this)
             .setView(dialogView)
             .create()
 
-//        btnYes.setOnClickListener {
-//            AlertDialog.Builder(this)
-//                .setTitle("Info")
-//                .setMessage("Buchung gesendet")
-//                .setPositiveButton("OK", null)
-//                .show()
-//
-//            //Todo Sende Buchung und warte auf OK
-//
-//            pickDetailsListe = pickDetailsListe.filter { it != item }
-//            pickDetailsOriginal = pickDetailsOriginal.filter { it != item }
-//            pickDetailsAdapter.updateList(pickDetailsListe)
-//
-//            dialog.dismiss()
-//        }
-
         btnYes.setOnClickListener {
-
             val artikel = item.artNr
             val projekt = etPickFilter.text.toString().trim()
             val menge = item.menge
@@ -184,27 +174,33 @@ class PickListActivity : BaseArtikelScanActivity() {
                 return@setOnClickListener
             }
 
-            // Dialog zum Warten auf Serverantwort
-            val waitingDialog = AlertDialog.Builder(this)
-                .setTitle("Buchung läuft")
-                .setMessage("Bitte warten…")
+            // Dialog sofort schließen
+            dialog.dismiss()
+
+            // Statusfenster wie "Lade Artikelliste..."
+            val statusDialog = AlertDialog.Builder(this)
+                .setView(TextView(this).apply {
+                    text = "Buchung läuft…"
+                    setPadding(50, 50, 50, 50)
+                    textSize = 18f
+                })
                 .setCancelable(false)
                 .create()
-            waitingDialog.show()
+            statusDialog.show()
 
-            // Buchung senden
             CoroutineScope(Dispatchers.IO).launch {
                 try {
                     val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
-
-                    val request = """
-                {SetBuchung}
-                $artikel||$menge|FORMULAR|$projekt|${getWerkNummer()}|${getUsername()}|$now|
-                {/SetBuchung}
-            """.trimIndent()
+                    val serialsString = if (item.serials.isNotEmpty()) item.serials.joinToString(";") else ""
+                    val request = buildString {
+                        appendLine("{SetBuchung}")
+                        append("$artikel||$menge|FORMULAR|$projekt|${getWerkNummer()}|${getUsername()}|$now|")
+                        if (serialsString.isNotEmpty()) append("|$serialsString")
+                        appendLine()
+                        append("{/SetBuchung}")
+                    }
 
                     TcpLogHelper.logRequest(this@PickListActivity, "SetBuchung", request)
-
                     val response = TcpClient.sendCommand(
                         context = this@PickListActivity,
                         settings = getSettings(),
@@ -212,65 +208,46 @@ class PickListActivity : BaseArtikelScanActivity() {
                         request = request,
                         endTag = "{/SetBuchung}"
                     )
-
                     TcpLogHelper.logResponse(this@PickListActivity, "SetBuchung", response)
 
                     withContext(Dispatchers.Main) {
-                        waitingDialog.dismiss()
                         val cleaned = response.replace("\r", "").trim()
+                        statusDialog.dismiss()
                         if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
-                            // Buchung erfolgreich
-                            AlertDialog.Builder(this@PickListActivity)
-                                .setTitle("Info")
-                                .setMessage("Buchung gesendet")
-                                .setPositiveButton("OK") { _, _ ->
-                                    // PickDetail aus der Liste entfernen
-                                    pickDetailsListe = pickDetailsListe.filter { it != item }
-                                    pickDetailsOriginal = pickDetailsOriginal.filter { it != item }
-                                    pickDetailsAdapter.updateList(pickDetailsListe)
-                                    dialog.dismiss()
-                                }
-                                .show()
+                            // Erfolg kurz anzeigen wie InfoOverlay
+                            val infoDialog = AlertDialog.Builder(this@PickListActivity)
+                                .setMessage("✅ Buchung erfolgreich")
+                                .setCancelable(false)
+                                .create()
+                            infoDialog.show()
+                            CoroutineScope(Dispatchers.Main).launch {
+                                delay(1000)
+                                infoDialog.dismiss()
+                                pickDetailsListe = pickDetailsListe.filter { it != item }
+                                pickDetailsOriginal = pickDetailsOriginal.filter { it != item }
+                                pickDetailsAdapter.updateList(pickDetailsListe)
+                            }
                         } else {
-                            showMessageDialog("Buchung fehlgeschlagen:\n$response")
+                            showMessageDialog("❌ Buchung fehlgeschlagen:\n$response")
                         }
                     }
 
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        waitingDialog.dismiss()
-                        showMessageDialog("Fehler bei der Buchung:\n${e.message}")
+                        statusDialog.dismiss()
+                        showMessageDialog("❌ Fehler bei der Buchung:\n${e.message}")
                     }
                 }
             }
         }
 
         btnNo.setOnClickListener { dialog.dismiss() }
-
-        btnChangeAmount.setOnClickListener {
-            showChangeAmountDialog(item) { updateDialogMessage() }
-        }
-
+        btnChangeAmount.setOnClickListener { showChangeAmountDialog(item) { updateDialogMessage() } }
         btnSerials.setOnClickListener {
             val mengeInt = item.menge.toIntOrNull() ?: 0
             showSerialDialog(mengeInt) { serials ->
-                if (serials.size == mengeInt) {
-                    pickDetailsListe = pickDetailsListe.filter { it != item }
-                    pickDetailsOriginal = pickDetailsOriginal.filter { it != item }
-                    pickDetailsAdapter.updateList(pickDetailsListe)
-
-                    AlertDialog.Builder(this)
-                        .setTitle("Info")
-                        .setMessage("Alle Seriennummern erfasst")
-                        .setPositiveButton("OK", null)
-                        .show()
-                } else {
-                    AlertDialog.Builder(this)
-                        .setTitle("Fehler")
-                        .setMessage("Nicht alle Seriennummern erfasst!")
-                        .setPositiveButton("OK", null)
-                        .show()
-                }
+                item.serials = serials
+                updateDialogMessage()
             }
         }
 
@@ -315,7 +292,6 @@ class PickListActivity : BaseArtikelScanActivity() {
         val dialog = builder.create()
         dialog.show()
 
-        // OK-Button initial deaktivieren
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
 
         etSerial.addTextChangedListener(object : TextWatcher {
@@ -391,7 +367,8 @@ class PickListActivity : BaseArtikelScanActivity() {
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): PickViewHolder {
-            val view = LayoutInflater.from(parent.context).inflate(android.R.layout.simple_list_item_1, parent, false)
+            val view = LayoutInflater.from(parent.context)
+                .inflate(android.R.layout.simple_list_item_1, parent, false)
             return PickViewHolder(view)
         }
 
@@ -439,7 +416,9 @@ class PickListActivity : BaseArtikelScanActivity() {
                 val lines = response.lines().filter { it.isNotBlank() && !it.startsWith("{") }.drop(1)
                 val details = lines.mapNotNull { line ->
                     val parts = line.split("|")
-                    if (parts.size >= 3) PickDetail(parts[0], parts[1], parts[2], if (parts.size >= 4) parts[3] else "") else null
+                    if (parts.size >= 3) PickDetail(
+                        parts[0], parts[1], parts[2], if (parts.size >= 4) parts[3] else ""
+                    ) else null
                 }
 
                 withContext(Dispatchers.Main) {
@@ -468,7 +447,8 @@ class PickListActivity : BaseArtikelScanActivity() {
         }
 
         override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): DetailViewHolder {
-            val view = LayoutInflater.from(parent.context).inflate(android.R.layout.simple_list_item_1, parent, false)
+            val view = LayoutInflater.from(parent.context)
+                .inflate(android.R.layout.simple_list_item_1, parent, false)
             return DetailViewHolder(view)
         }
 
