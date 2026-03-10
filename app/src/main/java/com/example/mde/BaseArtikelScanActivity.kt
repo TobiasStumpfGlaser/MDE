@@ -118,14 +118,13 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         etFilter.keyListener = etFilterKeyListener
         textWatcherEnabled = true
 
-        // Child Buchungs-Views optional leeren
+        // Buchungs-Views optional leeren
         buchungProjektView?.text?.clear()
         buchungMengeView?.text?.clear()
         buchungStatusView?.text = ""
     }
 
     protected fun loadArtikelUndProjekteSequential() {
-
         if (requestRunning) return
         requestRunning = true
         UiLoadingHelper.show(this, "Lade Artikelliste...")
@@ -214,7 +213,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     protected fun showArtikelInfo(artikel: Artikel) {
-
         val infoLines = listOf(
             "Artikelnummer: ${artikel.artNr}",
             "Bezeichnung: ${artikel.bez}",
@@ -245,7 +243,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     private fun setupDropdown() {
-
         adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, mutableListOf())
         etFilter.setAdapter(adapter)
         etFilter.threshold = 1
@@ -297,7 +294,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         etFilter.setSelection(text.length)
                         textWatcherEnabled = true
 
-                        // Softkeyboard verstecken nach Dropdown geschlossen
                         etFilter.post {
                             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                             imm.hideSoftInputFromWindow(etFilter.windowToken, 0)
@@ -309,7 +305,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     }
                     else -> {
                         tvArtikelInfo.text = ""
-                        etFilter.post { etFilter.showDropDown() } // asynchron öffnen
+                        etFilter.post { etFilter.showDropDown() }
                     }
                 }
             }
@@ -317,6 +313,81 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
+    }
+
+    /** --- Öffentliches Buchen, einlagern/auslagern --- */
+    fun doBuchen(einlagern: Boolean) {
+
+        val artikel = etFilter.text.toString().trim()
+        val projekt = buchungProjektView?.text?.toString()?.trim()
+        val mengeStr = buchungMengeView?.text?.toString()?.trim()
+
+        if (projekt.isNullOrBlank() || mengeStr.isNullOrBlank()) {
+            showError("Bitte alle Felder ausfüllen")
+            return
+        }
+
+        val menge = mengeStr.replace(",", ".").toDoubleOrNull()
+        if (menge == null || menge == 0.0) {
+            showError("Ungültige Menge")
+            return
+        }
+
+        val serverMenge = if (einlagern) mengeStr else "-${mengeStr.replace(".", ",")}"
+
+        AlertDialog.Builder(this)
+            .setTitle("Buchung bestätigen")
+            .setMessage("Artikel: $artikel\nProjekt: $projekt\nMenge: $menge")
+            .setPositiveButton(if (einlagern) "Einlagern" else "Auslagern") { _, _ ->
+                sendBuchung(artikel, projekt, serverMenge)
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
+    private fun sendBuchung(artikel: String, projekt: String, menge: String) {
+
+        val statusView = buchungStatusView
+
+        if (projekt.isBlank()) return
+
+        CoroutineScope(Dispatchers.IO).launch {
+            try {
+                val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
+
+                val request = """
+                    {SetBuchung}
+                    $artikel||$menge|FORMULAR|$projekt|${getWerkNummer()}|${getUsername()}|$now|
+                    {/SetBuchung}
+                """.trimIndent()
+
+                TcpLogHelper.logRequest(this@BaseArtikelScanActivity, "SetBuchung", request)
+
+                val response = TcpClient.sendCommand(
+                    context = this@BaseArtikelScanActivity,
+                    settings = getSettings(),
+                    command = "SetBuchung",
+                    request = request,
+                    endTag = "{/SetBuchung}"
+                )
+
+                TcpLogHelper.logResponse(this@BaseArtikelScanActivity, "SetBuchung", response)
+
+                withContext(Dispatchers.Main) {
+                    val cleaned = response.replace("\r", "").trim()
+                    if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
+                        statusView?.text = "✅ Buchung erfolgreich"
+                    } else {
+                        showError("Buchung fehlgeschlagen:\n$response")
+                    }
+                }
+
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    statusView?.text = "❌ Verbindungsfehler"
+                }
+            }
+        }
     }
 
     protected fun showError(msg: String) {
@@ -409,79 +480,5 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             return true
         }
         return super.onOptionsItemSelected(item)
-    }
-
-    /** --- Buchung wiederverwendbar --- */
-    protected fun doBuchen() {
-
-        val artikel = etFilter.text.toString().trim()
-        val projekt = buchungProjektView?.text?.toString()?.trim()
-        val mengeStr = buchungMengeView?.text?.toString()?.trim()
-
-        buchungStatusView?.text = ""
-
-        if (artikel.isBlank() || projekt.isNullOrBlank() || mengeStr.isNullOrBlank()) {
-            showError("Bitte alle Felder ausfüllen")
-            return
-        }
-
-        val menge = mengeStr.replace(",", ".").toDoubleOrNull()
-        if (menge == null || menge == 0.0) {
-            showError("Ungültige Menge")
-            return
-        }
-
-        AlertDialog.Builder(this)
-            .setTitle("Buchung bestätigen")
-            .setMessage("Artikel: $artikel\nProjekt: $projekt\nMenge: $menge")
-            .setPositiveButton("Buchen") { _, _ ->
-                val serverMenge = mengeStr.replace(".", ",")
-                sendBuchung(artikel, projekt, serverMenge)
-            }
-            .setNegativeButton("Abbrechen", null)
-            .show()
-    }
-
-    private fun sendBuchung(artikel: String, projekt: String, menge: String) {
-
-        val statusView = buchungStatusView
-
-        CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
-
-                val request = """
-                    {SetBuchung}
-                    $artikel||$menge|FORMULAR|$projekt|${getWerkNummer()}|${getUsername()}|$now|
-                    {/SetBuchung}
-                """.trimIndent()
-
-                TcpLogHelper.logRequest(this@BaseArtikelScanActivity, "SetBuchung", request)
-
-                val response = TcpClient.sendCommand(
-                    context = this@BaseArtikelScanActivity,
-                    settings = getSettings(),
-                    command = "SetBuchung",
-                    request = request,
-                    endTag = "{/SetBuchung}"
-                )
-
-                TcpLogHelper.logResponse(this@BaseArtikelScanActivity, "SetBuchung", response)
-
-                withContext(Dispatchers.Main) {
-                    val cleaned = response.replace("\r", "").trim()
-                    if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
-                        statusView?.text = "✅ Buchung erfolgreich"
-                    } else {
-                        showError("Buchung fehlgeschlagen:\n$response")
-                    }
-                }
-
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    statusView?.text = "❌ Verbindungsfehler"
-                }
-            }
-        }
     }
 }

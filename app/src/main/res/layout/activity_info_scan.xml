@@ -47,30 +47,6 @@
 
             <View
                 android:layout_width="match_parent"
-                android:layout_height="16dp"/>
-
-            <!-- Clear -->
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnClear"
-                android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:text="Zurücksetzen"
-                android:background="@android:drawable/edit_text"/>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="16dp"/>
-
-            <!-- Scan -->
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnScan"
-                android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:text="Scan"
-                android:background="@android:drawable/edit_text"/>
-
-            <View
-                android:layout_width="match_parent"
                 android:layout_height="24dp"/>
 
             <!-- Artikel Info -->
@@ -85,12 +61,49 @@
                 android:layout_width="match_parent"
                 android:layout_height="16dp"/>
 
+            <!-- Clear -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnClear"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:text="Zurücksetzen"
+                android:background="@android:drawable/edit_text"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+
+            <!-- Status -->
+            <TextView
+                android:id="@+id/txtStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textAlignment="center"
+                android:textSize="18sp"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+
             <!-- Reload -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnReloadArtikel"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
                 android:text="Neu laden"
+                android:background="@android:drawable/edit_text"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+
+            <!-- Scan -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnScan"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:text="Scan"
                 android:background="@android:drawable/edit_text"/>
 
         </LinearLayout>

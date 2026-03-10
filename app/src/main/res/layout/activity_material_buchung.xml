@@ -161,18 +161,6 @@
                 android:layout_width="match_parent"
                 android:layout_height="16dp"/>
 
-            <!-- Scan Button (BaseActivity ID: btnScan) -->
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnScan"
-                android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
-                android:text="Scan"/>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="16dp"/>
-
             <!-- Reload Artikel Button (BaseActivity ID: btnReloadArtikel) -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnReloadArtikel"
@@ -180,6 +168,18 @@
                 android:layout_height="70dp"
                 android:background="@android:drawable/edit_text"
                 android:text="Neu laden"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+
+            <!-- Scan Button (BaseActivity ID: btnScan) -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnScan"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:background="@android:drawable/edit_text"
+                android:text="Scan"/>
 
         </LinearLayout>
     </ScrollView>

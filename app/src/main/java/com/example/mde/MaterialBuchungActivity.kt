@@ -41,7 +41,12 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         txtProjekt.threshold = 1
         txtProjekt.setOnClickListener { txtProjekt.showDropDown() }
 
-        findViewById<Button>(R.id.btnBuchen).setOnClickListener { doBuchen() }
+        // Neue Buttons Einlagern / Auslagern
+        val btnEinlagern = findViewById<Button>(R.id.btnEinlagern)
+        val btnAuslagern = findViewById<Button>(R.id.btnAuslagern)
+
+        btnEinlagern.setOnClickListener { doBuchen(true) }   // true = Einlagern
+        btnAuslagern.setOnClickListener { doBuchen(false) }  // false = Auslagern
     }
 
     override fun btnClearClicked() {
@@ -56,6 +61,11 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         adapter.clear()
         adapter.addAll(projektListe)
         adapter.notifyDataSetChanged()
-        txtStatus.text = "✅ Daten aktualisiert"
+
+        if (projektListe.isNotEmpty() and artikelListe.isNotEmpty()) {
+            txtStatus.text = "✅ Daten aktualisiert"
+        } else {
+            txtStatus.text = "⚠ Fehler Kommunikation\""
+        }
     }
 }
