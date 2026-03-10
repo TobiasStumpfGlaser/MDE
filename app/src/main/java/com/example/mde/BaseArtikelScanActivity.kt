@@ -278,8 +278,10 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     tvArtikelInfo.text = ""
                     return
                 }
+
                 val filterText = input.split("|")[0].trim()
                 val matches = artikelListe.filter { it.artNr.contains(filterText, true) || it.bez.contains(filterText, true) }
+
                 when (matches.size) {
                     0 -> {
                         tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
@@ -288,21 +290,26 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     1 -> {
                         val artikel = matches.first()
                         showArtikelInfo(artikel)
+
                         val text = "${artikel.artNr} | ${artikel.bez}"
                         textWatcherEnabled = false
                         etFilter.setText(text)
                         etFilter.setSelection(text.length)
                         textWatcherEnabled = true
-                        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                        imm.hideSoftInputFromWindow(etFilter.windowToken, 0)
-                        etFilter.clearFocus()
-                        etFilter.isFocusable = false
-                        etFilter.isFocusableInTouchMode = false
-                        etFilter.keyListener = null
+
+                        // Softkeyboard verstecken nach Dropdown geschlossen
+                        etFilter.post {
+                            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                            imm.hideSoftInputFromWindow(etFilter.windowToken, 0)
+                            etFilter.clearFocus()
+                            etFilter.isFocusable = false
+                            etFilter.isFocusableInTouchMode = false
+                            etFilter.keyListener = null
+                        }
                     }
                     else -> {
                         tvArtikelInfo.text = ""
-                        etFilter.showDropDown()
+                        etFilter.post { etFilter.showDropDown() } // asynchron öffnen
                     }
                 }
             }

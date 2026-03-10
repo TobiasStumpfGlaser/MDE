@@ -71,7 +71,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
                 android:background="@android:drawable/edit_text"
-                android:hint="Menge (+ / -)"
+                android:hint="Menge"
                 android:inputType="text"
                 android:textAlignment="center"/>
 
@@ -87,6 +87,75 @@
                 android:textColor="@color/white"
                 android:textSize="16sp"
                 android:padding="8dp"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+
+            <!-- Einlagern / Auslagern Buttons -->
+            <LinearLayout
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="2"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp">
+
+                <!-- Einlagern -->
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnEinlagern"
+                    android:layout_width="0dp"
+                    android:layout_height="70dp"
+                    android:layout_weight="1"
+                    android:backgroundTint="@android:color/holo_green_light"
+                    android:text="Einlagern"
+                    android:textColor="@android:color/white"
+                    android:textStyle="bold"/>
+
+                <View
+                    android:layout_width="16dp"
+                    android:layout_height="match_parent"/>
+
+                <!-- Auslagern -->
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnAuslagern"
+                    android:layout_width="0dp"
+                    android:layout_height="70dp"
+                    android:layout_weight="1"
+                    android:backgroundTint="@android:color/holo_red_light"
+                    android:text="Auslagern"
+                    android:textColor="@android:color/white"
+                    android:textStyle="bold"/>
+            </LinearLayout>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+
+            <!-- Clear -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnClear"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:background="@android:drawable/edit_text"
+                android:text="Zurücksetzen"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+
+            <!-- Status -->
+            <TextView
+                android:id="@+id/txtStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textAlignment="center"
+                android:textSize="18sp"/>
 
             <View
                 android:layout_width="match_parent"
@@ -111,49 +180,6 @@
                 android:layout_height="70dp"
                 android:background="@android:drawable/edit_text"
                 android:text="Neu laden"/>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="16dp"/>
-
-            <!-- Buchen -->
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnBuchen"
-                android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
-                android:text="Buchen"/>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="16dp"/>
-
-            <!-- Clear -->
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnClear"
-                android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
-                android:text="Zurücksetzen"/>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="16dp"/>
-
-
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="16dp"/>
-
-            <!-- Status -->
-            <TextView
-                android:id="@+id/txtStatus"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="@color/white"
-                android:textAlignment="center"
-                android:textSize="18sp"/>
 
         </LinearLayout>
     </ScrollView>

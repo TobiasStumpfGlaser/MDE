@@ -211,9 +211,10 @@ class PickListActivity : BaseArtikelScanActivity() {
                 try {
                     val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
                     val serialsString = if (item.serials.isNotEmpty()) item.serials.joinToString(";") else ""
+                    val buchungsMenge = (item.menge.toIntOrNull() ?: 0) * -1
                     val request = buildString {
                         appendLine("{SetBuchung}")
-                        append("$artikel||$menge|FORMULAR|$projekt|${getWerkNummer()}|${getUsername()}|$now|")
+                        append("$artikel||$buchungsMenge|FORMULAR|$projekt|${getWerkNummer()}|${getUsername()}|$now|")
                         if (serialsString.isNotEmpty()) append("|$serialsString")
                         appendLine()
                         append("{/SetBuchung}")
