@@ -42,6 +42,9 @@
         <activity
             android:name=".PickListActivity"
             android:label=".activity_pick_list"/>
+        <activity
+            android:name=".DropListActivity"
+            android:label=".activity_drop_list"/>
     </application>
 
 </manifest>

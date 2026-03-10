@@ -73,6 +73,19 @@
                 android:text="Picklist"
                 android:textSize="20sp" />
 
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="20dp" />
+
+            <!-- Picklist -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnDroplist"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:background="@android:drawable/edit_text"
+                android:text="Droplist"
+                android:textSize="20sp" />
+
         </LinearLayout>
 
     </ScrollView>

@@ -41,7 +41,7 @@
                 android:id="@+id/etPickFilter"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Picklist Nummer"
+                android:hint="Picklisten Nummer"
                 android:inputType="text"
                 android:completionThreshold="1"
                 android:padding="8dp"
