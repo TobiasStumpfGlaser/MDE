@@ -348,18 +348,20 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     private fun sendBuchung(artikel: String, projekt: String, menge: String) {
 
         val statusView = buchungStatusView
-
         if (projekt.isBlank()) return
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
-
                 val request = """
-                    {SetBuchung}
-                    $artikel||$menge|FORMULAR|$projekt|${getWerkNummer()}|${getUsername()}|$now|
-                    {/SetBuchung}
-                """.trimIndent()
+                {SetBuchung}
+                $artikel||$menge|FORMULAR|$projekt|${getWerkNummer()}|${getUsername()}|$now|
+                {/SetBuchung}
+            """.trimIndent()
+
+                withContext(Dispatchers.Main) {
+                    UiLoadingHelper.show(this@BaseArtikelScanActivity, "Buchung wird gesendet...")
+                }
 
                 TcpLogHelper.logRequest(this@BaseArtikelScanActivity, "SetBuchung", request)
 
@@ -373,17 +375,23 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
                 TcpLogHelper.logResponse(this@BaseArtikelScanActivity, "SetBuchung", response)
 
+                val cleaned = response.replace("\r", "").trim()
+
                 withContext(Dispatchers.Main) {
-                    val cleaned = response.replace("\r", "").trim()
+                    UiLoadingHelper.hide()
                     if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
+                        // Nur bei erfolgreicher Buchung Status setzen
                         statusView?.text = "✅ Buchung erfolgreich"
                     } else {
-                        showError("Buchung fehlgeschlagen:\n$response")
+                        // AlertDialog Fehler anzeigen und StatusView aktualisieren
+                        showError("$response")
+                        statusView?.text = "❌ Buchung fehlgeschlagen"
                     }
                 }
 
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
+                    UiLoadingHelper.hide()
                     statusView?.text = "❌ Verbindungsfehler"
                 }
             }
