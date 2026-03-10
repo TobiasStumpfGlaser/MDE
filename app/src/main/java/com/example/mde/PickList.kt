@@ -359,6 +359,8 @@ class PickListActivity : BaseArtikelScanActivity() {
     // --------------------------------------------------
     private fun loadPickList() {
         CoroutineScope(Dispatchers.IO).launch {
+            withContext(Dispatchers.Main) { UiLoadingHelper.show(this@PickListActivity, "Lade Liste...") }
+
             try {
                 val response = TcpClient.sendCommand(
                     context = this@PickListActivity,
@@ -367,19 +369,48 @@ class PickListActivity : BaseArtikelScanActivity() {
                     request = "{GetPickOverview}",
                     endTag = "{/GetPickOverview}"
                 )
+
+                // Leere Antwort prüfen (Timeout oder Serverfehler)
+                if (response.isBlank()) {
+                    withContext(Dispatchers.Main) {
+                        UiLoadingHelper.hide()
+                        AlertDialog.Builder(this@PickListActivity)
+                            .setTitle("Keine Daten")
+                            .setMessage("Keine Daten vom Server erhalten (Timeout: ${settings.timeoutS}s).")
+                            .setPositiveButton("Retry") { _, _ -> loadPickList() }
+                            .setNegativeButton("Abbrechen", null)
+                            .show()
+                        pickListe = emptyList()
+                        pickAdapter.updateList(emptyList())
+                    }
+                    return@launch
+                }
+
                 val lines = response.lines().filter { it.isNotBlank() && !it.startsWith("{") }.drop(1)
                 val items = lines.mapNotNull { line ->
                     val parts = line.split("|")
                     if (parts.size >= 3) PickItem(parts[0], parts[1], parts[2]) else null
                 }
+
                 withContext(Dispatchers.Main) {
                     pickListe = items
                     pickAdapter.updateList(pickListe)
                 }
+
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    showError("Fehler beim Laden der Pickliste:\n${e.message}")
+                    UiLoadingHelper.hide()
+                    AlertDialog.Builder(this@PickListActivity)
+                        .setTitle("Fehler")
+                        .setMessage("Fehler beim Laden der Pickliste:\n${e.message}")
+                        .setPositiveButton("Retry") { _, _ -> loadPickList() }
+                        .setNegativeButton("Abbrechen", null)
+                        .show()
+                    pickListe = emptyList()
+                    pickAdapter.updateList(emptyList())
                 }
+            } finally {
+                withContext(Dispatchers.Main) { UiLoadingHelper.hide() }
             }
         }
     }
@@ -430,8 +461,10 @@ class PickListActivity : BaseArtikelScanActivity() {
     // --------------------------------------------------
     // Pick Details laden
     // --------------------------------------------------
-    private fun loadPickDetails(pickNummer: String) {
+    fun loadPickDetails(pickNummer: String) {
         CoroutineScope(Dispatchers.IO).launch {
+            withContext(Dispatchers.Main) { UiLoadingHelper.show(this@PickListActivity, "Lade Details...") }
+
             try {
                 val response = TcpClient.sendCommand(
                     context = this@PickListActivity,
@@ -441,11 +474,31 @@ class PickListActivity : BaseArtikelScanActivity() {
                     endTag = "{/GetPick_$pickNummer}"
                 )
 
+                if (response.isBlank()) {
+                    withContext(Dispatchers.Main) {
+                        UiLoadingHelper.hide()
+                        AlertDialog.Builder(this@PickListActivity)
+                            .setTitle("Keine Daten")
+                            .setMessage("Keine Daten vom Server für Pick-Nr. $pickNummer erhalten (Timeout: ${settings.timeoutS}s).")
+                            .setPositiveButton("Retry") { _, _ -> loadPickDetails(pickNummer) }
+                            .setNegativeButton("Abbrechen", null)
+                            .show()
+                        pickDetailsListe = emptyList()
+                        pickDetailsOriginal = emptyList()
+                        pickDetailsAdapter.updateList(emptyList())
+                        pickDetailsView.visibility = View.GONE
+                    }
+                    return@launch
+                }
+
                 val lines = response.lines().filter { it.isNotBlank() && !it.startsWith("{") }.drop(1)
                 val details = lines.mapNotNull { line ->
                     val parts = line.split("|")
                     if (parts.size >= 3) PickDetail(
-                        parts[0], parts[1], parts[2], if (parts.size >= 4) parts[3] else ""
+                        artNr = parts[0],
+                        menge = parts[1],
+                        pos = parts[2],
+                        info = if (parts.size >= 4) parts[3] else ""
                     ) else null
                 }
 
@@ -454,16 +507,27 @@ class PickListActivity : BaseArtikelScanActivity() {
                     pickDetailsOriginal = details
                     pickDetailsAdapter.updateList(details)
                     etPickDetailFilter.visibility = View.VISIBLE
-                    pickDetailsView.visibility = View.VISIBLE
-
-                    // Cursor in Artikel-Filter setzen
+                    pickDetailsView.visibility = if (details.isEmpty()) View.GONE else View.VISIBLE
                     etPickDetailFilter.requestFocus()
                     etPickDetailFilter.setSelection(etPickDetailFilter.text.length)
                 }
+
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    showError("Fehler beim Laden der Picklist-Details:\n${e.message}")
+                    UiLoadingHelper.hide()
+                    AlertDialog.Builder(this@PickListActivity)
+                        .setTitle("Fehler")
+                        .setMessage("Fehler beim Laden der Pick-Details für $pickNummer:\n${e.message}")
+                        .setPositiveButton("Retry") { _, _ -> loadPickDetails(pickNummer) }
+                        .setNegativeButton("Abbrechen", null)
+                        .show()
+                    pickDetailsListe = emptyList()
+                    pickDetailsOriginal = emptyList()
+                    pickDetailsAdapter.updateList(emptyList())
+                    pickDetailsView.visibility = View.GONE
                 }
+            } finally {
+                withContext(Dispatchers.Main) { UiLoadingHelper.hide() }
             }
         }
     }
