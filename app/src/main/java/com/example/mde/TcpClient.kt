@@ -37,7 +37,7 @@ object TcpClient {
         request: String,
         endTag: String,
     ): String {
-        return try {
+        try {
             ensureConnection(settings) // Verbindung prüfen/aufbauen
 
             TcpLogHelper.logRequest(context, command, request)
@@ -65,11 +65,13 @@ object TcpClient {
             }
             val StringResponse = response.toString()
             TcpLogHelper.logResponse(context, command, StringResponse)
-            StringResponse
+            return StringResponse
 
         } catch (e: Exception) {
+            closeConnection()
+            ensureConnection(settings)
             e.printStackTrace()
-            ""
+            throw e
         }
     }
 
