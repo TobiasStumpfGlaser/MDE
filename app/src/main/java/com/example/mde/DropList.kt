@@ -198,7 +198,7 @@ class DropListActivity : BaseArtikelScanActivity() {
                 try {
                     val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
                     val serialsString = if (item.serials.isNotEmpty()) item.serials.joinToString(";") else ""
-                    val buchungsMenge = (item.menge.toIntOrNull() ?: 0) * -1
+                    val buchungsMenge = (item.menge.toIntOrNull() ?: 0)
                     val request = buildString {
                         appendLine("{SetBuchung}")
                         append("$artikel||$buchungsMenge|FORMULAR|$projekt|${getWerkNummer()}|${getUsername()}|$now|")
