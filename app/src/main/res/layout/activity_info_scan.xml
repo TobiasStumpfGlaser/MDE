@@ -41,6 +41,7 @@
                 android:id="@+id/etBarcode"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
+                android:inputType="textVisiblePassword"
                 android:background="@android:drawable/edit_text"
                 android:hint="Artikelnummer oder Suchbegriff"
                 android:textAlignment="center"/>

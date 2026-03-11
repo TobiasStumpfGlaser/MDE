@@ -42,6 +42,7 @@
                 android:id="@+id/etBarcode"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
+                android:inputType="textVisiblePassword"
                 android:background="@android:drawable/edit_text"
                 android:hint="Artikel suchen"
                 android:textAlignment="center"
@@ -58,6 +59,7 @@
                 android:layout_height="70dp"
                 android:background="@android:drawable/edit_text"
                 android:hint="Projekt suchen"
+                android:inputType="textVisiblePassword"
                 android:textAlignment="center"
                 android:completionThreshold="1"/>
 
@@ -72,7 +74,7 @@
                 android:layout_height="70dp"
                 android:background="@android:drawable/edit_text"
                 android:hint="Menge"
-                android:inputType="text"
+                android:inputType="number"
                 android:textAlignment="center"/>
 
             <View

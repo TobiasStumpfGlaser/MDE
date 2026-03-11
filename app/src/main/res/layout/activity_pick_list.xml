@@ -42,7 +42,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:hint="Picklisten Nummer"
-                android:inputType="text"
+                android:inputType="textVisiblePassword"
                 android:completionThreshold="1"
                 android:padding="8dp"
                 android:background="@android:drawable/edit_text"
