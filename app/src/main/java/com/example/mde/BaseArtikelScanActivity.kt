@@ -71,6 +71,9 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         if (!skiploading) {
             loadArtikelUndProjekteSequential()
         }
+
+        etFilter.requestFocus()
+        etFilter.setSelection(etFilter.text.length)
     }
 
     private fun setupToolbar() {
@@ -122,6 +125,9 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         buchungProjektView?.text?.clear()
         buchungMengeView?.text?.clear()
         buchungStatusView?.text = ""
+
+        etFilter.requestFocus()
+        etFilter.setSelection(etFilter.text.length)
     }
 
     protected fun loadArtikelUndProjekteSequential() {

@@ -444,6 +444,8 @@ class PickListActivity : BaseArtikelScanActivity() {
                 withContext(Dispatchers.Main) { UiLoadingHelper.hide() }
             }
         }
+        etPickFilter.requestFocus()
+        etPickFilter.setSelection(etPickFilter.text.length)
     }
 
     // --------------------------------------------------

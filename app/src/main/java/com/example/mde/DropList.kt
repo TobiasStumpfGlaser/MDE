@@ -444,6 +444,8 @@ class DropListActivity : BaseArtikelScanActivity() {
                 withContext(Dispatchers.Main) { UiLoadingHelper.hide() }
             }
         }
+        etDropFilter.requestFocus()
+        etDropFilter.setSelection(etDropFilter.text.length)
     }
 
     // --------------------------------------------------
