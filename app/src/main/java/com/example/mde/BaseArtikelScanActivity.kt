@@ -186,7 +186,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected fun loadArtikelUndProjekteSequential() {
         if (requestRunning) return
         requestRunning = true
-        UiLoadingHelper.show(this, "Lade Artikelliste...")
+        UiLoadingHelper.show(this, "Lade Serverdaten...")
 
         ioScope.launch {
             try {
@@ -308,6 +308,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
                 if (matchedArtikel == null) {
                     tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
+                    playErrorSound(this)
                     tvArtikelInfo.setTextColor(Color.RED)
                 } else {
                     tvArtikelInfo.setTextColor(Color.WHITE)
@@ -332,6 +333,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     protected fun showArtikelInfo(artikel: Artikel) {
+        hideKeyboardAndClearFocus()
         val infoLines = listOf(
             "Artikelnummer: ${artikel.artNr}",
             "Bezeichnung: ${artikel.bez}",
@@ -390,6 +392,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         etFilter.addTextChangedListener(object : android.text.TextWatcher {
             override fun afterTextChanged(s: android.text.Editable?) {
                 if (!textWatcherEnabled) return
+                if (etFilter.isPerformingCompletion) return
                 val input = s.toString().trim()
                 if (input.isEmpty()) {
                     tvArtikelInfo.text = ""
@@ -402,6 +405,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 when (matches.size) {
                     0 -> {
                         tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
+                        playErrorSound(this@BaseArtikelScanActivity)
                         tvArtikelInfo.setTextColor(Color.RED)
                     }
                     1 -> {
@@ -609,6 +613,13 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     override fun onResume() {
         super.onResume()
         resetTimeout()
+    }
+
+    fun hideKeyboardAndClearFocus() {
+        val view = currentFocus
+        view?.clearFocus()
+        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        view?.let { imm.hideSoftInputFromWindow(it.windowToken, 0) }
     }
 
     override fun onPause() {
