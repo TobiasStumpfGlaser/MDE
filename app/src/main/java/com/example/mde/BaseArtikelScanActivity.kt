@@ -25,8 +25,6 @@ import java.util.*
 import android.media.MediaPlayer
 import android.content.Context
 import android.view.ViewGroup
-import android.widget.ArrayAdapter
-import android.widget.TextView
 
 class ArtikelAdapter(context: Context, artikelListe: List<Artikel>) :
     ArrayAdapter<Artikel>(context, android.R.layout.simple_dropdown_item_1line, artikelListe.toMutableList()) {
@@ -54,7 +52,7 @@ class ArtikelAdapter(context: Context, artikelListe: List<Artikel>) :
                         it.artNr.lowercase().contains(query) || it.bez.lowercase().contains(query)
                     }
                 }
-                results.values = filtered.toMutableList() // wichtig: MutableList!
+                results.values = filtered.toMutableList()
                 results.count = filtered.size
                 return results
             }
@@ -63,7 +61,7 @@ class ArtikelAdapter(context: Context, artikelListe: List<Artikel>) :
                 clear()
                 if (results?.values is List<*>) {
                     @Suppress("UNCHECKED_CAST")
-                    addAll((results.values as List<Artikel>).toMutableList()) // wichtig: MutableList!
+                    addAll((results.values as List<Artikel>).toMutableList())
                 }
                 notifyDataSetChanged()
             }
@@ -231,6 +229,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     requestRunning = false
                     onProjekteGeladen()
 
+                    // Projektadapter setzen
                     buchungProjektView?.setAdapter(object : ArrayAdapter<String>(
                         this@BaseArtikelScanActivity,
                         android.R.layout.simple_dropdown_item_1line,
@@ -266,7 +265,23 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                             }
                         }
                     })
+
                     buchungProjektView?.threshold = 1
+
+                    // Projekt → Menge Fokus
+                    buchungProjektView?.setOnItemClickListener { _, _, position, _ ->
+                        val projekt = buchungProjektView?.adapter?.getItem(position)?.toString() ?: return@setOnItemClickListener
+                        buchungProjektView?.setText(projekt)
+                        buchungProjektView?.setSelection(projekt.length)
+
+                        buchungMengeView?.let { mengeView ->
+                            mengeView.post {
+                                mengeView.requestFocus()
+                                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                                imm.showSoftInput(mengeView, InputMethodManager.SHOW_IMPLICIT)
+                            }
+                        }
+                    }
                 }
 
             } catch (e: Exception) {
@@ -301,6 +316,16 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     etFilter.isFocusable = false
                     etFilter.isFocusableInTouchMode = false
                     etFilter.keyListener = null
+
+                    // Fokus auf Projekt setzen
+                    buchungProjektView?.let { projektView ->
+                        projektView.post {
+                            projektView.requestFocus()
+                            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                            imm.showSoftInput(projektView, InputMethodManager.SHOW_IMPLICIT)
+                            projektView.showDropDown()
+                        }
+                    }
                 }
             }
         }
@@ -350,6 +375,16 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             etFilter.setText(text)
             etFilter.setSelection(text.length)
             textWatcherEnabled = true
+
+            // Fokus auf Projekt setzen
+            buchungProjektView?.let { projektView ->
+                projektView.post {
+                    projektView.requestFocus()
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.showSoftInput(projektView, InputMethodManager.SHOW_IMPLICIT)
+                    projektView.showDropDown()
+                }
+            }
         }
 
         etFilter.addTextChangedListener(object : android.text.TextWatcher {
@@ -387,6 +422,16 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                             etFilter.isFocusableInTouchMode = false
                             etFilter.keyListener = null
                         }
+
+                        // Fokus auf Projekt
+                        buchungProjektView?.let { projektView ->
+                            projektView.post {
+                                projektView.requestFocus()
+                                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                                imm.showSoftInput(projektView, InputMethodManager.SHOW_IMPLICIT)
+                                projektView.showDropDown()
+                            }
+                        }
                     }
                     else -> {
                         tvArtikelInfo.text = ""
@@ -406,9 +451,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         mp.setOnCompletionListener { it.release() }
     }
 
-    /** --- Öffentliches Buchen, einlagern/auslagern --- */
+    /** --- Öffentliches Buchen --- */
     fun doBuchen(einlagern: Boolean) {
-
         val artikel = etFilter.text.toString().trim()
         val projekt = buchungProjektView?.text?.toString()?.trim()
         val mengeStr = buchungMengeView?.text?.toString()?.trim()
@@ -437,7 +481,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     private fun sendBuchung(artikel: String, projekt: String, menge: String) {
-
         val statusView = buchungStatusView
         if (projekt.isBlank()) return
 
@@ -471,10 +514,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     UiLoadingHelper.hide()
                     if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
-                        // Nur bei erfolgreicher Buchung Status setzen
                         statusView?.text = "✅ Buchung erfolgreich"
                     } else {
-                        // AlertDialog Fehler anzeigen und StatusView aktualisieren
                         showError("$response")
                         statusView?.text = "❌ Buchung fehlgeschlagen"
                         playErrorSound(this@BaseArtikelScanActivity)
