@@ -22,6 +22,61 @@ import android.text.style.StyleSpan
 import android.graphics.Typeface
 import android.text.SpannableStringBuilder
 import java.util.*
+import android.media.MediaPlayer
+import android.content.Context
+import android.view.ViewGroup
+import android.widget.ArrayAdapter
+import android.widget.TextView
+
+class ArtikelAdapter(context: Context, artikelListe: List<Artikel>) :
+    ArrayAdapter<Artikel>(context, android.R.layout.simple_dropdown_item_1line, artikelListe.toMutableList()) {
+
+    private val allItems: MutableList<Artikel> = artikelListe.toMutableList()
+
+    fun updateList(newListe: List<Artikel>) {
+        allItems.clear()
+        allItems.addAll(newListe)
+
+        clear()
+        addAll(allItems)
+        notifyDataSetChanged()
+    }
+
+    override fun getFilter(): Filter {
+        return object : Filter() {
+            override fun performFiltering(constraint: CharSequence?): FilterResults {
+                val results = FilterResults()
+                val filtered: List<Artikel> = if (constraint.isNullOrBlank()) {
+                    allItems
+                } else {
+                    val query = constraint.toString().lowercase()
+                    allItems.filter {
+                        it.artNr.lowercase().contains(query) || it.bez.lowercase().contains(query)
+                    }
+                }
+                results.values = filtered.toMutableList() // wichtig: MutableList!
+                results.count = filtered.size
+                return results
+            }
+
+            override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                clear()
+                if (results?.values is List<*>) {
+                    @Suppress("UNCHECKED_CAST")
+                    addAll((results.values as List<Artikel>).toMutableList()) // wichtig: MutableList!
+                }
+                notifyDataSetChanged()
+            }
+        }
+    }
+
+    override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+        val view = super.getView(position, convertView, parent) as TextView
+        val artikel = getItem(position)
+        view.text = "${artikel?.artNr} | ${artikel?.bez}"
+        return view
+    }
+}
 
 abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
@@ -38,7 +93,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected var artikelListe: List<Artikel> = emptyList()
     protected var projektListe: List<String> = emptyList()
 
-    protected lateinit var adapter: ArrayAdapter<String>
+    protected lateinit var adapter: ArtikelAdapter
 
     private lateinit var handler: Handler
     private lateinit var timeoutRunnable: Runnable
@@ -151,18 +206,13 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
                 withContext(Dispatchers.Main) {
                     artikelListe = artikel
+
                     if (!::adapter.isInitialized) {
-                        adapter = ArrayAdapter(
-                            this@BaseArtikelScanActivity,
-                            android.R.layout.simple_dropdown_item_1line,
-                            mutableListOf()
-                        )
+                        adapter = ArtikelAdapter(this@BaseArtikelScanActivity, artikelListe)
                         etFilter.setAdapter(adapter)
+                    } else {
+                        adapter.updateList(artikelListe)
                     }
-                    adapter.clear()
-                    adapter.addAll(artikel.map { "${it.artNr} | ${it.bez}" })
-                    adapter.notifyDataSetChanged()
-                    UiLoadingHelper.show(this@BaseArtikelScanActivity, "Lade Projekte...")
                 }
 
                 val projekteResponse = TcpClient.sendCommand(
@@ -180,12 +230,50 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     UiLoadingHelper.hide()
                     requestRunning = false
                     onProjekteGeladen()
+
+                    buchungProjektView?.setAdapter(object : ArrayAdapter<String>(
+                        this@BaseArtikelScanActivity,
+                        android.R.layout.simple_dropdown_item_1line,
+                        projektListe.toMutableList()
+                    ) {
+                        private val allItems = projektListe.toMutableList()
+
+                        override fun getFilter(): Filter {
+                            return object : Filter() {
+
+                                override fun performFiltering(constraint: CharSequence?): FilterResults {
+                                    val results = FilterResults()
+                                    if (constraint.isNullOrBlank()) {
+                                        results.values = allItems
+                                        results.count = allItems.size
+                                    } else {
+                                        val query = constraint.toString().lowercase()
+                                        val filtered = allItems.filter { it.lowercase().contains(query) }
+                                        results.values = filtered
+                                        results.count = filtered.size
+                                    }
+                                    return results
+                                }
+
+                                override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                                    clear()
+                                    if (results?.values is List<*>) {
+                                        @Suppress("UNCHECKED_CAST")
+                                        addAll(results.values as List<String>)
+                                    }
+                                    notifyDataSetChanged()
+                                }
+                            }
+                        }
+                    })
+                    buchungProjektView?.threshold = 1
                 }
 
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     UiLoadingHelper.hide()
                     requestRunning = false
+                    playErrorSound(this@BaseArtikelScanActivity)
                     showReloadDialog(e.message ?: "Server Fehler")
                 }
             }
@@ -249,28 +337,19 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     private fun setupDropdown() {
-        adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, mutableListOf())
+        adapter = ArtikelAdapter(this, artikelListe)
         etFilter.setAdapter(adapter)
         etFilter.threshold = 1
 
         etFilter.setOnItemClickListener { _, _, position, _ ->
-            val selected = adapter.getItem(position) ?: return@setOnItemClickListener
-            val artNr = selected.split("|")[0].trim()
-            val artikel = artikelListe.find { it.artNr == artNr }
-            artikel?.let { showArtikelInfo(it) }
+            val artikel = adapter.getItem(position) ?: return@setOnItemClickListener
+            showArtikelInfo(artikel)
 
+            val text = "${artikel.artNr} | ${artikel.bez}"
             textWatcherEnabled = false
-            etFilter.setText(selected)
-            etFilter.setSelection(selected.length)
+            etFilter.setText(text)
+            etFilter.setSelection(text.length)
             textWatcherEnabled = true
-
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(etFilter.windowToken, 0)
-
-            etFilter.clearFocus()
-            etFilter.isFocusable = false
-            etFilter.isFocusableInTouchMode = false
-            etFilter.keyListener = null
         }
 
         etFilter.addTextChangedListener(object : android.text.TextWatcher {
@@ -319,6 +398,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
+    }
+
+    fun playErrorSound(context: Context) {
+        val mp = MediaPlayer.create(context, R.raw.error)
+        mp.start()
+        mp.setOnCompletionListener { it.release() }
     }
 
     /** --- Öffentliches Buchen, einlagern/auslagern --- */
@@ -392,6 +477,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         // AlertDialog Fehler anzeigen und StatusView aktualisieren
                         showError("$response")
                         statusView?.text = "❌ Buchung fehlgeschlagen"
+                        playErrorSound(this@BaseArtikelScanActivity)
                     }
                 }
 
@@ -399,6 +485,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 withContext(Dispatchers.Main) {
                     UiLoadingHelper.hide()
                     statusView?.text = "❌ Verbindungsfehler"
+                    playErrorSound(this@BaseArtikelScanActivity)
                 }
             }
         }
@@ -414,7 +501,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
-    private fun showReloadDialog(message: String) {
+    protected fun showReloadDialog(message: String) {
         AlertDialog.Builder(this)
             .setTitle("Serverfehler")
             .setMessage("$message\n\nErneut versuchen?")

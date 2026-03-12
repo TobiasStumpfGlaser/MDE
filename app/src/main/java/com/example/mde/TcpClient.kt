@@ -10,11 +10,14 @@ object TcpClient {
 
     private var socket: Socket? = null
     private var writer: BufferedWriter? = null
-    private var reader: BufferedReader? = null
 
-    // Prüft, ob Verbindung offen ist
+    // Prüft, ob Verbindung offen und nutzbar ist
     private fun isConnected(): Boolean {
-        return socket?.isConnected == true && socket?.isClosed == false
+        return socket != null &&
+                socket!!.isConnected &&
+                !socket!!.isClosed &&
+                !socket!!.isInputShutdown &&
+                !socket!!.isOutputShutdown
     }
 
     // Verbindung aufbauen, falls noch nicht offen
@@ -22,11 +25,18 @@ object TcpClient {
         if (isConnected()) return
 
         socket?.close()
+
         socket = Socket()
-        socket!!.connect(InetSocketAddress(settings.serverIp, settings.serverPort), settings.timeoutS * 1000)
+        socket!!.connect(
+            InetSocketAddress(settings.serverIp, settings.serverPort),
+            settings.timeoutS * 1000
+        )
+
         socket!!.soTimeout = settings.timeoutS * 1000
-        reader = BufferedReader(InputStreamReader(socket!!.getInputStream(), Charsets.ISO_8859_1))
-        writer = BufferedWriter(OutputStreamWriter(socket!!.getOutputStream(), Charsets.ISO_8859_1))
+
+        writer = BufferedWriter(
+            OutputStreamWriter(socket!!.getOutputStream(), Charsets.ISO_8859_1)
+        )
     }
 
     // Universelle Funktion zum Senden von Befehlen
@@ -37,40 +47,65 @@ object TcpClient {
         request: String,
         endTag: String,
     ): String {
+
+        val initialTimeout = settings.timeoutS * 1000 / 5
+        val readTimeout = settings.timeoutS * 1000 / 2
+
         try {
-            ensureConnection(settings) // Verbindung prüfen/aufbauen
+            ensureConnection(settings)
 
             TcpLogHelper.logRequest(context, command, request)
 
-            // Request senden
             writer!!.write(request + "\n")
             writer!!.flush()
 
-            // Response lesen
             val response = StringBuilder()
-            val buffer = ByteArray(16 * 1024) // 16 KB Puffer
-            var read: Int
+            val buffer = ByteArray(16 * 1024)
+
+            val input = socket!!.getInputStream()
+
+            var firstByteReceived = false
+
             while (true) {
-                read = try {
-                    socket!!.getInputStream().read(buffer)
+
+                val read = try {
+
+                    socket!!.soTimeout =
+                        if (!firstByteReceived) initialTimeout else readTimeout
+
+                    input.read(buffer)
+
                 } catch (e: SocketTimeoutException) {
-                    break
+
+                    if (!firstByteReceived) {
+                        throw SocketTimeoutException("Initial timeout – keine Serverantwort")
+                    } else {
+                        throw SocketTimeoutException("Read timeout – EndTag nicht erreicht")
+                    }
                 }
+
                 if (read == -1) break
+
+                firstByteReceived = true
 
                 val chunk = String(buffer, 0, read, Charsets.ISO_8859_1)
                 response.append(chunk)
 
                 if (response.contains(endTag)) break
             }
-            val StringResponse = response.toString()
-            TcpLogHelper.logResponse(context, command, StringResponse)
-            return StringResponse
+
+            val stringResponse = response.toString()
+
+            TcpLogHelper.logResponse(context, command, stringResponse)
+
+            return stringResponse
 
         } catch (e: Exception) {
+
             closeConnection()
-            ensureConnection(settings)
+
             e.printStackTrace()
+
             throw e
         }
     }
@@ -80,8 +115,8 @@ object TcpClient {
         try {
             socket?.close()
         } catch (_: Exception) {}
+
         socket = null
         writer = null
-        reader = null
     }
 }

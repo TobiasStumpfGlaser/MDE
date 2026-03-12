@@ -65,7 +65,9 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         if (projektListe.isNotEmpty() and artikelListe.isNotEmpty()) {
             txtStatus.text = "✅ Daten aktualisiert"
         } else {
-            txtStatus.text = "⚠ Fehler Kommunikation\""
+            txtStatus.text = "⚠ Fehler Kommunikation"
+            showReloadDialog("⚠ Fehler Kommunikation")
+            playErrorSound(this@MaterialBuchungActivity)
         }
     }
 }

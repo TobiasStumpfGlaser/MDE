@@ -43,6 +43,8 @@ class InfoScanActivity : BaseArtikelScanActivity() {
             txtStatus.text = "✅ Daten aktualisiert"
         } else {
             txtStatus.text = "⚠ Fehler Kommunikation"
+            showReloadDialog("⚠ Fehler Kommunikation")
+            playErrorSound(this@InfoScanActivity)
         }
     }
 }
