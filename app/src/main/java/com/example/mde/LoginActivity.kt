@@ -11,6 +11,12 @@ import androidx.appcompat.widget.Toolbar
 import kotlinx.coroutines.*
 import java.net.InetSocketAddress
 import java.net.Socket
+import android.view.WindowManager
+
+object UserCache {
+    val userList = mutableListOf<String>()
+    val userPinMap = mutableMapOf<String,String>()
+}
 
 class LoginActivity : AppCompatActivity() {
     private var requestRunning = false
@@ -20,24 +26,24 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var txtUsername: AutoCompleteTextView
     private lateinit var txtPin: EditText
     private lateinit var btnLogin: Button
+    private val defaultUser = "Produktion"
     private var serverConnected = false
     private var serverConnecting = false
     private var reconnectDialogVisible = false
     private var retryDialogVisible = false
-    private val userList = mutableListOf<String>()
-    private var userListLoaded = false
-    // Map für Username -> PIN (aus Server)
-    private val userPinMap = mutableMapOf<String, String>()
-    private val ioScope = CoroutineScope(Dispatchers.IO)
+    private val userList get() = UserCache.userList
+    private val userPinMap get() = UserCache.userPinMap
+
+    private val ioScope = CoroutineScope(Dispatchers.IO + Job())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
         setContentView(R.layout.activity_login)
 
         TcpLogHelper.clearLogs(this)
-        settings = AppSettings(this) // Context übergeben
+        settings = AppSettings(this)
 
-        // Toolbar
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
 
@@ -47,6 +53,16 @@ class LoginActivity : AppCompatActivity() {
         txtPin = findViewById(R.id.txtPin)
         btnLogin = findViewById(R.id.btnLogin)
 
+        if (userList.isNotEmpty()) {
+            val adapter = ArrayAdapter(
+                this,
+                android.R.layout.simple_dropdown_item_1line,
+                userList
+            )
+            txtUsername.setAdapter(adapter)
+            selectDefaultUserIfAvailable()
+        }
+
         val txtVersion = findViewById<TextView>(R.id.txtVersion)
         txtVersion.text = "App-Version: ${BuildConfig.VERSION_NAME}"
 
@@ -54,7 +70,6 @@ class LoginActivity : AppCompatActivity() {
             connectToServer()
         }
 
-        // Tastatur automatisch beim Klick auf Username öffnen
         txtUsername.setOnClickListener {
             txtUsername.requestFocus()
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
@@ -65,14 +80,13 @@ class LoginActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            if (!userListLoaded) {
+            if (userList.isEmpty()) {
                 requestUserListWithRetry()
             } else {
                 txtUsername.showDropDown()
             }
         }
 
-        // Benutzer aus Dropdown ausgewählt → Fokus PIN
         txtUsername.setOnItemClickListener { _, _, _, _ ->
             txtPin.requestFocus()
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
@@ -83,7 +97,7 @@ class LoginActivity : AppCompatActivity() {
             val username = txtUsername.text.toString()
             val pin = txtPin.text.toString()
 
-            if (!userListLoaded) {
+            if (userList.isEmpty()) {
                 showErrorDialog("Benutzerliste noch nicht geladen")
                 return@setOnClickListener
             }
@@ -101,11 +115,15 @@ class LoginActivity : AppCompatActivity() {
                 return@setOnClickListener
             }
 
-            // Login erfolgreich → weiter zu MainActivity
             proceedToNextScreen(username)
         }
 
         connectToServer()
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        ioScope.cancel()
     }
 
     /* ================= SERVER CONNECT ================= */
@@ -113,22 +131,28 @@ class LoginActivity : AppCompatActivity() {
     private fun connectToServer() {
         setServerStatus(false, "Verbinde…")
         serverConnecting = true
-        updateReconnectButton() // Button ausblenden während Verbindung
+        updateReconnectButton()
 
         ioScope.launch {
             try {
                 Socket().use { socket ->
-                    socket.connect(InetSocketAddress(settings.serverIp , settings.serverPort), settings.timeoutS * 1000)
+                    socket.connect(
+                        InetSocketAddress(settings.serverIp, settings.serverPort),
+                        settings.timeoutS * 1000
+                    )
                 }
-                runOnUiThread {
+
+                withContext(Dispatchers.Main) {
                     serverConnected = true
                     serverConnecting = false
                     setServerStatus(true, "Server verbunden")
                     updateReconnectButton()
-                    if (!userListLoaded) requestUserListWithRetry()
+                    if (userList.isEmpty()) requestUserListWithRetry()
                 }
+
             } catch (e: Exception) {
-                runOnUiThread {
+
+                withContext(Dispatchers.Main) {
                     serverConnected = false
                     serverConnecting = false
                     setServerStatus(false, "Server nicht erreichbar")
@@ -143,76 +167,107 @@ class LoginActivity : AppCompatActivity() {
 
     private fun requestUserListWithRetry() {
 
-        if (requestRunning) return   // <<< WICHTIG
+        if (requestRunning) return
         requestRunning = true
         UiLoadingHelper.show(this, "Lade Benutzerliste...")
 
         ioScope.launch {
+
             val success = requestUserList()
 
             withContext(Dispatchers.Main) {
+
                 UiLoadingHelper.hide()
-                requestRunning = false       // <<< Hier wieder freigeben
+                requestRunning = false
 
                 if (!success) {
-                    runOnUiThread {
-                        showRetryDialog(
-                            "Timeout beim Laden der Benutzer",
-                            onRetry = { requestUserListWithRetry() }
-                        )
-                    }
+                    showRetryDialog(
+                        "Timeout beim Laden der Benutzer",
+                        onRetry = { requestUserListWithRetry() }
+                    )
                 }
             }
         }
     }
 
-    private suspend fun requestUserList(): Boolean = withContext(Dispatchers.IO) {
+    private suspend fun requestUserList(): Boolean {
 
-        val response = TcpClient.sendCommand(
-            context = this@LoginActivity,
-            settings = settings,
-            command = "GetBediener",
-            request = "{GetBediener}",
-            endTag = "{/GetBediener}"
-        )
+        val response = withContext(Dispatchers.IO) {
 
-        if (response.isEmpty()) return@withContext false
-
-        runOnUiThread {
-            parseUserList(response)
-            userListLoaded = true
-            txtUsername.showDropDown()
+            TcpClient.sendCommand(
+                context = this@LoginActivity,
+                settings = settings,
+                command = "GetBediener",
+                request = "{GetBediener}",
+                endTag = "{/GetBediener}"
+            )
         }
 
-        true
+        if (response.isEmpty()) return false
+
+        withContext(Dispatchers.Main) {
+
+            parseUserList(response)
+            selectDefaultUserIfAvailable()
+
+            //if (!isFinishing && !isDestroyed) {
+            //    txtUsername.showDropDown()
+            //}
+        }
+
+        return true
     }
 
     private fun parseUserList(raw: String) {
+
         userList.clear()
         userPinMap.clear()
 
         raw.lines().forEach { line ->
+
             val parts = line.split("|")
+
             if (parts.size >= 3 && parts[0] != "Initial") {
+
                 val name = parts[2]
                 val pin = parts[1]
+
                 userList.add(name)
                 userPinMap[name] = pin
             }
         }
 
-        val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, userList)
+        val adapter =
+            ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, userList)
+
         txtUsername.setAdapter(adapter)
+    }
+
+    private fun selectDefaultUserIfAvailable() {
+
+        if (userList.contains(defaultUser)) {
+            txtUsername.setText(defaultUser, false)
+            txtUsername.clearFocus()
+            txtUsername.dismissDropDown()
+
+            txtPin.post {
+                txtPin.requestFocus()
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.showSoftInput(txtPin, InputMethodManager.SHOW_IMPLICIT)
+            }
+        }
     }
 
     /* ================= UI ================= */
 
     private fun setServerStatus(ok: Boolean, text: String) {
+
         txtServerStatus.text = text
         txtServerStatus.setTextColor(if (ok) Color.GREEN else Color.RED)
     }
 
     private fun updateReconnectButton() {
+
         btnReconnect.visibility =
             if (!serverConnected && !serverConnecting && !reconnectDialogVisible && !retryDialogVisible)
                 Button.VISIBLE
@@ -221,7 +276,9 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun showReconnectDialog() {
+
         if (reconnectDialogVisible) return
+
         reconnectDialogVisible = true
         updateReconnectButton()
 
@@ -229,11 +286,13 @@ class LoginActivity : AppCompatActivity() {
             .setTitle("Server nicht erreichbar")
             .setMessage("Erneut verbinden?")
             .setPositiveButton("Ja") { _, _ ->
+
                 reconnectDialogVisible = false
                 updateReconnectButton()
                 connectToServer()
             }
             .setNegativeButton("Nein") { _, _ ->
+
                 reconnectDialogVisible = false
                 updateReconnectButton()
             }
@@ -242,7 +301,9 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun showRetryDialog(message: String, onRetry: () -> Unit) {
+
         if (retryDialogVisible) return
+
         retryDialogVisible = true
         updateReconnectButton()
 
@@ -250,11 +311,13 @@ class LoginActivity : AppCompatActivity() {
             .setTitle("Fehler")
             .setMessage(message)
             .setPositiveButton("Erneut versuchen") { _, _ ->
+
                 retryDialogVisible = false
                 updateReconnectButton()
                 onRetry()
             }
             .setNegativeButton("Abbrechen") { _, _ ->
+
                 retryDialogVisible = false
                 updateReconnectButton()
             }
@@ -263,6 +326,7 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun showErrorDialog(message: String) {
+
         AlertDialog.Builder(this)
             .setTitle("Fehler")
             .setMessage(message)
@@ -271,27 +335,30 @@ class LoginActivity : AppCompatActivity() {
             .show()
     }
 
-    /* ================= PLACEHOLDER ================= */
-
     private fun proceedToNextScreen(username: String) {
+
         val intent = Intent(this, MainActivity::class.java)
         intent.putExtra("USERNAME", username)
+
         startActivity(intent)
+        overridePendingTransition(0,0)
         finish()
     }
 
-    /* ================= MENU ================= */
     override fun onCreateOptionsMenu(menu: android.view.Menu?): Boolean {
         menuInflater.inflate(R.menu.login_menu, menu)
         return true
     }
 
     override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
+
         return when (item.itemId) {
+
             R.id.menu_settings -> {
                 startActivity(Intent(this, SettingsActivity::class.java))
                 true
             }
+
             else -> super.onOptionsItemSelected(item)
         }
     }

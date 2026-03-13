@@ -169,7 +169,7 @@ class DropListActivity : BaseArtikelScanActivity() {
                     ignoreChanges = true
                     val dropNummer = filtered[0].nummer
                     etDropFilter.setText(dropNummer)
-                    etDropFilter.setSelection(dropNummer.length)
+                    etDropFilter.setSelection(0)
                     ignoreChanges = false
                     dropListView.visibility = View.GONE
                     loadDropDetails(dropNummer)
@@ -456,7 +456,7 @@ class DropListActivity : BaseArtikelScanActivity() {
             }
         }
         etDropFilter.requestFocus()
-        etDropFilter.setSelection(etDropFilter.text.length)
+        etDropFilter.setSelection(0)
     }
 
     // --------------------------------------------------
@@ -504,6 +504,13 @@ class DropListActivity : BaseArtikelScanActivity() {
                 // Lagerorte laden nur beim ersten Mal
                 if(!artikellisteFetched){
                     fetchArtikelListeAndUpdateDetails()
+                    if (DataRepository.artikelListe.isNotEmpty()) {
+                        withContext(Dispatchers.Main) {
+                            fillDropDetailsWithLagerorte()
+                        }
+                    } else {
+                        fetchArtikelListeAndUpdateDetails()
+                    }
                 }
 
             } catch(e:Exception){
@@ -516,9 +523,23 @@ class DropListActivity : BaseArtikelScanActivity() {
         }
     }
 
+    fun fillDropDetailsWithLagerorte() {
+        dropDetailsListe.forEach { detail ->
+            val artikel = DataRepository.artikelListe.find { it.artNr == detail.artNr }
+            if (artikel != null) {
+                detail.lagerOrtW1 = artikel.lagerorteW1.joinToString(",")
+                detail.lagerOrtW2 = artikel.lagerorteW2.joinToString(",")
+            } else {
+                detail.lagerOrtW1 = ""
+                detail.lagerOrtW2 = ""
+            }
+        }
+        dropDetailsAdapter.updateList(dropDetailsListe)
+    }
+
     // --------------------------------------------------
-// Lagerorte nachladen – Pos bleibt unverändert
-// --------------------------------------------------
+    // Lagerorte nachladen – Pos bleibt unverändert
+    // --------------------------------------------------
     private var fetchLagerJob: Job? = null
 
     private fun fetchArtikelListeAndUpdateDetails() {
@@ -651,10 +672,12 @@ class DropListActivity : BaseArtikelScanActivity() {
             holder.tvItem.setTextColor(Color.WHITE)
             holder.itemView.setBackgroundColor(if (position % 2 == 0) Color.DKGRAY else Color.GRAY)
             holder.itemView.setOnClickListener {
-                etDropFilter.setText(item.projektNr)
-                etDropFilter.setSelection(item.projektNr.length)
-                dropListView.visibility = View.GONE
-                loadDropDetails(item.nummer)
+                CoroutineScope(Dispatchers.Main).launch {
+                    etDropFilter.setText(item.projektNr)
+                    etDropFilter.setSelection(item.projektNr.length)
+                    dropListView.visibility = View.GONE
+                    loadDropDetails(item.nummer)
+                }
             }
         }
 

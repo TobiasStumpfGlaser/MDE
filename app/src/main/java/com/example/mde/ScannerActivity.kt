@@ -59,6 +59,7 @@ class ScannerActivity : AppCompatActivity() {
         handler = Handler(Looper.getMainLooper())
         timeoutRunnable = Runnable {
             startActivity(Intent(this, LoginActivity::class.java))
+            overridePendingTransition(0,0)
             finish()
         }
 

@@ -169,7 +169,7 @@ class PickListActivity : BaseArtikelScanActivity() {
                     ignoreChanges = true
                     val pickNummer = filtered[0].nummer
                     etPickFilter.setText(pickNummer)
-                    etPickFilter.setSelection(pickNummer.length)
+                    etPickFilter.setSelection(0)
                     ignoreChanges = false
                     pickListView.visibility = View.GONE
                     loadPickDetails(pickNummer)
@@ -457,7 +457,7 @@ class PickListActivity : BaseArtikelScanActivity() {
             }
         }
         etPickFilter.requestFocus()
-        etPickFilter.setSelection(etPickFilter.text.length)
+        etPickFilter.setSelection(0)
     }
 
     // --------------------------------------------------
@@ -501,10 +501,15 @@ class PickListActivity : BaseArtikelScanActivity() {
                     etPickDetailFilter.requestFocus()
                     etPickDetailFilter.setSelection(etPickDetailFilter.text.length)
                 }
-
                 // Lagerorte laden nur beim ersten Mal
                 if(!artikellisteFetched){
-                    fetchArtikelListeAndUpdateDetails()
+                    if (DataRepository.artikelListe.isNotEmpty()) {
+                        withContext(Dispatchers.Main) {
+                            fillPickDetailsWithLagerorte()
+                        }
+                    } else {
+                        fetchArtikelListeAndUpdateDetails()
+                    }
                 }
 
             } catch(e:Exception){
@@ -517,9 +522,23 @@ class PickListActivity : BaseArtikelScanActivity() {
         }
     }
 
+    fun fillPickDetailsWithLagerorte() {
+        pickDetailsListe.forEach { detail ->
+            val artikel = DataRepository.artikelListe.find { it.artNr == detail.artNr }
+            if (artikel != null) {
+                detail.lagerOrtW1 = artikel.lagerorteW1.joinToString(",")
+                detail.lagerOrtW2 = artikel.lagerorteW2.joinToString(",")
+            } else {
+                detail.lagerOrtW1 = ""
+                detail.lagerOrtW2 = ""
+            }
+        }
+        pickDetailsAdapter.updateList(pickDetailsListe)
+    }
+
     // --------------------------------------------------
-// Lagerorte nachladen – Pos bleibt unverändert
-// --------------------------------------------------
+    // Lagerorte nachladen – Pos bleibt unverändert
+    // --------------------------------------------------
     private var fetchLagerJob: Job? = null
 
     private fun fetchArtikelListeAndUpdateDetails() {
@@ -652,10 +671,12 @@ class PickListActivity : BaseArtikelScanActivity() {
             holder.tvItem.setTextColor(Color.WHITE)
             holder.itemView.setBackgroundColor(if (position % 2 == 0) Color.DKGRAY else Color.GRAY)
             holder.itemView.setOnClickListener {
-                etPickFilter.setText(item.projektNr)
-                etPickFilter.setSelection(item.projektNr.length)
-                pickListView.visibility = View.GONE
-                loadPickDetails(item.nummer)
+                CoroutineScope(Dispatchers.Main).launch {
+                    etPickFilter.setText(item.projektNr)
+                    etPickFilter.setSelection(etPickFilter.text.length)
+                    pickListView.visibility = View.GONE
+                    loadPickDetails(item.nummer)
+                }
             }
         }
 

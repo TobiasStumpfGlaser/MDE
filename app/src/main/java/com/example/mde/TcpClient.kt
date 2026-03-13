@@ -11,22 +11,26 @@ object TcpClient {
     private var socket: Socket? = null
     private var writer: BufferedWriter? = null
 
-    // Prüft, ob Verbindung offen und nutzbar ist
     private fun isConnected(): Boolean {
-        return socket != null &&
-                socket!!.isConnected &&
-                !socket!!.isClosed &&
-                !socket!!.isInputShutdown &&
-                !socket!!.isOutputShutdown
+
+        val s = socket ?: return false
+
+        return s.isConnected &&
+                !s.isClosed &&
+                !s.isInputShutdown &&
+                !s.isOutputShutdown
     }
 
-    // Verbindung aufbauen, falls noch nicht offen
     private fun ensureConnection(settings: AppSettings) {
+
         if (isConnected()) return
 
-        socket?.close()
+        try {
+            socket?.close()
+        } catch (_: Exception) {}
 
         socket = Socket()
+
         socket!!.connect(
             InetSocketAddress(settings.serverIp, settings.serverPort),
             settings.timeoutS * 1000
@@ -39,7 +43,7 @@ object TcpClient {
         )
     }
 
-    // Universelle Funktion zum Senden von Befehlen
+    @Synchronized
     fun sendCommand(
         context: Context,
         settings: AppSettings,
@@ -52,6 +56,7 @@ object TcpClient {
         val readTimeout = settings.timeoutS * 1000 / 2
 
         try {
+
             ensureConnection(settings)
 
             TcpLogHelper.logRequest(context, command, request)
@@ -89,6 +94,7 @@ object TcpClient {
                 firstByteReceived = true
 
                 val chunk = String(buffer, 0, read, Charsets.ISO_8859_1)
+
                 response.append(chunk)
 
                 if (response.contains(endTag)) break
@@ -110,8 +116,8 @@ object TcpClient {
         }
     }
 
-    // Verbindung schließen (z.B. beim Logout)
     fun closeConnection() {
+
         try {
             socket?.close()
         } catch (_: Exception) {}
