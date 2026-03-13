@@ -76,20 +76,57 @@ class ArtikelAdapter(context: Context, artikelListe: List<Artikel>) :
     }
 }
 
+object DataRepository {
+
+    var artikelListe: List<Artikel> = emptyList()
+    var projektListe: List<String> = emptyList()
+
+    fun isLoaded(): Boolean {
+        return artikelListe.isNotEmpty() && projektListe.isNotEmpty()
+    }
+
+    var lastLoadTime: Long = 0
+
+    fun shouldReload(): Boolean {
+        val time = 60 * 60 * 1000
+        return artikelListe.isEmpty() ||
+                projektListe.isEmpty() ||
+                System.currentTimeMillis() - lastLoadTime > time
+    }
+
+    fun clear() {
+        artikelListe = emptyList()
+        projektListe = emptyList()
+    }
+}
+
 abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     abstract fun getLayoutId(): Int
 
     protected lateinit var etFilterKeyListener: android.text.method.KeyListener
-    protected open var skiploading: Boolean = false
     protected lateinit var btnScan: Button
     protected lateinit var etFilter: AutoCompleteTextView
+    protected lateinit var etProjekt: AutoCompleteTextView
+    protected lateinit var txtStatus: TextView
+    protected lateinit var edtMenge: EditText
     protected lateinit var tvArtikelInfo: TextView
     protected lateinit var btnClear: Button
     protected lateinit var btnReloadArtikel: Button
 
-    protected var artikelListe: List<Artikel> = emptyList()
-    protected var projektListe: List<String> = emptyList()
+    protected var artikelListe: List<Artikel>
+        get() = DataRepository.artikelListe
+        set(value) {
+            DataRepository.artikelListe = value
+            DataRepository.lastLoadTime = System.currentTimeMillis()
+        }
+
+    protected var projektListe: List<String>
+        get() = DataRepository.projektListe
+        set(value) {
+            DataRepository.projektListe = value
+            DataRepository.lastLoadTime = System.currentTimeMillis()
+        }
 
     protected lateinit var adapter: ArtikelAdapter
 
@@ -121,12 +158,15 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         setupViews()
         setupDropdown()
 
-        if (!skiploading) {
+        if (DataRepository.shouldReload()) {
             loadArtikelUndProjekteSequential()
+        }
+        else {
+            setupProjektAdapter()
         }
 
         etFilter.requestFocus()
-        etFilter.setSelection(etFilter.text.length)
+        etFilter.setSelection(0)
     }
 
     private fun setupToolbar() {
@@ -152,6 +192,10 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         btnClear = findViewById(R.id.btnClear) ?: Button(this).apply { visibility = View.GONE }
         btnReloadArtikel = findViewById(R.id.btnReloadArtikel) ?: Button(this).apply { visibility = View.GONE }
         btnScan = findViewById(R.id.btnScan) ?: Button(this).apply { visibility = View.GONE }
+        etProjekt = findViewById(R.id.txtProjekt) ?: AutoCompleteTextView(this).apply { visibility = View.GONE }
+        edtMenge = findViewById(R.id.edtMenge) ?: AutoCompleteTextView(this).apply { visibility = View.GONE }
+        txtStatus = findViewById(R.id.txtStatus) ?: TextView(this).apply { visibility = View.GONE }
+
 
         etFilterKeyListener = etFilter.keyListener
 
@@ -180,7 +224,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         buchungStatusView?.text = ""
 
         etFilter.requestFocus()
-        etFilter.setSelection(etFilter.text.length)
+        etFilter.setSelection(0)
     }
 
     protected fun loadArtikelUndProjekteSequential() {
@@ -225,54 +269,16 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
                 withContext(Dispatchers.Main) {
                     projektListe = projekte
+                    setupProjektAdapter()
                     UiLoadingHelper.hide()
                     requestRunning = false
                     onProjekteGeladen()
-
-                    // Projektadapter setzen
-                    buchungProjektView?.setAdapter(object : ArrayAdapter<String>(
-                        this@BaseArtikelScanActivity,
-                        android.R.layout.simple_dropdown_item_1line,
-                        projektListe.toMutableList()
-                    ) {
-                        private val allItems = projektListe.toMutableList()
-
-                        override fun getFilter(): Filter {
-                            return object : Filter() {
-
-                                override fun performFiltering(constraint: CharSequence?): FilterResults {
-                                    val results = FilterResults()
-                                    if (constraint.isNullOrBlank()) {
-                                        results.values = allItems
-                                        results.count = allItems.size
-                                    } else {
-                                        val query = constraint.toString().lowercase()
-                                        val filtered = allItems.filter { it.lowercase().contains(query) }
-                                        results.values = filtered
-                                        results.count = filtered.size
-                                    }
-                                    return results
-                                }
-
-                                override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
-                                    clear()
-                                    if (results?.values is List<*>) {
-                                        @Suppress("UNCHECKED_CAST")
-                                        addAll(results.values as List<String>)
-                                    }
-                                    notifyDataSetChanged()
-                                }
-                            }
-                        }
-                    })
-
-                    buchungProjektView?.threshold = 1
 
                     // Projekt → Menge Fokus
                     buchungProjektView?.setOnItemClickListener { _, _, position, _ ->
                         val projekt = buchungProjektView?.adapter?.getItem(position)?.toString() ?: return@setOnItemClickListener
                         buchungProjektView?.setText(projekt)
-                        buchungProjektView?.setSelection(projekt.length)
+                        buchungProjektView?.setSelection(0)
 
                         buchungMengeView?.let { mengeView ->
                             mengeView.post {
@@ -295,7 +301,63 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
-    protected open fun onProjekteGeladen() {}
+    protected open fun onProjekteGeladen() {
+        if (projektListe.isNotEmpty() && artikelListe.isNotEmpty()) {
+            txtStatus.text = "✅ Daten aktualisiert"
+        } else {
+            txtStatus.text = "⚠ Fehler Kommunikation"
+            showReloadDialog("⚠ Fehler Kommunikation")
+            playErrorSound(this)
+        }
+    }
+
+    private fun setupProjektAdapter() {
+        val projektView = etProjekt
+        projektView.setAdapter(
+            object : ArrayAdapter<String>(
+                this,
+                android.R.layout.simple_dropdown_item_1line,
+                projektListe.toMutableList()
+            ) {
+                private val allItems = projektListe.toMutableList()
+
+                override fun getFilter(): Filter {
+                    return object : Filter() {
+                        override fun performFiltering(constraint: CharSequence?): FilterResults {
+                            val results = FilterResults()
+                            results.values = if (constraint.isNullOrBlank()) allItems else allItems.filter {
+                                it.lowercase().contains(constraint.toString().lowercase())
+                            }
+                            results.count = (results.values as List<*>).size
+                            return results
+                        }
+
+                        override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                            clear()
+                            if (results?.values is List<*>) addAll(results.values as List<String>)
+                            notifyDataSetChanged()
+                        }
+                    }
+                }
+            }
+        )
+        projektView.threshold = 1
+
+        // Fokus auf Menge, wenn Projekt ausgewählt
+        projektView.setOnItemClickListener { _, _, position, _ ->
+            val projekt = projektView.adapter.getItem(position).toString()
+            projektView.setText(projekt)
+            projektView.setSelection(0)
+
+            buchungMengeView?.let { mengeView ->
+                mengeView.post {
+                    mengeView.requestFocus()
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.showSoftInput(mengeView, InputMethodManager.SHOW_IMPLICIT)
+                }
+            }
+        }
+    }
 
     override fun onActivityResult(requestCode: Int, resultCode: Int, data: Intent?) {
         super.onActivityResult(requestCode, resultCode, data)
@@ -304,7 +366,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             if (!barcode.isNullOrEmpty()) {
                 val matchedArtikel = artikelListe.find { it.artNr == barcode }
                 etFilter.setText(barcode)
-                etFilter.setSelection(barcode.length)
+                etFilter.setSelection(0)
 
                 if (matchedArtikel == null) {
                     tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
@@ -375,7 +437,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             val text = "${artikel.artNr} | ${artikel.bez}"
             textWatcherEnabled = false
             etFilter.setText(text)
-            etFilter.setSelection(text.length)
+            etFilter.setSelection(0)
             textWatcherEnabled = true
 
             // Fokus auf Projekt setzen
@@ -415,7 +477,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         val text = "${artikel.artNr} | ${artikel.bez}"
                         textWatcherEnabled = false
                         etFilter.setText(text)
-                        etFilter.setSelection(text.length)
+                        etFilter.setSelection(0)
                         textWatcherEnabled = true
 
                         etFilter.post {
@@ -519,6 +581,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     UiLoadingHelper.hide()
                     if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
                         statusView?.text = "✅ Buchung erfolgreich"
+                        delay(1000)  // 1 Sekunde warten
+                        btnClearClicked()
                     } else {
                         showError("$response")
                         statusView?.text = "❌ Buchung fehlgeschlagen"

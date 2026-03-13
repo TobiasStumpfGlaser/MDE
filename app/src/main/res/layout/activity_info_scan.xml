@@ -36,6 +36,19 @@
             android:orientation="vertical"
             android:padding="24dp">
 
+            <!-- Status -->
+            <TextView
+                android:id="@+id/txtStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textAlignment="center"
+                android:textSize="10sp"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+
             <!-- Suche -->
             <AutoCompleteTextView
                 android:id="@+id/etBarcode"
@@ -44,19 +57,7 @@
                 android:inputType="textVisiblePassword"
                 android:background="@android:drawable/edit_text"
                 android:hint="Artikelnummer oder Suchbegriff"
-                android:textAlignment="center"/>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="24dp"/>
-
-            <!-- Artikel Info -->
-            <TextView
-                android:id="@+id/tvArtikelInfo"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="@color/white"
-                android:textSize="20sp"/>
+                android:textAlignment="viewStart"/>
 
             <View
                 android:layout_width="match_parent"
@@ -72,16 +73,15 @@
 
             <View
                 android:layout_width="match_parent"
-                android:layout_height="16dp"/>
+                android:layout_height="24dp"/>
 
-            <!-- Status -->
+            <!-- Artikel Info -->
             <TextView
-                android:id="@+id/txtStatus"
+                android:id="@+id/tvArtikelInfo"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textColor="@color/white"
-                android:textAlignment="center"
-                android:textSize="18sp"/>
+                android:textSize="20sp"/>
 
             <View
                 android:layout_width="match_parent"

@@ -6,9 +6,6 @@ import android.widget.EditText
 import android.widget.TextView
 
 class InfoScanActivity : BaseArtikelScanActivity() {
-
-    private lateinit var txtStatus: TextView
-
     // Keine Buchungs-Views, weil Layout sie nicht enthält
     override val buchungProjektView: AutoCompleteTextView? = null
     override val buchungMengeView: EditText? = null
@@ -28,23 +25,7 @@ class InfoScanActivity : BaseArtikelScanActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
 
-        txtStatus = findViewById(R.id.txtStatus)
         settings = AppSettings(this)
         username = intent.getStringExtra("USERNAME") ?: "?"
-    }
-
-    override fun btnClearClicked() {
-        super.btnClearClicked()
-        txtStatus.text = ""
-    }
-
-    override fun onProjekteGeladen() {
-        if (artikelListe.isNotEmpty()) {
-            txtStatus.text = "✅ Daten aktualisiert"
-        } else {
-            txtStatus.text = "⚠ Fehler Kommunikation"
-            showReloadDialog("⚠ Fehler Kommunikation")
-            playErrorSound(this@InfoScanActivity)
-        }
     }
 }

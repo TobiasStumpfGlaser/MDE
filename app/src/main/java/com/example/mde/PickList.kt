@@ -38,7 +38,6 @@ class PickListActivity : BaseArtikelScanActivity() {
     override val buchungProjektView = null
     override val buchungMengeView = null
     override val buchungStatusView = null
-    override var skiploading: Boolean = true
 
     private lateinit var settings: AppSettings
     private lateinit var username: String

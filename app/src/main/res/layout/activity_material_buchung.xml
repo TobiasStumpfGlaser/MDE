@@ -37,6 +37,19 @@
             android:orientation="vertical"
             android:padding="24dp">
 
+            <!-- Status -->
+            <TextView
+                android:id="@+id/txtStatus"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textColor="@color/white"
+                android:textAlignment="center"
+                android:textSize="10sp"/>
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp"/>
+
             <!-- Artikel (BaseActivity ID: etBarcode) -->
             <AutoCompleteTextView
                 android:id="@+id/etBarcode"
@@ -45,7 +58,7 @@
                 android:inputType="textVisiblePassword"
                 android:background="@android:drawable/edit_text"
                 android:hint="Artikel suchen"
-                android:textAlignment="center"
+                android:textAlignment="viewStart"
                 android:completionThreshold="1"/>
 
             <View
@@ -60,43 +73,40 @@
                 android:background="@android:drawable/edit_text"
                 android:hint="Projekt suchen"
                 android:inputType="textVisiblePassword"
-                android:textAlignment="center"
+                android:textAlignment="viewStart"
                 android:completionThreshold="1"/>
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="16dp"/>
-
+        <LinearLayout
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:orientation="horizontal"
+            android:weightSum="2"
+            android:layout_marginTop="16dp"
+            android:layout_marginBottom="16dp">
             <!-- Menge -->
             <EditText
                 android:id="@+id/edtMenge"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
+                android:layout_weight="1"
                 android:background="@android:drawable/edit_text"
                 android:hint="Menge"
                 android:inputType="number"
-                android:textAlignment="center"/>
+                android:textAlignment="viewStart"/>
 
             <View
-                android:layout_width="match_parent"
-                android:layout_height="24dp"/>
+                android:layout_width="16dp"
+                android:layout_height="match_parent"/>
 
-            <!-- Artikel Info (BaseActivity ID: tvArtikelInfo) -->
-            <TextView
-                android:id="@+id/tvArtikelInfo"
+            <!-- Clear -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnClear"
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:textColor="@color/white"
-                android:textSize="16sp"
-                android:padding="8dp"/>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="16dp"/>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="16dp"/>
+                android:layout_weight="1"
+                android:layout_height="70dp"
+                android:background="@android:drawable/edit_text"
+                android:text="Zurücksetzen"/>
+        </LinearLayout>
 
             <!-- Einlagern / Auslagern Buttons -->
             <LinearLayout
@@ -104,7 +114,6 @@
                 android:layout_height="wrap_content"
                 android:orientation="horizontal"
                 android:weightSum="2"
-                android:layout_marginTop="16dp"
                 android:layout_marginBottom="16dp">
 
                 <!-- Einlagern -->
@@ -114,7 +123,7 @@
                     android:layout_height="70dp"
                     android:layout_weight="1"
                     android:backgroundTint="@android:color/holo_green_light"
-                    android:text="Einlagern"
+                    android:text="Zubuchung"
                     android:textColor="@android:color/white"
                     android:textStyle="bold"/>
 
@@ -129,35 +138,18 @@
                     android:layout_height="70dp"
                     android:layout_weight="1"
                     android:backgroundTint="@android:color/holo_red_light"
-                    android:text="Auslagern"
+                    android:text="Entnahme"
                     android:textColor="@android:color/white"
                     android:textStyle="bold"/>
             </LinearLayout>
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="16dp"/>
-
-            <!-- Clear -->
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnClear"
-                android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
-                android:text="Zurücksetzen"/>
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="16dp"/>
-
-            <!-- Status -->
+            <!-- Artikel Info (BaseActivity ID: tvArtikelInfo) -->
             <TextView
-                android:id="@+id/txtStatus"
+                android:id="@+id/tvArtikelInfo"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:textColor="@color/white"
-                android:textAlignment="center"
-                android:textSize="18sp"/>
+                android:textSize="20sp"/>
 
             <View
                 android:layout_width="match_parent"
