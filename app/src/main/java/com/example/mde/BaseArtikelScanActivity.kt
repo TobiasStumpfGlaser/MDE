@@ -543,14 +543,21 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             else if (einlagern) "Zubuchen"
             else "Entnehmen"
 
-        AlertDialog.Builder(this)
-            .setTitle("Buchung bestätigen")
-            .setMessage("Artikel: $artikel\nProjekt: $projekt\nMenge: $menge")
-            .setPositiveButton(buttonText) { _, _ ->
-                sendBuchung(artikel, projektServer, serverMenge)
-            }
-            .setNegativeButton("Abbrechen", null)
-            .show()
+        if (AppSettings(this@BaseArtikelScanActivity).confirmBook)
+        {
+            AlertDialog.Builder(this)
+                .setTitle("Buchung bestätigen")
+                .setMessage("Artikel: $artikel\nProjekt: $projekt\nMenge: $menge")
+                .setPositiveButton(buttonText) { _, _ ->
+                    sendBuchung(artikel, projektServer, serverMenge)
+                }
+                .setNegativeButton("Abbrechen", null)
+                .show()
+        }
+        else
+        {
+            sendBuchung(artikel, projektServer, serverMenge)
+        }
     }
 
     private fun sendBuchung(artikel: String, projekt: String, menge: String) {

@@ -147,12 +147,18 @@
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp" />
 
-
             <CheckBox
                 android:id="@+id/cbClearAfterSuccess"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Zurücksetzen nach Buchung OK"
+                android:textColor="@color/white"/>
+
+            <CheckBox
+                android:id="@+id/cbConfirmBook"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Bestätigungsdialog anzeigen"
                 android:textColor="@color/white"/>
 
             <!-- Speichern -->

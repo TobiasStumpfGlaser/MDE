@@ -34,4 +34,8 @@ class AppSettings(context: Context) {
     var clearAfterSuccess: Boolean
         get() = prefs.getBoolean("clearAfterSuccess", false)
         set(value) = prefs.edit().putBoolean("clearAfterSuccess", value).apply()
+
+    var confirmBook: Boolean
+        get() = prefs.getBoolean("confirmBook", false)
+        set(value) = prefs.edit().putBoolean("confirmBook", value).apply()
 }

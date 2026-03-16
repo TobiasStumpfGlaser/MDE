@@ -55,6 +55,7 @@ class DropListActivity : BaseArtikelScanActivity() {
     private lateinit var dropDetailsView: RecyclerView
     private lateinit var dropDetailsAdapter: DropDetailsAdapter
 
+    private var currentProjektNr: String = ""
     private var dropListe: List<DropItem> = emptyList()
     private var dropDetailsListe: List<DropDetail> = emptyList()
     private var dropDetailsOriginal: List<DropDetail> = emptyList()
@@ -166,7 +167,9 @@ class DropListActivity : BaseArtikelScanActivity() {
                 dropAdapter.updateList(filtered)
                 if (filtered.size == 1) {
                     ignoreChanges = true
-                    val dropNummer = filtered[0].nummer
+                    val drop = filtered[0]
+                    val dropNummer = drop.nummer
+                    currentProjektNr = drop.projektNr
                     etDropFilter.setText(dropNummer)
                     etDropFilter.setSelection(0)
                     ignoreChanges = false
@@ -237,7 +240,7 @@ class DropListActivity : BaseArtikelScanActivity() {
         val dialog = AlertDialog.Builder(this).setView(dialogView).create()
         btnYes.setOnClickListener {
             val artikel = item.artNr
-            val projekt = etDropFilter.text.toString().trim()
+            val projekt = currentProjektNr
             val menge = item.menge
             if (artikel.isBlank() || projekt.isBlank() || menge.isBlank()) {
                 showMessageDialog("❌ Fehler: Alle Felder müssen ausgefüllt sein!")
@@ -268,7 +271,7 @@ class DropListActivity : BaseArtikelScanActivity() {
                     val request = buildString {
                         append("{SetBuchung}")
                         append("$artikel||$buchungsMenge|$dropNummer|${item.pos}|$projekt|${settings.werkNummer}|$username|$now|")
-                        if (serialsString.isNotEmpty()) append("|$serialsString")
+                        if (serialsString.isNotEmpty()) append("$serialsString")
                         append("{/SetBuchung}")
                     }
 
@@ -682,6 +685,7 @@ class DropListActivity : BaseArtikelScanActivity() {
             holder.itemView.setBackgroundColor(if (position % 2 == 0) Color.DKGRAY else Color.GRAY)
             holder.itemView.setOnClickListener {
                 CoroutineScope(Dispatchers.Main).launch {
+                    currentProjektNr = item.projektNr
                     etDropFilter.setText(item.projektNr)
                     etDropFilter.setSelection(item.projektNr.length)
                     dropListView.visibility = View.GONE

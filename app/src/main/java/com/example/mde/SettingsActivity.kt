@@ -31,6 +31,7 @@ class SettingsActivity : AppCompatActivity() {
         val etWerk = findViewById<EditText>(R.id.etWerkNummer)
         val etDefUser = findViewById<EditText>(R.id.etDefaultUser)
         val cbClear = findViewById<CheckBox>(R.id.cbClearAfterSuccess)
+        val cbConfirmM = findViewById<CheckBox>(R.id.cbConfirmBook)
         val btnSave = findViewById<Button>(R.id.btnSave)
 
         // Laden
@@ -41,6 +42,7 @@ class SettingsActivity : AppCompatActivity() {
         etWerk.setText(settings.werkNummer)
         etDefUser.setText(settings.defaultUser)
         cbClear.isChecked = settings.clearAfterSuccess
+        cbConfirmM.isChecked = settings.confirmBook
 
         // Speichern
         btnSave.setOnClickListener {
@@ -51,6 +53,7 @@ class SettingsActivity : AppCompatActivity() {
             settings.werkNummer = etWerk.text.toString()
             settings.defaultUser = etDefUser.text.toString()
             settings.clearAfterSuccess = cbClear.isChecked
+            settings.confirmBook = cbConfirmM.isChecked
 
             finish()
         }

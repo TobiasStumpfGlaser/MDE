@@ -45,6 +45,7 @@
                 android:layout_height="70dp"
                 android:background="@android:drawable/edit_text"
                 android:text="Info Scan"
+                android:visibility="gone"
                 android:textSize="20sp" />
 
             <View

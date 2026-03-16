@@ -58,6 +58,7 @@ class PickListActivity : BaseArtikelScanActivity() {
     private var pickListe: List<PickItem> = emptyList()
     private var pickDetailsListe: List<PickDetail> = emptyList()
     private var pickDetailsOriginal: List<PickDetail> = emptyList()
+    private var currentProjektNr: String = ""
 
     private val artikelLagerMapW1 = mutableMapOf<String, String>() // artNr -> Lagerorte W1
     private val artikelLagerMapW2 = mutableMapOf<String, String>() // artNr -> Lagerorte W2
@@ -166,7 +167,9 @@ class PickListActivity : BaseArtikelScanActivity() {
                 pickAdapter.updateList(filtered)
                 if (filtered.size == 1) {
                     ignoreChanges = true
-                    val pickNummer = filtered[0].nummer
+                    val pick = filtered[0]
+                    val pickNummer = pick.nummer
+                    currentProjektNr = pick.projektNr
                     etPickFilter.setText(pickNummer)
                     etPickFilter.setSelection(0)
                     ignoreChanges = false
@@ -237,7 +240,7 @@ class PickListActivity : BaseArtikelScanActivity() {
         val dialog = AlertDialog.Builder(this).setView(dialogView).create()
         btnYes.setOnClickListener {
             val artikel = item.artNr
-            val projekt = etPickFilter.text.toString().trim()
+            val projekt = currentProjektNr
             val menge = item.menge
             if (artikel.isBlank() || projekt.isBlank() || menge.isBlank()) {
                 showMessageDialog("❌ Fehler: Alle Felder müssen ausgefüllt sein!")
@@ -268,7 +271,7 @@ class PickListActivity : BaseArtikelScanActivity() {
                     val request = buildString {
                         append("{SetBuchung}")
                         append("$artikel||$buchungsMenge|$pickNummer|${item.pos}|$projekt|${settings.werkNummer}|$username|$now|")
-                        if (serialsString.isNotEmpty()) append("|$serialsString")
+                        if (serialsString.isNotEmpty()) append("$serialsString")
                         append("{/SetBuchung}")
                     }
 
@@ -681,6 +684,7 @@ class PickListActivity : BaseArtikelScanActivity() {
             holder.itemView.setBackgroundColor(if (position % 2 == 0) Color.DKGRAY else Color.GRAY)
             holder.itemView.setOnClickListener {
                 CoroutineScope(Dispatchers.Main).launch {
+                    currentProjektNr = item.projektNr
                     etPickFilter.setText(item.projektNr)
                     etPickFilter.setSelection(etPickFilter.text.length)
                     pickListView.visibility = View.GONE
