@@ -16,10 +16,6 @@ class InventurActivity : BaseArtikelScanActivity() {
     override val buchungProjektView: AutoCompleteTextView?
         get() = etProjekt
 
-    override fun getSettings() = settings
-    override fun getUsername() = username
-    override fun getWerkNummer() = settings.werkNummer
-
     override fun getLayoutId() = R.layout.activity_inventur
 
     override fun onCreate(savedInstanceState: Bundle?) {

@@ -8,6 +8,7 @@ import androidx.appcompat.widget.Toolbar
 class SettingsActivity : AppCompatActivity() {
 
     private lateinit var settings: AppSettings
+    private lateinit var cbClear: CheckBox
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -29,6 +30,7 @@ class SettingsActivity : AppCompatActivity() {
         val etLogout = findViewById<EditText>(R.id.etLogoutTime)
         val etWerk = findViewById<EditText>(R.id.etWerkNummer)
         val etDefUser = findViewById<EditText>(R.id.etDefaultUser)
+        val cbClear = findViewById<CheckBox>(R.id.cbClearAfterSuccess)
         val btnSave = findViewById<Button>(R.id.btnSave)
 
         // Laden
@@ -38,6 +40,7 @@ class SettingsActivity : AppCompatActivity() {
         etLogout.setText(settings.logoutTimeSec.toString())
         etWerk.setText(settings.werkNummer)
         etDefUser.setText(settings.defaultUser)
+        cbClear.isChecked = settings.clearAfterSuccess
 
         // Speichern
         btnSave.setOnClickListener {
@@ -47,6 +50,7 @@ class SettingsActivity : AppCompatActivity() {
             settings.logoutTimeSec = etLogout.text.toString().toInt()
             settings.werkNummer = etWerk.text.toString()
             settings.defaultUser = etDefUser.text.toString()
+            settings.clearAfterSuccess = cbClear.isChecked
 
             finish()
         }

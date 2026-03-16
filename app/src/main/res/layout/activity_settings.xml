@@ -131,9 +131,11 @@
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp" />
 
-            <View
+            <TextView
                 android:layout_width="match_parent"
-                android:layout_height="24dp" />
+                android:layout_height="wrap_content"
+                android:text="Standard Benutzer"
+                android:textColor="@color/white" />
 
             <EditText
                 android:id="@+id/etDefaultUser"
@@ -145,9 +147,13 @@
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp" />
 
-            <View
+
+            <CheckBox
+                android:id="@+id/cbClearAfterSuccess"
                 android:layout_width="match_parent"
-                android:layout_height="24dp" />
+                android:layout_height="wrap_content"
+                android:text="Zurücksetzen nach Buchung OK"
+                android:textColor="@color/white"/>
 
             <!-- Speichern -->
             <androidx.appcompat.widget.AppCompatButton

@@ -14,10 +14,6 @@ class InfoScanActivity : BaseArtikelScanActivity() {
     private lateinit var settings: AppSettings
     private lateinit var username: String
 
-    override fun getSettings() = settings
-    override fun getUsername() = username
-    override fun getWerkNummer() = settings.werkNummer
-
     override fun getLayoutId(): Int {
         return R.layout.activity_info_scan
     }

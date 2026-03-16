@@ -266,10 +266,9 @@ class PickListActivity : BaseArtikelScanActivity() {
                         if (item.serials.isNotEmpty()) item.serials.joinToString(";") else ""
                     val buchungsMenge = (item.menge.toIntOrNull() ?: 0) * -1
                     val request = buildString {
-                        appendLine("{SetBuchung}")
-                        append("$artikel||$buchungsMenge|$pickNummer|$projekt|${settings.werkNummer}|$username|$now|")
+                        append("{SetBuchung}")
+                        append("$artikel||$buchungsMenge|$pickNummer|${item.pos}|$projekt|${settings.werkNummer}|$username|$now|")
                         if (serialsString.isNotEmpty()) append("|$serialsString")
-                        appendLine()
                         append("{/SetBuchung}")
                     }
 

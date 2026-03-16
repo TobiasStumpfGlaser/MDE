@@ -30,4 +30,8 @@ class AppSettings(context: Context) {
     var defaultUser: String
         get() = prefs.getString("default_user", "")!!
         set(value) = prefs.edit().putString("default_user", value).apply()
+
+    var clearAfterSuccess: Boolean
+        get() = prefs.getBoolean("clearAfterSuccess", false)
+        set(value) = prefs.edit().putBoolean("clearAfterSuccess", value).apply()
 }

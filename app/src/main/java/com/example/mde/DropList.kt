@@ -266,10 +266,9 @@ class DropListActivity : BaseArtikelScanActivity() {
                         if (item.serials.isNotEmpty()) item.serials.joinToString(";") else ""
                     val buchungsMenge = (item.menge.toIntOrNull() ?: 0)
                     val request = buildString {
-                        appendLine("{SetBuchung}")
-                        append("$artikel||$buchungsMenge|$dropNummer|$projekt|${settings.werkNummer}|$username|$now|")
+                        append("{SetBuchung}")
+                        append("$artikel||$buchungsMenge|$dropNummer|${item.pos}|$projekt|${settings.werkNummer}|$username|$now|")
                         if (serialsString.isNotEmpty()) append("|$serialsString")
-                        appendLine()
                         append("{/SetBuchung}")
                     }
 

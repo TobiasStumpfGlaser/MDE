@@ -560,9 +560,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             try {
                 val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
                 val request = """
-                {SetBuchung}
-                $artikel||$menge||$projekt|${AppSettings(this@BaseArtikelScanActivity).werkNummer}|$username|$now|
-                {/SetBuchung}
+                {SetBuchung}$artikel||$menge|||$projekt|${AppSettings(this@BaseArtikelScanActivity).werkNummer}|$username|$now|{/SetBuchung}
             """.trimIndent()
 
                 withContext(Dispatchers.Main) {
