@@ -45,6 +45,9 @@
         <activity
             android:name=".DropListActivity"
             android:label=".activity_drop_list"/>
+        <activity
+            android:name=".InventurActivity"
+            android:label=".activity_inventur"/>
     </application>
 
 </manifest>

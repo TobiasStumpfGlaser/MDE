@@ -519,29 +519,42 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     /** --- Öffentliches Buchen --- */
-    fun doBuchen(einlagern: Boolean) {
+    fun doBuchen(einlagern: Boolean, count: Boolean = false) {
         val artikel = etFilter.text.toString().trim()
         val projekt = buchungProjektView?.text?.toString()?.trim()
         val mengeStr = buchungMengeView?.text?.toString()?.trim()
 
-        if (projekt.isNullOrBlank() || mengeStr.isNullOrBlank()) {
+        if (artikel.isNullOrBlank() || (projekt.isNullOrBlank() && !count) || mengeStr.isNullOrBlank()) {
             showError("Bitte alle Felder ausfüllen")
             return
         }
 
         val menge = mengeStr.replace(",", ".").toDoubleOrNull()
-        if (menge == null || menge == 0.0) {
+        if (menge == null || (!count && menge == 0.0)) {
             showError("Ungültige Menge")
             return
         }
 
-        val serverMenge = if (einlagern) mengeStr else "-${mengeStr.replace(".", ",")}"
+        val serverMenge =
+            if (count) {
+                "=${mengeStr.replace(".", ",")}"
+            } else if (einlagern) {
+                "${mengeStr.replace(".", ",")}"
+            } else {
+                "-${mengeStr.replace(".", ",")}"
+            }
+
+        val projektServer = projekt ?: ""
+        val buttonText =
+            if (count) "Zählstand setzen"
+            else if (einlagern) "Zubuchen"
+            else "Entnehmen"
 
         AlertDialog.Builder(this)
             .setTitle("Buchung bestätigen")
             .setMessage("Artikel: $artikel\nProjekt: $projekt\nMenge: $menge")
-            .setPositiveButton(if (einlagern) "Einlagern" else "Auslagern") { _, _ ->
-                sendBuchung(artikel, projekt, serverMenge)
+            .setPositiveButton(buttonText) { _, _ ->
+                sendBuchung(artikel, projektServer, serverMenge)
             }
             .setNegativeButton("Abbrechen", null)
             .show()
@@ -549,7 +562,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     private fun sendBuchung(artikel: String, projekt: String, menge: String) {
         val statusView = buchungStatusView
-        if (projekt.isBlank()) return
 
         CoroutineScope(Dispatchers.IO).launch {
             try {
@@ -582,7 +594,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     UiLoadingHelper.hide()
                     if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
                         statusView?.text = "✅ Buchung erfolgreich"
-                        delay(1000)  // 1 Sekunde warten
+                        delay(3000)  // 1 Sekunde warten
                         btnClearClicked()
                     } else {
                         showError("$response")

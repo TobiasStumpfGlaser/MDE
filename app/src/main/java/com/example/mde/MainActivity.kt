@@ -17,10 +17,6 @@ class MainActivity : AppCompatActivity() {
     private lateinit var timeoutRunnable: Runnable
     private lateinit var settings: AppSettings
 
-    private lateinit var btnPicklist: androidx.appcompat.widget.AppCompatButton
-
-    private lateinit var btnDroplist: androidx.appcompat.widget.AppCompatButton
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
@@ -51,6 +47,7 @@ class MainActivity : AppCompatActivity() {
         val btnMaterialBook = findViewById<Button>(R.id.btnMaterialBook)
         val btnPicklist = findViewById<androidx.appcompat.widget.AppCompatButton>(R.id.btnPicklist)
         val btnDroplist = findViewById<androidx.appcompat.widget.AppCompatButton>(R.id.btnDroplist)
+        val btnInventur = findViewById<androidx.appcompat.widget.AppCompatButton>(R.id.btnInventur)
 
         btnInfoScan.setOnClickListener {
             val intent = Intent(this@MainActivity, InfoScanActivity::class.java)
@@ -71,6 +68,12 @@ class MainActivity : AppCompatActivity() {
 
         btnDroplist.setOnClickListener {
             val intent = Intent(this@MainActivity, DropListActivity::class.java)
+            intent.putExtra("USERNAME", username)
+            startActivity(intent)
+        }
+
+        btnInventur.setOnClickListener {
+            val intent = Intent(this@MainActivity, InventurActivity::class.java)
             intent.putExtra("USERNAME", username)
             startActivity(intent)
         }

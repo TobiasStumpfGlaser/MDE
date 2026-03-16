@@ -49,7 +49,7 @@
 
             <View
                 android:layout_width="match_parent"
-                android:layout_height="20dp" />
+                android:layout_height="10dp" />
 
             <!-- Material Buchung -->
             <androidx.appcompat.widget.AppCompatButton
@@ -62,7 +62,7 @@
 
             <View
                 android:layout_width="match_parent"
-                android:layout_height="20dp" />
+                android:layout_height="10dp" />
 
             <!-- Picklist -->
             <androidx.appcompat.widget.AppCompatButton
@@ -75,7 +75,7 @@
 
             <View
                 android:layout_width="match_parent"
-                android:layout_height="20dp" />
+                android:layout_height="10dp" />
 
             <!-- Picklist -->
             <androidx.appcompat.widget.AppCompatButton
@@ -84,6 +84,19 @@
                 android:layout_height="70dp"
                 android:background="@android:drawable/edit_text"
                 android:text="Droplist"
+                android:textSize="20sp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="10dp" />
+
+            <!-- Picklist -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnInventur"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:background="@android:drawable/edit_text"
+                android:text="Ist-Zähluing"
                 android:textSize="20sp" />
 
         </LinearLayout>
