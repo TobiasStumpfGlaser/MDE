@@ -526,8 +526,13 @@ class PickListActivity : BaseArtikelScanActivity() {
         pickDetailsListe.forEach { detail ->
             val artikel = DataRepository.artikelListe.find { it.artNr == detail.artNr }
             if (artikel != null) {
-                detail.lagerOrtW1 = artikel.lagerorteW1.joinToString(",")
-                detail.lagerOrtW2 = artikel.lagerorteW2.joinToString(",")
+                detail.lagerOrtW1 = artikel.lagerorteW1
+                    .filter { it.isNotBlank() }
+                    .joinToString(", ")
+
+                detail.lagerOrtW2 = artikel.lagerorteW2
+                    .filter { it.isNotBlank() }
+                    .joinToString(", ")
             } else {
                 detail.lagerOrtW1 = ""
                 detail.lagerOrtW2 = ""

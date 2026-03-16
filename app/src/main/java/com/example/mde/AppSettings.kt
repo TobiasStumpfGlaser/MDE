@@ -26,4 +26,8 @@ class AppSettings(context: Context) {
     var werkNummer: String
     get() = prefs.getString("werk_nummer", "")!!
     set(value) = prefs.edit().putString("werk_nummer", value).apply()
+
+    var defaultUser: String
+        get() = prefs.getString("default_user", "")!!
+        set(value) = prefs.edit().putString("default_user", value).apply()
 }

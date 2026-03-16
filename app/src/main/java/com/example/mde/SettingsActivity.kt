@@ -28,6 +28,7 @@ class SettingsActivity : AppCompatActivity() {
         val etTimeout = findViewById<EditText>(R.id.etTimeout)
         val etLogout = findViewById<EditText>(R.id.etLogoutTime)
         val etWerk = findViewById<EditText>(R.id.etWerkNummer)
+        val etDefUser = findViewById<EditText>(R.id.etDefaultUser)
         val btnSave = findViewById<Button>(R.id.btnSave)
 
         // Laden
@@ -36,6 +37,7 @@ class SettingsActivity : AppCompatActivity() {
         etTimeout.setText(settings.timeoutS.toString())
         etLogout.setText(settings.logoutTimeSec.toString())
         etWerk.setText(settings.werkNummer)
+        etDefUser.setText(settings.defaultUser)
 
         // Speichern
         btnSave.setOnClickListener {
@@ -44,6 +46,7 @@ class SettingsActivity : AppCompatActivity() {
             settings.timeoutS = etTimeout.text.toString().toInt()
             settings.logoutTimeSec = etLogout.text.toString().toInt()
             settings.werkNummer = etWerk.text.toString()
+            settings.defaultUser = etDefUser.text.toString()
 
             finish()
         }

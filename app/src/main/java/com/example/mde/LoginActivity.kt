@@ -26,7 +26,6 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var txtUsername: AutoCompleteTextView
     private lateinit var txtPin: EditText
     private lateinit var btnLogin: Button
-    private val defaultUser = "Produktion"
     private var serverConnected = false
     private var serverConnecting = false
     private var reconnectDialogVisible = false
@@ -209,10 +208,6 @@ class LoginActivity : AppCompatActivity() {
 
             parseUserList(response)
             selectDefaultUserIfAvailable()
-
-            //if (!isFinishing && !isDestroyed) {
-            //    txtUsername.showDropDown()
-            //}
         }
 
         return true
@@ -245,8 +240,8 @@ class LoginActivity : AppCompatActivity() {
 
     private fun selectDefaultUserIfAvailable() {
 
-        if (userList.contains(defaultUser)) {
-            txtUsername.setText(defaultUser, false)
+        if (userList.contains(settings.defaultUser)) {
+            txtUsername.setText(settings.defaultUser, false)
             txtUsername.clearFocus()
             txtUsername.dismissDropDown()
 

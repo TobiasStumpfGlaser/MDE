@@ -135,6 +135,20 @@
                 android:layout_width="match_parent"
                 android:layout_height="24dp" />
 
+            <EditText
+                android:id="@+id/etDefaultUser"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:hint="Standard Benutzer"
+                android:inputType="text"
+                android:background="@android:drawable/edit_text"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="24dp" />
+
             <!-- Speichern -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnSave"

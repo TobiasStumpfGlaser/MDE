@@ -400,8 +400,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         val infoLines = listOf(
             "Artikelnummer: ${artikel.artNr}",
             "Bezeichnung: ${artikel.bez}",
-            "Lagerorte W1: ${artikel.lagerorteW1.joinToString(", ")}",
-            "Lagerorte W2: ${artikel.lagerorteW2.joinToString(", ")}",
+            "Lagerorte W1: ${artikel.lagerorteW1.filter { it.isNotBlank() }.joinToString(", ")}",
+            "Lagerorte W2: ${artikel.lagerorteW2.filter { it.isNotBlank() }.joinToString(", ")}",
             "Maßeinheit: ${artikel.masseinheit}",
             "Bestand: ${artikel.bestand}",
             "Mindestbestand: ${artikel.mindestbestand}",
