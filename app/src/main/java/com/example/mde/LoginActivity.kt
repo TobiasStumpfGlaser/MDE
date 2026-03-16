@@ -32,6 +32,7 @@ class LoginActivity : AppCompatActivity() {
     private var retryDialogVisible = false
     private val userList get() = UserCache.userList
     private val userPinMap get() = UserCache.userPinMap
+    private val nameToInitials = mutableMapOf<String, String>()
 
     private val ioScope = CoroutineScope(Dispatchers.IO + Job())
 
@@ -214,27 +215,24 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun parseUserList(raw: String) {
-
         userList.clear()
         userPinMap.clear()
+        nameToInitials.clear()
 
         raw.lines().forEach { line ->
-
             val parts = line.split("|")
-
             if (parts.size >= 3 && parts[0] != "Initial") {
-
-                val name = parts[2]
+                val initials = parts[0].trim()  // MM
+                val fullName = parts[2].trim()  // Max Mustermann
                 val pin = parts[1]
 
-                userList.add(name)
-                userPinMap[name] = pin
+                userList.add(fullName)
+                userPinMap[fullName] = pin
+                nameToInitials[fullName] = initials
             }
         }
 
-        val adapter =
-            ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, userList)
-
+        val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, userList)
         txtUsername.setAdapter(adapter)
     }
 
@@ -332,8 +330,11 @@ class LoginActivity : AppCompatActivity() {
 
     private fun proceedToNextScreen(username: String) {
 
+        // username = voller Name, z.B. "Max Mustermann"
+        val initials = nameToInitials[username] ?: username  // fallback: voller Name
+
         val intent = Intent(this, MainActivity::class.java)
-        intent.putExtra("USERNAME", username)
+        intent.putExtra("USERNAME", initials)  // nur Initialen weitergeben
 
         startActivity(intent)
         overridePendingTransition(0,0)

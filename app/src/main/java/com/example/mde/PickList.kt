@@ -28,9 +28,11 @@ data class PickDetail(
     var menge: String,
     val pos: String,
     val info: String,
+    val pickNummer: String,
     var serials: List<String> = emptyList(),
     var lagerOrtW1: String = "",
-    var lagerOrtW2: String = ""
+    var lagerOrtW2: String = "",
+    var grossInfo: String = ""
 )
 
 class PickListActivity : BaseArtikelScanActivity() {
@@ -62,9 +64,6 @@ class PickListActivity : BaseArtikelScanActivity() {
     private var artikellisteFetched = false
 
     override fun getLayoutId(): Int = R.layout.activity_pick_list
-    override fun getSettings() = settings
-    override fun getUsername() = username
-    override fun getWerkNummer() = settings.werkNummer
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -260,6 +259,7 @@ class PickListActivity : BaseArtikelScanActivity() {
 
             CoroutineScope(Dispatchers.IO).launch {
                 try {
+                    val pickNummer = item.pickNummer
                     val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY)
                         .format(Date())
                     val serialsString =
@@ -267,7 +267,7 @@ class PickListActivity : BaseArtikelScanActivity() {
                     val buchungsMenge = (item.menge.toIntOrNull() ?: 0) * -1
                     val request = buildString {
                         appendLine("{SetBuchung}")
-                        append("$artikel||$buchungsMenge|FORMULAR|$projekt|${getWerkNummer()}|${getUsername()}|$now|")
+                        append("$artikel||$buchungsMenge|$pickNummer|$projekt|${settings.werkNummer}|$username|$now|")
                         if (serialsString.isNotEmpty()) append("|$serialsString")
                         appendLine()
                         append("{/SetBuchung}")
@@ -276,7 +276,7 @@ class PickListActivity : BaseArtikelScanActivity() {
                     TcpLogHelper.logRequest(this@PickListActivity, "SetBuchung", request)
                     val response = TcpClient.sendCommand(
                         context = this@PickListActivity,
-                        settings = getSettings(),
+                        settings = settings,
                         command = "SetBuchung",
                         request = request,
                         endTag = "{/SetBuchung}"
@@ -487,7 +487,8 @@ class PickListActivity : BaseArtikelScanActivity() {
                         artNr = parts[0],
                         menge = parts[1],
                         pos = parts[2],
-                        info = if(parts.size>=4) parts[3] else ""
+                        info = if(parts.size>=4) parts[3] else "",
+                        pickNummer = pickNummer
                     ) else null
                 }
 
@@ -533,9 +534,11 @@ class PickListActivity : BaseArtikelScanActivity() {
                 detail.lagerOrtW2 = artikel.lagerorteW2
                     .filter { it.isNotBlank() }
                     .joinToString(", ")
+                detail.grossInfo = artikel.grossInfo
             } else {
                 detail.lagerOrtW1 = ""
                 detail.lagerOrtW2 = ""
+                detail.grossInfo = ""
             }
         }
         pickDetailsAdapter.updateList(pickDetailsListe)
@@ -632,6 +635,8 @@ class PickListActivity : BaseArtikelScanActivity() {
             builder.appendBoldAfterColon("Pos: ${item.pos}")
             builder.append("\n")
             builder.appendBoldAfterColon("Info: ${item.info}")
+            builder.append("\n")
+            builder.appendBoldAfterColon("Groß-Info: ${item.grossInfo}")
             builder.append("\n")
             builder.appendBoldAfterColon("Lagerorte W1: ${item.lagerOrtW1}")
             builder.append("\n")

@@ -101,9 +101,7 @@ object DataRepository {
 }
 
 abstract class BaseArtikelScanActivity : AppCompatActivity() {
-
     abstract fun getLayoutId(): Int
-
     protected lateinit var etFilterKeyListener: android.text.method.KeyListener
     protected lateinit var btnScan: Button
     protected lateinit var etFilter: AutoCompleteTextView
@@ -113,44 +111,35 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected lateinit var tvArtikelInfo: TextView
     protected lateinit var btnClear: Button
     protected lateinit var btnReloadArtikel: Button
-
     protected var artikelListe: List<Artikel>
         get() = DataRepository.artikelListe
         set(value) {
             DataRepository.artikelListe = value
             DataRepository.lastLoadTime = System.currentTimeMillis()
         }
-
     protected var projektListe: List<String>
         get() = DataRepository.projektListe
         set(value) {
             DataRepository.projektListe = value
             DataRepository.lastLoadTime = System.currentTimeMillis()
         }
-
     protected lateinit var adapter: ArtikelAdapter
-
     private lateinit var handler: Handler
+    private lateinit var username: String
     private lateinit var timeoutRunnable: Runnable
     private var logoutTimeoutMillis = 0L
-
     private var requestRunning = false
     private val ioScope = CoroutineScope(Dispatchers.IO)
-
     protected var textWatcherEnabled = true
-
-    /** --- Abstrakte Buchungs-Views, Child müssen definieren --- */
     protected abstract val buchungProjektView: AutoCompleteTextView?
     protected abstract val buchungMengeView: EditText?
     protected abstract val buchungStatusView: TextView?
 
-    /** --- Child müssen implementieren --- */
-    protected abstract fun getSettings(): AppSettings
-    protected abstract fun getUsername(): String
-    protected abstract fun getWerkNummer(): String
-
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+
+        username = intent.getStringExtra("USERNAME") ?: "?"
+
         setContentView(getLayoutId())
 
         setupToolbar()
@@ -520,8 +509,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     /** --- Öffentliches Buchen --- */
     fun doBuchen(einlagern: Boolean, count: Boolean = false) {
-        val artikel = etFilter.text.toString().trim()
-        val projekt = buchungProjektView?.text?.toString()?.trim()
+        val artikelText = etFilter.text.toString().trim()
+        val artikel = artikelText.split("|")[0].trim()
+        val projektText = buchungProjektView?.text?.toString()?.trim()
+        val projekt = projektText?.let { text ->
+            text.split("–")[0].trim()
+        } ?: ""  // fallback falls null
         val mengeStr = buchungMengeView?.text?.toString()?.trim()
 
         if (artikel.isNullOrBlank() || (projekt.isNullOrBlank() && !count) || mengeStr.isNullOrBlank()) {
@@ -568,7 +561,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
                 val request = """
                 {SetBuchung}
-                $artikel||$menge|FORMULAR|$projekt|${getWerkNummer()}|${getUsername()}|$now|
+                $artikel||$menge||$projekt|${AppSettings(this@BaseArtikelScanActivity).werkNummer}|$username|$now|
                 {/SetBuchung}
             """.trimIndent()
 
@@ -580,7 +573,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
                 val response = TcpClient.sendCommand(
                     context = this@BaseArtikelScanActivity,
-                    settings = getSettings(),
+                    settings = AppSettings(this@BaseArtikelScanActivity),
                     command = "SetBuchung",
                     request = request,
                     endTag = "{/SetBuchung}"
@@ -594,8 +587,11 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     UiLoadingHelper.hide()
                     if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
                         statusView?.text = "✅ Buchung erfolgreich"
-                        delay(3000)  // 1 Sekunde warten
-                        btnClearClicked()
+                        if (AppSettings(this@BaseArtikelScanActivity).clearAfterSuccess)
+                        {
+                            delay(2000)
+                            btnClearClicked()
+                        }
                     } else {
                         showError("$response")
                         statusView?.text = "❌ Buchung fehlgeschlagen"

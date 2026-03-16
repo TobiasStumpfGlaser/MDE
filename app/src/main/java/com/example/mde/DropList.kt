@@ -28,9 +28,11 @@ data class DropDetail(
     var menge: String,
     val pos: String,
     val info: String,
+    val dropNummer: String,
     var serials: List<String> = emptyList(),
     var lagerOrtW1: String = "",
-    var lagerOrtW2: String = ""
+    var lagerOrtW2: String = "",
+    var grossInfo: String = ""
 )
 
 class DropListActivity : BaseArtikelScanActivity() {
@@ -62,9 +64,6 @@ class DropListActivity : BaseArtikelScanActivity() {
     private var artikellisteFetched = false
 
     override fun getLayoutId(): Int = R.layout.activity_drop_list
-    override fun getSettings() = settings
-    override fun getUsername() = username
-    override fun getWerkNummer() = settings.werkNummer
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
@@ -260,6 +259,7 @@ class DropListActivity : BaseArtikelScanActivity() {
 
             CoroutineScope(Dispatchers.IO).launch {
                 try {
+                    val dropNummer = item.dropNummer
                     val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY)
                         .format(Date())
                     val serialsString =
@@ -267,7 +267,7 @@ class DropListActivity : BaseArtikelScanActivity() {
                     val buchungsMenge = (item.menge.toIntOrNull() ?: 0)
                     val request = buildString {
                         appendLine("{SetBuchung}")
-                        append("$artikel||$buchungsMenge|FORMULAR|$projekt|${getWerkNummer()}|${getUsername()}|$now|")
+                        append("$artikel||$buchungsMenge|$dropNummer|$projekt|${settings.werkNummer}|$username|$now|")
                         if (serialsString.isNotEmpty()) append("|$serialsString")
                         appendLine()
                         append("{/SetBuchung}")
@@ -276,7 +276,7 @@ class DropListActivity : BaseArtikelScanActivity() {
                     TcpLogHelper.logRequest(this@DropListActivity, "SetBuchung", request)
                     val response = TcpClient.sendCommand(
                         context = this@DropListActivity,
-                        settings = getSettings(),
+                        settings = settings,
                         command = "SetBuchung",
                         request = request,
                         endTag = "{/SetBuchung}"
@@ -486,7 +486,8 @@ class DropListActivity : BaseArtikelScanActivity() {
                         artNr = parts[0],
                         menge = parts[1],
                         pos = parts[2],
-                        info = if(parts.size>=4) parts[3] else ""
+                        info = if(parts.size>=4) parts[3] else "",
+                        dropNummer = dropNummer
                     ) else null
                 }
 
@@ -527,11 +528,18 @@ class DropListActivity : BaseArtikelScanActivity() {
         dropDetailsListe.forEach { detail ->
             val artikel = DataRepository.artikelListe.find { it.artNr == detail.artNr }
             if (artikel != null) {
-                detail.lagerOrtW1 = artikel.lagerorteW1.joinToString(",")
-                detail.lagerOrtW2 = artikel.lagerorteW2.joinToString(",")
+                detail.lagerOrtW1 = artikel.lagerorteW1
+                    .filter { it.isNotBlank() }
+                    .joinToString(", ")
+
+                detail.lagerOrtW2 = artikel.lagerorteW2
+                    .filter { it.isNotBlank() }
+                    .joinToString(", ")
+                detail.grossInfo = artikel.grossInfo
             } else {
                 detail.lagerOrtW1 = ""
                 detail.lagerOrtW2 = ""
+                detail.grossInfo = ""
             }
         }
         dropDetailsAdapter.updateList(dropDetailsListe)
@@ -628,6 +636,8 @@ class DropListActivity : BaseArtikelScanActivity() {
             builder.appendBoldAfterColon("Pos: ${item.pos}")
             builder.append("\n")
             builder.appendBoldAfterColon("Info: ${item.info}")
+            builder.append("\n")
+            builder.appendBoldAfterColon("Groß-Info: ${item.grossInfo}")
             builder.append("\n")
             builder.appendBoldAfterColon("Lagerorte W1: ${item.lagerOrtW1}")
             builder.append("\n")
