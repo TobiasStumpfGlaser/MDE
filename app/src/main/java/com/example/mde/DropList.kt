@@ -563,13 +563,17 @@ class DropListActivity : BaseArtikelScanActivity() {
 
                 val details = lines.mapNotNull { line ->
                     val parts = line.split("|").map { it.trim() }
-                    if(parts.size>=3) DropDetail(
-                        artNr = parts[0],
-                        menge = parts[1],
-                        pos = parts[2],
-                        info = if(parts.size>=4) parts[3] else "",
-                        dropNummer = dropNummer
-                    ) else null
+                    if (parts.size >= 3) {
+                        val artNr = parts[0]
+                        if (artNr == "000.9999") return@mapNotNull null
+                        DropDetail(
+                            artNr = artNr,
+                            menge = parts[1],
+                            pos = parts[2],
+                            info = if (parts.size >= 4) parts[3] else "",
+                            dropNummer = dropNummer
+                        )
+                    } else null
                 }
 
                 withContext(Dispatchers.Main){

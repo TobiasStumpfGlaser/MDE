@@ -7,13 +7,13 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
     private lateinit var settings: AppSettings
     private lateinit var username: String
 
-    override val buchungMengeView: EditText?
+    override val buchungMengeView: EditText
         get() = edtMenge
 
-    override val buchungStatusView: TextView?
+    override val buchungStatusView: TextView
         get() = txtStatus
 
-    override val buchungProjektView: AutoCompleteTextView?
+    override val buchungProjektView: AutoCompleteTextView
         get() = etProjekt
 
     override fun getLayoutId() = R.layout.activity_material_buchung

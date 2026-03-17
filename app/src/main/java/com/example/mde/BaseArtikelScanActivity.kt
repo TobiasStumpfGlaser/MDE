@@ -24,6 +24,8 @@ import android.text.SpannableStringBuilder
 import java.util.*
 import android.media.MediaPlayer
 import android.content.Context
+import android.text.Editable
+import android.text.TextWatcher
 import android.view.ViewGroup
 
 class ArtikelAdapter(context: Context, artikelListe: List<Artikel>) :
@@ -108,9 +110,10 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected lateinit var etProjekt: AutoCompleteTextView
     protected lateinit var txtStatus: TextView
     protected lateinit var edtMenge: EditText
+    protected lateinit var edtSerials: EditText
     protected lateinit var tvArtikelInfo: TextView
     protected lateinit var btnClear: Button
-    protected lateinit var btnReloadArtikel: Button
+    protected lateinit var btnReloadArtikel: ImageButton
     protected var artikelListe: List<Artikel>
         get() = DataRepository.artikelListe
         set(value) {
@@ -180,13 +183,36 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         etFilter = findViewById(R.id.etBarcode) ?: AutoCompleteTextView(this).apply { visibility = View.GONE }
         tvArtikelInfo = findViewById(R.id.tvArtikelInfo) ?: TextView(this).apply { visibility = View.GONE }
         btnClear = findViewById(R.id.btnClear) ?: Button(this).apply { visibility = View.GONE }
-        btnReloadArtikel = findViewById(R.id.btnReloadArtikel) ?: Button(this).apply { visibility = View.GONE }
+        btnReloadArtikel = findViewById(R.id.btnReloadArtikel) ?: ImageButton(this).apply { visibility = View.GONE }
         btnScan = findViewById(R.id.btnScan) ?: Button(this).apply { visibility = View.GONE }
         etProjekt = findViewById(R.id.txtProjekt) ?: AutoCompleteTextView(this).apply { visibility = View.GONE }
-        edtMenge = findViewById(R.id.edtMenge) ?: AutoCompleteTextView(this).apply { visibility = View.GONE }
+        edtMenge = findViewById(R.id.edtMenge) ?: EditText(this).apply { visibility = View.GONE }
+        edtSerials = findViewById(R.id.edtSerials) ?: EditText(this).apply { visibility = View.GONE }
         txtStatus = findViewById(R.id.txtStatus) ?: TextView(this).apply { visibility = View.GONE }
 
+        edtSerials.apply {
+            // Nur anklickbar, nicht editierbar
+            isFocusable = false
+            isClickable = true
+            isCursorVisible = false
+            keyListener = null
+            setTextIsSelectable(false)
 
+            // Klick öffnet den Serialdialog
+            setOnClickListener {
+                val mengeInt = edtMenge.text.toString().trim().toIntOrNull() ?: 0
+                if (mengeInt <= 0) {
+                    showError("Bitte zuerst eine gültige Menge eingeben")
+                    return@setOnClickListener
+                }
+
+                showSerialDialog(mengeInt) { serials ->
+                    // Seriennummern in EditText eintragen, Semikolon-getrennt
+                    setText(serials.joinToString(";"))
+                    setSelection(text.length) // Cursor ans Ende setzen
+                }
+            }
+        }
         etFilterKeyListener = etFilter.keyListener
 
         btnClear.setOnClickListener { btnClearClicked() }
@@ -200,8 +226,139 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
+    private fun showSerialDialog(maxMenge: Int, onSerialsConfirmed: (List<String>) -> Unit) {
+        val builder = AlertDialog.Builder(this)
+        builder.setTitle("Seriennummern hinzufügen")
+        val layout = layoutInflater.inflate(R.layout.dialog_serials, null)
+        val etSerial = layout.findViewById<AutoCompleteTextView>(R.id.etSerial)
+        val tvSerialList = layout.findViewById<TextView>(R.id.tvSerialList)
+        val btnAdd = layout.findViewById<View>(R.id.btnAddSerial)
+        etSerial.setSingleLine(true)
+        etSerial.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
+        val serials = mutableListOf<String>()
+        tvSerialList.text = "0 / $maxMenge"
+        btnAdd.visibility = View.GONE
+        builder.setView(layout)
+        builder.setPositiveButton("OK") { _, _ -> onSerialsConfirmed(serials) }
+        builder.setNegativeButton("Abbrechen", null)
+        val dialog = builder.create()
+        dialog.show()
+
+        etSerial.requestFocus()
+        etSerial.post {
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(etSerial, InputMethodManager.SHOW_IMPLICIT)
+        }
+
+        dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+
+        etSerial.addTextChangedListener(object : TextWatcher {
+
+            override fun afterTextChanged(s: Editable?) {
+
+                val text = s.toString()
+
+                // Scanner sendet meistens \n oder \r\n
+                if (text.contains("\n") || text.contains("\r")) {
+
+                    val cleaned = text.replace("\n", "").replace("\r", "").trim()
+
+                    if (cleaned.isNotEmpty()) {
+
+                        if (serials.contains(cleaned)) {
+                            showMessageDialog("Seriennummer bereits vorhanden")
+                            playErrorSound(this@BaseArtikelScanActivity)
+                        }
+                        else if (serials.size >= maxMenge) {
+                            showMessageDialog("Maximale Menge erreicht")
+                            playErrorSound(this@BaseArtikelScanActivity)
+                        }
+                        else {
+                            serials.add(cleaned)
+
+                            tvSerialList.text =
+                                "${serials.size} / $maxMenge\n${serials.joinToString("\n")}"
+
+                            dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled =
+                                serials.size == maxMenge
+                        }
+                    }
+
+                    etSerial.text.clear()
+                }
+
+                btnAdd.visibility = if (s.isNullOrBlank()) View.GONE else View.VISIBLE
+            }
+
+            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
+            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
+        })
+
+        etSerial.setOnEditorActionListener { v, actionId, event ->
+
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE ||
+                event?.keyCode == android.view.KeyEvent.KEYCODE_ENTER) {
+
+                val input = etSerial.text.toString().trim()
+
+                if (input.isNotEmpty()) {
+
+                    if (serials.contains(input)) {
+                        showMessageDialog("Seriennummer bereits vorhanden")
+                        playErrorSound(this@BaseArtikelScanActivity)
+                    }
+                    else if (serials.size >= maxMenge) {
+                        showMessageDialog("Maximale Menge erreicht")
+                        playErrorSound(this@BaseArtikelScanActivity)
+                    }
+                    else {
+
+                        serials.add(input)
+
+                        tvSerialList.text =
+                            "${serials.size} / $maxMenge\n${serials.joinToString("\n")}"
+
+                        dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled =
+                            serials.size == maxMenge
+                    }
+                }
+
+                etSerial.text.clear()
+                true
+            }
+            else {
+                false
+            }
+        }
+
+        btnAdd.setOnClickListener {
+            val input = etSerial.text.toString().trim()
+            if (input.isNotEmpty() && !serials.contains(input)) {
+                if (serials.size < maxMenge) {
+                    serials.add(input)
+                    tvSerialList.text = "${serials.size} / $maxMenge\n${serials.joinToString("\n")}"
+                } else
+                {
+                    showMessageDialog("Maximale Menge erreicht")
+                    playErrorSound(this@BaseArtikelScanActivity)
+                }
+            } else if (serials.contains(input))
+            {
+                showMessageDialog("Seriennummer bereits vorhanden")
+                playErrorSound(this@BaseArtikelScanActivity)
+            }
+            etSerial.text.clear()
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = serials.size == maxMenge
+        }
+    }
+
+    private fun showMessageDialog(message: String) {
+        AlertDialog.Builder(this).setMessage(message).setPositiveButton("OK", null).show()
+    }
+
     open fun btnClearClicked() {
         tvArtikelInfo.text = ""
+        edtSerials.text.clear()
         etFilter.text.clear()
         etFilter.isFocusable = true
         etFilter.isFocusableInTouchMode = true
@@ -441,8 +598,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             }
         }
 
-        etFilter.addTextChangedListener(object : android.text.TextWatcher {
-            override fun afterTextChanged(s: android.text.Editable?) {
+        etFilter.addTextChangedListener(object : TextWatcher {
+            override fun afterTextChanged(s: Editable?) {
                 if (!textWatcherEnabled) return
                 if (etFilter.isPerformingCompletion) return
                 val input = s.toString().trim()
@@ -566,16 +723,18 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         CoroutineScope(Dispatchers.IO).launch {
             try {
                 val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
-                val request = """
-                {SetBuchung}$artikel||$menge|||$projekt|${AppSettings(this@BaseArtikelScanActivity).werkNummer}|$username|$now|{/SetBuchung}
-            """.trimIndent()
+                val serials = edtSerials.text.toString().trim()
+                val request = buildString {
+                    append("{SetBuchung}")
+                    append("$artikel||$menge|||$projekt|${AppSettings(this@BaseArtikelScanActivity).werkNummer}|$username|$now|")
+                    if (serials.isNotEmpty()) append(serials) // Serial hinzufügen, falls vorhanden
+                    append("{/SetBuchung}")
+                }
 
                 withContext(Dispatchers.Main) {
                     UiLoadingHelper.show(this@BaseArtikelScanActivity, "Buchung wird gesendet...")
                 }
-
                 TcpLogHelper.logRequest(this@BaseArtikelScanActivity, "SetBuchung", request)
-
                 val response = TcpClient.sendCommand(
                     context = this@BaseArtikelScanActivity,
                     settings = AppSettings(this@BaseArtikelScanActivity),
@@ -583,11 +742,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     request = request,
                     endTag = "{/SetBuchung}"
                 )
-
                 TcpLogHelper.logResponse(this@BaseArtikelScanActivity, "SetBuchung", response)
-
                 val cleaned = response.replace("\r", "").trim()
-
                 withContext(Dispatchers.Main) {
                     UiLoadingHelper.hide()
                     if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
@@ -696,7 +852,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     fun hideKeyboardAndClearFocus() {
         val view = currentFocus
         view?.clearFocus()
-        val imm = getSystemService(Context.INPUT_METHOD_SERVICE) as InputMethodManager
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
         view?.let { imm.hideSoftInputFromWindow(it.windowToken, 0) }
     }
 
