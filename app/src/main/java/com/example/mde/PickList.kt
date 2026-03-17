@@ -350,6 +350,8 @@ class PickListActivity : BaseArtikelScanActivity() {
         val etSerial = layout.findViewById<AutoCompleteTextView>(R.id.etSerial)
         val tvSerialList = layout.findViewById<TextView>(R.id.tvSerialList)
         val btnAdd = layout.findViewById<View>(R.id.btnAddSerial)
+        etSerial.setSingleLine(true)
+        etSerial.imeOptions = android.view.inputmethod.EditorInfo.IME_ACTION_DONE
         val serials = mutableListOf<String>()
         tvSerialList.text = "0 / $maxMenge"
         btnAdd.visibility = View.GONE
@@ -358,16 +360,93 @@ class PickListActivity : BaseArtikelScanActivity() {
         builder.setNegativeButton("Abbrechen", null)
         val dialog = builder.create()
         dialog.show()
+
+        etSerial.requestFocus()
+        etSerial.post {
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as android.view.inputmethod.InputMethodManager
+            imm.showSoftInput(etSerial, android.view.inputmethod.InputMethodManager.SHOW_IMPLICIT)
+        }
+
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
 
         etSerial.addTextChangedListener(object : TextWatcher {
+
             override fun afterTextChanged(s: Editable?) {
-                btnAdd.visibility = if (!s.isNullOrBlank()) View.VISIBLE else View.GONE
+
+                val text = s.toString()
+
+                // Scanner sendet meistens \n oder \r\n
+                if (text.contains("\n") || text.contains("\r")) {
+
+                    val cleaned = text.replace("\n", "").replace("\r", "").trim()
+
+                    if (cleaned.isNotEmpty()) {
+
+                        if (serials.contains(cleaned)) {
+                            showMessageDialog("Seriennummer bereits vorhanden")
+                            playErrorSound(this@PickListActivity)
+                        }
+                        else if (serials.size >= maxMenge) {
+                            showMessageDialog("Maximale Menge erreicht")
+                            playErrorSound(this@PickListActivity)
+                        }
+                        else {
+                            serials.add(cleaned)
+
+                            tvSerialList.text =
+                                "${serials.size} / $maxMenge\n${serials.joinToString("\n")}"
+
+                            dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled =
+                                serials.size == maxMenge
+                        }
+                    }
+
+                    etSerial.text.clear()
+                }
+
+                btnAdd.visibility = if (s.isNullOrBlank()) View.GONE else View.VISIBLE
             }
 
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
+
+        etSerial.setOnEditorActionListener { v, actionId, event ->
+
+            if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE ||
+                event?.keyCode == android.view.KeyEvent.KEYCODE_ENTER) {
+
+                val input = etSerial.text.toString().trim()
+
+                if (input.isNotEmpty()) {
+
+                    if (serials.contains(input)) {
+                        showMessageDialog("Seriennummer bereits vorhanden")
+                        playErrorSound(this@PickListActivity)
+                    }
+                    else if (serials.size >= maxMenge) {
+                        showMessageDialog("Maximale Menge erreicht")
+                        playErrorSound(this@PickListActivity)
+                    }
+                    else {
+
+                        serials.add(input)
+
+                        tvSerialList.text =
+                            "${serials.size} / $maxMenge\n${serials.joinToString("\n")}"
+
+                        dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled =
+                            serials.size == maxMenge
+                    }
+                }
+
+                etSerial.text.clear()
+                true
+            }
+            else {
+                false
+            }
+        }
 
         btnAdd.setOnClickListener {
             val input = etSerial.text.toString().trim()
