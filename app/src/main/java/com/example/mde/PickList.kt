@@ -246,7 +246,7 @@ class PickListActivity : BaseArtikelScanActivity() {
             val menge = item.menge
             if (artikel.isBlank() || projekt.isBlank() || menge.isBlank()) {
                 showMessageDialog("❌ Fehler: Alle Felder müssen ausgefüllt sein!")
-                playErrorSound(this@PickListActivity)
+                UiLoadingHelper.playErrorSound(this@PickListActivity)
                 return@setOnClickListener
             }
 
@@ -304,7 +304,7 @@ class PickListActivity : BaseArtikelScanActivity() {
                             btnYes.isEnabled = true
                         } else {
                             statusText.text = "❌ Buchung fehlgeschlagen:\n$response"
-                            playErrorSound(this@PickListActivity)
+                            UiLoadingHelper.playErrorSound(this@PickListActivity)
                             delay(2000)
                             statusDialog.dismiss()
                             btnYes.isEnabled = true
@@ -313,7 +313,7 @@ class PickListActivity : BaseArtikelScanActivity() {
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
                         statusText.text = "❌ Fehler bei der Buchung:\n${e.message}"
-                        playErrorSound(this@PickListActivity)
+                        UiLoadingHelper.playErrorSound(this@PickListActivity)
                         statusDialog.setButton(
                             AlertDialog.BUTTON_POSITIVE,
                             "OK"
@@ -395,11 +395,11 @@ class PickListActivity : BaseArtikelScanActivity() {
 
                         if (serials.contains(cleaned)) {
                             showMessageDialog("Seriennummer bereits vorhanden")
-                            playErrorSound(this@PickListActivity)
+                            UiLoadingHelper.playErrorSound(this@PickListActivity)
                         }
                         else if (serials.size >= maxMenge) {
                             showMessageDialog("Maximale Menge erreicht")
-                            playErrorSound(this@PickListActivity)
+                            UiLoadingHelper.playErrorSound(this@PickListActivity)
                         }
                         else {
                             serials.add(cleaned)
@@ -433,11 +433,11 @@ class PickListActivity : BaseArtikelScanActivity() {
 
                     if (serials.contains(input)) {
                         showMessageDialog("Seriennummer bereits vorhanden")
-                        playErrorSound(this@PickListActivity)
+                        UiLoadingHelper.playErrorSound(this@PickListActivity)
                     }
                     else if (serials.size >= maxMenge) {
                         showMessageDialog("Maximale Menge erreicht")
-                        playErrorSound(this@PickListActivity)
+                        UiLoadingHelper.playErrorSound(this@PickListActivity)
                     }
                     else {
 
@@ -468,12 +468,12 @@ class PickListActivity : BaseArtikelScanActivity() {
                 } else
                 {
                     showMessageDialog("Maximale Menge erreicht")
-                    playErrorSound(this@PickListActivity)
+                    UiLoadingHelper.playErrorSound(this@PickListActivity)
                 }
             } else if (serials.contains(input))
             {
                 showMessageDialog("Seriennummer bereits vorhanden")
-                playErrorSound(this@PickListActivity)
+                UiLoadingHelper.playErrorSound(this@PickListActivity)
             }
             etSerial.text.clear()
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = serials.size == maxMenge
@@ -506,7 +506,7 @@ class PickListActivity : BaseArtikelScanActivity() {
                 if (response.isBlank()) {
                     withContext(Dispatchers.Main) {
                         UiLoadingHelper.hide()
-                        playErrorSound(this@PickListActivity)
+                        UiLoadingHelper.playErrorSound(this@PickListActivity)
                         AlertDialog.Builder(this@PickListActivity)
                             .setTitle("Keine Daten")
                             .setMessage("Keine Daten vom Server erhalten (Timeout: ${settings.timeoutS}s).")
@@ -534,7 +534,7 @@ class PickListActivity : BaseArtikelScanActivity() {
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     UiLoadingHelper.hide()
-                    playErrorSound(this@PickListActivity)
+                    UiLoadingHelper.playErrorSound(this@PickListActivity)
                     AlertDialog.Builder(this@PickListActivity)
                         .setTitle("Fehler")
                         .setMessage("Fehler beim Laden der Pickliste:\n${e.message}")
@@ -613,7 +613,7 @@ class PickListActivity : BaseArtikelScanActivity() {
                 withContext(Dispatchers.Main){
                     UiLoadingHelper.hide()
                     showMessageDialog("Fehler beim Laden der Pick-Details: ${e.message}")
-                    playErrorSound(this@PickListActivity)
+                    UiLoadingHelper.playErrorSound(this@PickListActivity)
                 }
             } finally { withContext(Dispatchers.Main){ UiLoadingHelper.hide() } }
         }

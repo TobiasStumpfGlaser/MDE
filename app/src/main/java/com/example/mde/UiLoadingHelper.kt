@@ -1,3 +1,5 @@
+package com.example.mde
+
 import android.app.Activity
 import android.app.AlertDialog
 import android.widget.LinearLayout
@@ -10,6 +12,11 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import android.content.Context
+import android.media.MediaPlayer
+import android.widget.*
+import kotlinx.coroutines.*
+import java.util.*
 
 object UiLoadingHelper {
 
@@ -34,10 +41,13 @@ object UiLoadingHelper {
                 textSize = 48f
                 gravity = Gravity.CENTER
             }
-            LoadingStatus.ERROR -> TextView(activity).apply {
-                text = "❌"
-                textSize = 48f
-                gravity = Gravity.CENTER
+            LoadingStatus.ERROR -> {
+                playErrorSound(activity)
+                TextView(activity).apply {
+                    text = "❌"
+                    textSize = 48f
+                    gravity = Gravity.CENTER
+                }
             }
         }
 
@@ -97,6 +107,7 @@ object UiLoadingHelper {
 
     fun showError(activity: Activity, message: String) {
         autoHideJob?.cancel()
+        playErrorSound(activity)
 
         // Icon erstellen
         iconView = TextView(activity).apply {
@@ -146,6 +157,7 @@ object UiLoadingHelper {
         // Button je nach Status steuern
         when (status) {
             LoadingStatus.ERROR -> {
+                playErrorSound(activity)
                 btn?.visibility = View.VISIBLE
                 btn?.setOnClickListener {
                     hide()
@@ -213,6 +225,12 @@ object UiLoadingHelper {
         autoHideJob?.cancel()
         loadingDialog?.dismiss()
         loadingDialog = null
+    }
+
+    fun playErrorSound(context: Context) {
+        val mp = MediaPlayer.create(context, R.raw.error)
+        mp.start()
+        mp.setOnCompletionListener { it.release() }
     }
 
     enum class LoadingStatus { LOADING, SUCCESS, ERROR }

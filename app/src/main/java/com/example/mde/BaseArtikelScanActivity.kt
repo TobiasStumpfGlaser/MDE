@@ -1,6 +1,5 @@
 package com.example.mde
 
-import UiLoadingHelper
 import android.content.Intent
 import android.graphics.Color
 import android.os.Bundle
@@ -23,7 +22,6 @@ import android.text.style.StyleSpan
 import android.graphics.Typeface
 import android.text.SpannableStringBuilder
 import java.util.*
-import android.media.MediaPlayer
 import android.content.Context
 import android.text.Editable
 import android.text.TextWatcher
@@ -278,10 +276,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
                         if (serials.contains(cleaned)) {
                             showMessageDialog("Seriennummer bereits vorhanden")
-                            playErrorSound(this@BaseArtikelScanActivity)
                         } else if (serials.size >= maxMenge) {
                             showMessageDialog("Maximale Menge erreicht")
-                            playErrorSound(this@BaseArtikelScanActivity)
                         } else {
                             serials.add(cleaned)
 
@@ -315,10 +311,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
                     if (serials.contains(input)) {
                         showMessageDialog("Seriennummer bereits vorhanden")
-                        playErrorSound(this@BaseArtikelScanActivity)
                     } else if (serials.size >= maxMenge) {
                         showMessageDialog("Maximale Menge erreicht")
-                        playErrorSound(this@BaseArtikelScanActivity)
                     } else {
 
                         serials.add(input)
@@ -346,11 +340,9 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     tvSerialList.text = "${serials.size} / $maxMenge\n${serials.joinToString("\n")}"
                 } else {
                     showMessageDialog("Maximale Menge erreicht")
-                    playErrorSound(this@BaseArtikelScanActivity)
                 }
             } else if (serials.contains(input)) {
                 showMessageDialog("Seriennummer bereits vorhanden")
-                playErrorSound(this@BaseArtikelScanActivity)
             }
             etSerial.text.clear()
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = serials.size == maxMenge
@@ -384,74 +376,82 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         UiLoadingHelper.show(this, "Lade Serverdaten...", UiLoadingHelper.LoadingStatus.LOADING)
 
         ioScope.launch {
-            try {
-                val settings = AppSettings(this@BaseArtikelScanActivity)
+            val settings = AppSettings(this@BaseArtikelScanActivity)
 
-                val artikelResponse = TcpClient.sendCommand(
-                    context = this@BaseArtikelScanActivity,
-                    settings = settings,
-                    command = "GetArtikel",
-                    request = "{GetArtikel}",
-                    endTag = "{/GetArtikel}"
-                )
-
-                val artikel = parseArtikelResponse(artikelResponse)
+            var success = false
+            var attempts = 0
+            while (attempts < 3 && !success) {
+                attempts++
 
                 withContext(Dispatchers.Main) {
-                    artikelListe = artikel
-
-                    if (!::adapter.isInitialized) {
-                        adapter = ArtikelAdapter(this@BaseArtikelScanActivity, artikelListe)
-                        etFilter.setAdapter(adapter)
-                    } else {
-                        adapter.updateList(artikelListe)
-                    }
+                    // Loading Screen mit aktuellem Versuch aktualisieren
+                    UiLoadingHelper.update(
+                        this@BaseArtikelScanActivity,
+                        "Lade Serverdaten... Versuch $attempts/3",
+                        UiLoadingHelper.LoadingStatus.LOADING
+                    )
                 }
 
-                val projekteResponse = TcpClient.sendCommand(
-                    context = this@BaseArtikelScanActivity,
-                    settings = settings,
-                    command = "GetProjekte",
-                    request = "{GetProjekte}",
-                    endTag = "{/GetProjekte}"
-                )
+                try {
+                    // --- Artikel laden ---
+                    val artikelResponse = TcpClient.sendCommand(
+                        context = this@BaseArtikelScanActivity,
+                        settings = settings,
+                        command = "GetArtikel",
+                        request = "{GetArtikel}",
+                        endTag = "{/GetArtikel}"
+                    )
+                    val artikel = parseArtikelResponse(artikelResponse)
 
-                val projekte = parseProjektList(projekteResponse)
+                    withContext(Dispatchers.Main) {
+                        artikelListe = artikel
 
-                withContext(Dispatchers.Main) {
-                    projektListe = projekte
-                    setupProjektAdapter()
-                    requestRunning = false
-                    if (projektListe.isNotEmpty() && artikelListe.isNotEmpty()) {
-                        UiLoadingHelper.update(this@BaseArtikelScanActivity, "Daten aktualisiert", UiLoadingHelper.LoadingStatus.SUCCESS)
-                    } else {
-                        UiLoadingHelper.update(this@BaseArtikelScanActivity, "Fehler Server Kommunikation", UiLoadingHelper.LoadingStatus.ERROR)
-                        playErrorSound(this@BaseArtikelScanActivity)
-                    }
-
-                    // Projekt → Menge Fokus
-                    buchungProjektView?.setOnItemClickListener { _, _, position, _ ->
-                        val projekt = buchungProjektView?.adapter?.getItem(position)?.toString()
-                            ?: return@setOnItemClickListener
-                        buchungProjektView?.setText(projekt)
-                        buchungProjektView?.setSelection(0)
-
-                        buchungMengeView?.let { mengeView ->
-                            mengeView.post {
-                                mengeView.requestFocus()
-                                val imm =
-                                    getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                                imm.showSoftInput(mengeView, InputMethodManager.SHOW_IMPLICIT)
-                            }
+                        if (!::adapter.isInitialized) {
+                            adapter = ArtikelAdapter(this@BaseArtikelScanActivity, artikelListe)
+                            etFilter.setAdapter(adapter)
+                        } else {
+                            adapter.updateList(artikelListe)
                         }
                     }
-                }
 
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    UiLoadingHelper.update(this@BaseArtikelScanActivity, e.message.toString(), UiLoadingHelper.LoadingStatus.ERROR)
-                    requestRunning = false
-                    playErrorSound(this@BaseArtikelScanActivity)
+                    // --- Projekte laden ---
+                    val projekteResponse = TcpClient.sendCommand(
+                        context = this@BaseArtikelScanActivity,
+                        settings = settings,
+                        command = "GetProjekte",
+                        request = "{GetProjekte}",
+                        endTag = "{/GetProjekte}"
+                    )
+                    val projekte = parseProjektList(projekteResponse)
+
+                    withContext(Dispatchers.Main) {
+                        projektListe = projekte
+                        setupProjektAdapter()
+                    }
+
+                    // Alles erfolgreich geladen → Schleife verlassen
+                    success = true
+
+                } catch (e: Exception) {
+                    delay(500) // kleine Pause zwischen Retries
+                }
+            }
+
+            // Ergebnis auf MainThread melden
+            withContext(Dispatchers.Main) {
+                requestRunning = false
+                if (success && projektListe.isNotEmpty() && artikelListe.isNotEmpty()) {
+                    UiLoadingHelper.update(
+                        this@BaseArtikelScanActivity,
+                        "Daten aktualisiert",
+                        UiLoadingHelper.LoadingStatus.SUCCESS
+                    )
+                } else {
+                    UiLoadingHelper.update(
+                        this@BaseArtikelScanActivity,
+                        "Fehler Server Kommunikation nach 3 Versuchen",
+                        UiLoadingHelper.LoadingStatus.ERROR
+                    )
                 }
             }
         }
@@ -520,7 +520,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
                 if (matchedArtikel == null) {
                     tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
-                    playErrorSound(this)
                     tvArtikelInfo.setTextColor(Color.RED)
                 } else {
                     tvArtikelInfo.setTextColor(Color.WHITE)
@@ -632,7 +631,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 when (matches.size) {
                     0 -> {
                         tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
-                        playErrorSound(this@BaseArtikelScanActivity)
                         tvArtikelInfo.setTextColor(Color.RED)
                     }
 
@@ -677,12 +675,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
-    }
-
-    fun playErrorSound(context: Context) {
-        val mp = MediaPlayer.create(context, R.raw.error)
-        mp.start()
-        mp.setOnCompletionListener { it.release() }
     }
 
     /** --- Öffentliches Buchen --- */
@@ -781,14 +773,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         }
                     } else {
                         UiLoadingHelper.update(this@BaseArtikelScanActivity, "$response\n" + "Buchung fehlgeschlagen", UiLoadingHelper.LoadingStatus.ERROR)
-                        playErrorSound(this@BaseArtikelScanActivity)
                     }
                 }
 
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     UiLoadingHelper.update(this@BaseArtikelScanActivity, "Timeout\nBuchung fehlgeschlagen", UiLoadingHelper.LoadingStatus.ERROR)
-                    playErrorSound(this@BaseArtikelScanActivity)
                 }
             }
         }

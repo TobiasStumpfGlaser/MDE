@@ -246,7 +246,7 @@ class DropListActivity : BaseArtikelScanActivity() {
             val menge = item.menge
             if (artikel.isBlank() || projekt.isBlank() || menge.isBlank()) {
                 showMessageDialog("❌ Fehler: Alle Felder müssen ausgefüllt sein!")
-                playErrorSound(this@DropListActivity)
+                UiLoadingHelper.playErrorSound(this@DropListActivity)
                 return@setOnClickListener
             }
 
@@ -303,7 +303,7 @@ class DropListActivity : BaseArtikelScanActivity() {
                             dialog.dismiss()
                             btnYes.isEnabled = true
                         } else {
-                            playErrorSound(this@DropListActivity)
+                            UiLoadingHelper.playErrorSound(this@DropListActivity)
                             statusText.text = "❌ Buchung fehlgeschlagen:\n$response"
                             delay(2000)
                             statusDialog.dismiss()
@@ -312,7 +312,7 @@ class DropListActivity : BaseArtikelScanActivity() {
                     }
                 } catch (e: Exception) {
                     withContext(Dispatchers.Main) {
-                        playErrorSound(this@DropListActivity)
+                        UiLoadingHelper.playErrorSound(this@DropListActivity)
                         statusText.text = "❌ Fehler bei der Buchung:\n${e.message}"
                         statusDialog.setButton(
                             AlertDialog.BUTTON_POSITIVE,
@@ -395,11 +395,11 @@ class DropListActivity : BaseArtikelScanActivity() {
 
                         if (serials.contains(cleaned)) {
                             showMessageDialog("Seriennummer bereits vorhanden")
-                            playErrorSound(this@DropListActivity)
+                            UiLoadingHelper.playErrorSound(this@DropListActivity)
                         }
                         else if (serials.size >= maxMenge) {
                             showMessageDialog("Maximale Menge erreicht")
-                            playErrorSound(this@DropListActivity)
+                            UiLoadingHelper.playErrorSound(this@DropListActivity)
                         }
                         else {
                             serials.add(cleaned)
@@ -433,11 +433,11 @@ class DropListActivity : BaseArtikelScanActivity() {
 
                     if (serials.contains(input)) {
                         showMessageDialog("Seriennummer bereits vorhanden")
-                        playErrorSound(this@DropListActivity)
+                        UiLoadingHelper.playErrorSound(this@DropListActivity)
                     }
                     else if (serials.size >= maxMenge) {
                         showMessageDialog("Maximale Menge erreicht")
-                        playErrorSound(this@DropListActivity)
+                        UiLoadingHelper.playErrorSound(this@DropListActivity)
                     }
                     else {
 
@@ -467,12 +467,12 @@ class DropListActivity : BaseArtikelScanActivity() {
                     tvSerialList.text = "${serials.size} / $maxMenge\n${serials.joinToString("\n")}"
                 } else {
                     showMessageDialog("Maximale Menge erreicht")
-                    playErrorSound(this@DropListActivity)
+                    UiLoadingHelper.playErrorSound(this@DropListActivity)
                 }
             } else if (serials.contains(input))
             {
                 showMessageDialog("Seriennummer bereits vorhanden")
-                playErrorSound(this@DropListActivity)
+                UiLoadingHelper.playErrorSound(this@DropListActivity)
             }
             etSerial.text.clear()
             dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = serials.size == maxMenge
@@ -505,7 +505,7 @@ class DropListActivity : BaseArtikelScanActivity() {
                 if (response.isBlank()) {
                     withContext(Dispatchers.Main) {
                         UiLoadingHelper.hide()
-                        playErrorSound(this@DropListActivity)
+                        UiLoadingHelper.playErrorSound(this@DropListActivity)
                         AlertDialog.Builder(this@DropListActivity)
                             .setTitle("Keine Daten")
                             .setMessage("Keine Daten vom Server erhalten (Timeout: ${settings.timeoutS}s).")
@@ -533,7 +533,7 @@ class DropListActivity : BaseArtikelScanActivity() {
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
                     UiLoadingHelper.hide()
-                    playErrorSound(this@DropListActivity)
+                    UiLoadingHelper.playErrorSound(this@DropListActivity)
                     AlertDialog.Builder(this@DropListActivity)
                         .setTitle("Fehler")
                         .setMessage("Fehler beim Laden der Dropliste:\n${e.message}")
@@ -614,7 +614,7 @@ class DropListActivity : BaseArtikelScanActivity() {
                 withContext(Dispatchers.Main){
                     UiLoadingHelper.hide()
                     showMessageDialog("Fehler beim Laden der Drop-Details: ${e.message}")
-                    playErrorSound(this@DropListActivity)
+                    UiLoadingHelper.playErrorSound(this@DropListActivity)
                 }
             } finally { withContext(Dispatchers.Main){ UiLoadingHelper.hide() } }
         }

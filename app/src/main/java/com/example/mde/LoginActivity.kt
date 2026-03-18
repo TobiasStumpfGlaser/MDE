@@ -77,11 +77,27 @@ class LoginActivity : AppCompatActivity() {
         UiLoadingHelper.show(this, "Verbinde mit Server...", UiLoadingHelper.LoadingStatus.LOADING)
 
         ioScope.launch {
-            val serverSuccess = try {
-                TcpClient.ensureConnection(settings)
-                true
-            } catch (_: Exception) {
-                false
+            var serverSuccess = false
+            var attempts = 0
+            while (attempts < 3 && !serverSuccess) {
+                attempts++
+
+                withContext(Dispatchers.Main) {
+                    // Loading Screen mit aktuellem Versuch aktualisieren
+                    UiLoadingHelper.update(
+                        this@LoginActivity,
+                        "Verbinde mit Server... Versuch $attempts/3",
+                        UiLoadingHelper.LoadingStatus.LOADING
+                    )
+                }
+
+                serverSuccess = try {
+                    TcpClient.ensureConnection(settings)
+                    true
+                } catch (_: Exception) {
+                    delay(500) // kleine Pause vor Retry
+                    false
+                }
             }
 
             withContext(Dispatchers.Main) {
@@ -90,7 +106,7 @@ class LoginActivity : AppCompatActivity() {
                     UiLoadingHelper.update(this@LoginActivity, "Server verbunden", UiLoadingHelper.LoadingStatus.SUCCESS)
                     loadUserList()
                 } else {
-                    UiLoadingHelper.update(this@LoginActivity, "Server nicht erreichbar", UiLoadingHelper.LoadingStatus.ERROR)
+                    UiLoadingHelper.update(this@LoginActivity, "Server nicht erreichbar nach 3 Versuchen", UiLoadingHelper.LoadingStatus.ERROR)
                 }
             }
         }
@@ -103,22 +119,40 @@ class LoginActivity : AppCompatActivity() {
         UiLoadingHelper.update(this, "Lade Benutzerliste...", UiLoadingHelper.LoadingStatus.LOADING)
 
         ioScope.launch {
-            val success = try {
-                val response = TcpClient.sendCommand(
-                    context = this@LoginActivity,
-                    settings = settings,
-                    command = "GetBediener",
-                    request = "{GetBediener}",
-                    endTag = "{/GetBediener}"
-                )
-                if (response.isNotEmpty()) {
-                    parseUserList(response)  // Adapter wird auf MainThread gesetzt
-                    true
-                } else {
-                    false  // leere Antwort → Fehler
+            var success = false
+            var attempts = 0
+
+            while (attempts < 3 && !success) {
+                attempts++
+
+                withContext(Dispatchers.Main) {
+                    // Loading Screen mit aktuellem Versuch aktualisieren
+                    UiLoadingHelper.update(
+                        this@LoginActivity,
+                        "Lade Benutzerliste... Versuch $attempts/3",
+                        UiLoadingHelper.LoadingStatus.LOADING
+                    )
                 }
-            } catch (_: Exception) {
-                false
+
+                success = try {
+                    val response = TcpClient.sendCommand(
+                        context = this@LoginActivity,
+                        settings = settings,
+                        command = "GetBediener",
+                        request = "{GetBediener}",
+                        endTag = "{/GetBediener}"
+                    )
+                    if (response.isNotEmpty()) {
+                        parseUserList(response)  // Adapter wird auf MainThread gesetzt
+                        true
+                    } else {
+                        delay(500) // kleine Pause vor Retry
+                        false
+                    }
+                } catch (_: Exception) {
+                    delay(500)
+                    false
+                }
             }
 
             withContext(Dispatchers.Main) {
@@ -127,7 +161,7 @@ class LoginActivity : AppCompatActivity() {
                     UiLoadingHelper.update(this@LoginActivity, "Benutzerliste geladen", UiLoadingHelper.LoadingStatus.SUCCESS)
                     selectDefaultUserIfAvailable()
                 } else {
-                    UiLoadingHelper.update(this@LoginActivity, "Fehler beim Laden der Benutzer", UiLoadingHelper.LoadingStatus.ERROR)
+                    UiLoadingHelper.update(this@LoginActivity, "Fehler beim Laden der Benutzer nach 3 Versuchen", UiLoadingHelper.LoadingStatus.ERROR)
                 }
             }
         }
