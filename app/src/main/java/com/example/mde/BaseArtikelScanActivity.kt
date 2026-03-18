@@ -380,19 +380,19 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
             var success = false
             var attempts = 0
+
             while (attempts < 3 && !success) {
                 attempts++
 
-                withContext(Dispatchers.Main) {
-                    // Loading Screen mit aktuellem Versuch aktualisieren
-                    UiLoadingHelper.update(
-                        this@BaseArtikelScanActivity,
-                        "Lade Serverdaten... Versuch $attempts/3",
-                        UiLoadingHelper.LoadingStatus.LOADING
-                    )
-                }
-
                 try {
+                    withContext(Dispatchers.Main) {
+                        UiLoadingHelper.update(
+                            this@BaseArtikelScanActivity,
+                            "Lade Serverdaten... Versuch $attempts/3",
+                            UiLoadingHelper.LoadingStatus.LOADING
+                        )
+                    }
+
                     // --- Artikel laden ---
                     val artikelResponse = TcpClient.sendCommand(
                         context = this@BaseArtikelScanActivity,
@@ -429,18 +429,20 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         setupProjektAdapter()
                     }
 
-                    // Alles erfolgreich geladen → Schleife verlassen
-                    success = true
+                    // Wenn beide erfolgreich → success true setzen
+                    success = artikelListe.isNotEmpty() && projektListe.isNotEmpty()
 
-                } catch (e: Exception) {
-                    delay(500) // kleine Pause zwischen Retries
+                } catch (_: Exception) {
+                    // Fehler → success bleibt false, Schleife läuft weiter
+                    delay(500)
                 }
             }
 
-            // Ergebnis auf MainThread melden
+            // --- Ergebnis auf MainThread melden ---
             withContext(Dispatchers.Main) {
                 requestRunning = false
-                if (success && projektListe.isNotEmpty() && artikelListe.isNotEmpty()) {
+
+                if (success) {
                     UiLoadingHelper.update(
                         this@BaseArtikelScanActivity,
                         "Daten aktualisiert",
