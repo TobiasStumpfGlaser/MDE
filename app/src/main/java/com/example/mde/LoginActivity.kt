@@ -46,6 +46,9 @@ class LoginActivity : AppCompatActivity() {
         btnLogin = findViewById(R.id.btnLogin)
         btnReload = findViewById(R.id.btnReload)
 
+        val txtVersion = findViewById<TextView>(R.id.txtVersion)
+        txtVersion.text = "App-Version: ${BuildConfig.VERSION_NAME}"
+
         // Adapter für Autocomplete, falls UserCache schon Daten hat
         if (userList.isNotEmpty()) {
             val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, userList)
