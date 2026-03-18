@@ -39,7 +39,6 @@ class DropListActivity : BaseArtikelScanActivity() {
 
     override val buchungProjektView = null
     override val buchungMengeView = null
-    override val buchungStatusView = null
 
     private lateinit var settings: AppSettings
     private lateinit var username: String
@@ -239,6 +238,9 @@ class DropListActivity : BaseArtikelScanActivity() {
 
         val dialog = AlertDialog.Builder(this).setView(dialogView).create()
         btnYes.setOnClickListener {
+            if (!btnYes.isEnabled) return@setOnClickListener
+            btnYes.isEnabled = false
+
             val artikel = item.artNr
             val projekt = currentProjektNr
             val menge = item.menge
@@ -295,11 +297,13 @@ class DropListActivity : BaseArtikelScanActivity() {
                             delay(1000)
                             statusDialog.dismiss()
                             dialog.dismiss()
+                            btnYes.isEnabled = true
                         } else {
                             playErrorSound(this@DropListActivity)
                             statusText.text = "❌ Buchung fehlgeschlagen:\n$response"
                             delay(2000)
                             statusDialog.dismiss()
+                            btnYes.isEnabled = true
                         }
                     }
                 } catch (e: Exception) {
@@ -309,7 +313,10 @@ class DropListActivity : BaseArtikelScanActivity() {
                         statusDialog.setButton(
                             AlertDialog.BUTTON_POSITIVE,
                             "OK"
-                        ) { _, _ -> statusDialog.dismiss() }
+                        ) { _, _ ->
+                            statusDialog.dismiss()
+                            btnYes.isEnabled = true
+                        }
                     }
                 }
             }

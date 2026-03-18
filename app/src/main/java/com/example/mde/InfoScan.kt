@@ -9,7 +9,6 @@ class InfoScanActivity : BaseArtikelScanActivity() {
     // Keine Buchungs-Views, weil Layout sie nicht enthält
     override val buchungProjektView: AutoCompleteTextView? = null
     override val buchungMengeView: EditText? = null
-    override val buchungStatusView get() = txtStatus
 
     private lateinit var settings: AppSettings
     private lateinit var username: String

@@ -36,16 +36,43 @@
             android:orientation="vertical"
             android:padding="24dp">
 
-            <!-- Artikel (BaseActivity ID: etBarcode) -->
-            <AutoCompleteTextView
-                android:id="@+id/etBarcode"
+            <LinearLayout
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
-                android:completionThreshold="1"
-                android:hint="Artikel suchen"
-                android:inputType="textVisiblePassword"
-                android:textAlignment="viewStart" />
+                android:gravity="center_vertical"
+                android:orientation="horizontal">
+
+                <!-- Artikel -->
+                <AutoCompleteTextView
+                    android:id="@+id/etBarcode"
+                    android:layout_width="0dp"
+                    android:layout_height="match_parent"
+                    android:layout_weight="1"
+                    android:background="@android:drawable/edit_text"
+                    android:completionThreshold="1"
+                    android:hint="Artikel suchen"
+                    android:inputType="textVisiblePassword"
+                    android:textAlignment="viewStart"
+                    android:paddingTop="0dp"
+                    android:paddingBottom="0dp"
+                    />
+
+                <!-- Abstand -->
+                <View
+                    android:layout_width="8dp"
+                    android:layout_height="match_parent" />
+
+                <!-- Reload Button -->
+                <ImageButton
+                    android:id="@+id/btnReloadArtikel"
+                    android:layout_width="70dp"
+                    android:layout_height="match_parent"
+                    android:scaleType="centerCrop"
+                    android:background="?attr/selectableItemBackgroundBorderless"
+                    android:contentDescription="Neu laden"
+                    android:layout_marginBottom="3dp"
+                    android:src="@drawable/baseline_refresh_24" />
+            </LinearLayout>
 
             <View
                 android:layout_width="match_parent"
@@ -136,40 +163,6 @@
                     android:text="Entnahme"
                     android:textColor="@android:color/white"
                     android:textStyle="bold" />
-            </LinearLayout>
-
-            <LinearLayout
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
-
-                <!-- Status (flexibel) -->
-                <TextView
-                    android:id="@+id/txtStatus"
-                    android:layout_width="0dp"
-                    android:layout_height="wrap_content"
-                    android:layout_weight="1"
-                    android:gravity="center"
-                    android:textAlignment="center"
-                    android:textColor="@color/white"
-                    android:textSize="20sp" />
-
-                <!-- Abstand -->
-                <View
-                    android:layout_width="8dp"
-                    android:layout_height="match_parent" />
-
-                <!-- Reload Artikel Button (klein) -->
-                <ImageButton
-                    android:id="@+id/btnReloadArtikel"
-                    android:layout_width="40dp"
-                    android:layout_height="40dp"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Neu laden"
-                    android:padding="8dp"
-                    android:scaleType="centerInside"
-                    android:src="@drawable/baseline_refresh_24" />
             </LinearLayout>
 
             <!-- Artikel Info (BaseActivity ID: tvArtikelInfo) -->

@@ -10,9 +10,6 @@ class InventurActivity : BaseArtikelScanActivity() {
     override val buchungMengeView: EditText
         get() = edtMenge
 
-    override val buchungStatusView: TextView
-        get() = txtStatus
-
     override val buchungProjektView: AutoCompleteTextView
         get() = etProjekt
 

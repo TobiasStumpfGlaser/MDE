@@ -21,7 +21,7 @@ object TcpClient {
                 !s.isOutputShutdown
     }
 
-    private fun ensureConnection(settings: AppSettings) {
+    fun ensureConnection(settings: AppSettings) {
 
         if (isConnected()) return
 

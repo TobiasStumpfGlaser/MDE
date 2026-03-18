@@ -10,9 +10,6 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
     override val buchungMengeView: EditText
         get() = edtMenge
 
-    override val buchungStatusView: TextView
-        get() = txtStatus
-
     override val buchungProjektView: AutoCompleteTextView
         get() = etProjekt
 
@@ -28,7 +25,19 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         val btnEinlagern = findViewById<Button>(R.id.btnEinlagern)
         val btnAuslagern = findViewById<Button>(R.id.btnAuslagern)
 
-        btnEinlagern.setOnClickListener { doBuchen(true) }   // true = Einlagern
-        btnAuslagern.setOnClickListener { doBuchen(false) }  // false = Auslagern
+        btnEinlagern.setOnClickListener {
+            if (!btnEinlagern.isEnabled || !btnAuslagern.isEnabled) return@setOnClickListener
+            btnEinlagern.isEnabled = false
+            doBuchen(true)
+            btnEinlagern.isEnabled = true
+        }   // true = Einlagern
+
+
+        btnAuslagern.setOnClickListener {
+            if (!btnAuslagern.isEnabled || !btnEinlagern.isEnabled) return@setOnClickListener
+            btnAuslagern.isEnabled = false
+            doBuchen(false)
+            btnAuslagern.isEnabled = true
+        }  // false = Auslagern
     }
 }
