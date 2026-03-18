@@ -43,16 +43,10 @@ class MainActivity : AppCompatActivity() {
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
 
-        val btnInfoScan = findViewById<Button>(R.id.btnInfoScan)
         val btnMaterialBook = findViewById<Button>(R.id.btnMaterialBook)
         val btnPicklist = findViewById<androidx.appcompat.widget.AppCompatButton>(R.id.btnPicklist)
         val btnDroplist = findViewById<androidx.appcompat.widget.AppCompatButton>(R.id.btnDroplist)
         val btnInventur = findViewById<androidx.appcompat.widget.AppCompatButton>(R.id.btnInventur)
-
-        btnInfoScan.setOnClickListener {
-            val intent = Intent(this@MainActivity, InfoScanActivity::class.java)
-            startActivity(intent)
-        }
 
         btnMaterialBook.setOnClickListener {
             val intent = Intent(this@MainActivity, MaterialBuchungActivity::class.java)

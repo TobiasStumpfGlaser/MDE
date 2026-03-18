@@ -1,0 +1,48 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout
+    xmlns:android="http://schemas.android.com/apk/res/android"
+    android:orientation="vertical"
+    android:padding="24dp"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content">
+
+    <TextView
+        android:id="@+id/tvItemInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:textSize="16sp"
+        android:paddingBottom="16dp"/>
+
+    <LinearLayout
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:orientation="vertical"
+        android:weightSum="4">
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnYes"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="JA"/>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnNo"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="NEIN"/>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnChangeAmount"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="Anzahl ändern"/>
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnSerials"
+            android:layout_width="match_parent"
+            android:layout_height="match_parent"
+            android:text="Seriennummern"/>
+
+    </LinearLayout>
+
+</LinearLayout>
