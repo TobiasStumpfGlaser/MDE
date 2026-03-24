@@ -243,13 +243,13 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 if (item.serials.isNotEmpty()) item.serials.joinToString(";") else ""
             val buchungsMenge = (item.menge.toIntOrNull() ?: 0) * buchungsVorzeichen
             val request = buildString {
-                appendLine("{SetBuchung}")
+                append("{SetBuchung}\r\n")
                 append("$artikel||$buchungsMenge|${item.listenNummer}|${item.pos}|$projekt|${settings.werkNummer}|$username|$now|")
                 if (serialsString.isNotEmpty()) {
                     append(serialsString)
                 }
-                appendLine("|")
-                appendLine("{/SetBuchung}")
+                append("|\r\n")
+                append("{/SetBuchung}")
             }
             TcpLogHelper.logRequest(this@BasePickDropActivity, "SetBuchung", request)
 

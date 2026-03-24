@@ -738,13 +738,13 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             val username = intent.getStringExtra("USERNAME") ?: "?"
             val serials = withContext(Dispatchers.Main) { edtSerials.text.toString().trim() }
             val request = buildString {
-                appendLine("{SetBuchung}")
+                append("{SetBuchung}\r\n")
                 append("$artikel||$menge|||$projekt|${AppSettings(this@BaseArtikelScanActivity).werkNummer}|$username|$nowStr|")
                 if (serials.isNotEmpty()) {
                     append(serials)
                 }
-                appendLine("|")
-                appendLine("{/SetBuchung}")
+                append("|\r\n")
+                append("{/SetBuchung}")
             }
 
             TcpLogHelper.logRequest(this@BaseArtikelScanActivity, "SetBuchung", request)

@@ -92,7 +92,7 @@
                 android:layout_weight="1"
                 android:background="@android:drawable/edit_text"
                 android:hint="Menge"
-                android:inputType="number"
+                android:inputType="numberDecimal"
                 android:textAlignment="viewStart"/>
 
             <View
