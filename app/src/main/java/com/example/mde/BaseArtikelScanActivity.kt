@@ -86,6 +86,9 @@ object DataRepository {
     var artikelListe: List<Artikel> = emptyList()
     var projektListe: List<String> = emptyList()
 
+    // Merkt sich die zuletzt verwendeten Projekte nur solange die App läuft
+    var recentProjektListe: MutableList<String> = mutableListOf()
+
     fun isLoaded(): Boolean = artikelListe.isNotEmpty() && projektListe.isNotEmpty()
 
     var lastLoadTime: Long = 0
@@ -100,6 +103,16 @@ object DataRepository {
     fun clear() {
         artikelListe = emptyList()
         projektListe = emptyList()
+        recentProjektListe.clear()
+    }
+
+    fun rememberProjekt(projekt: String, maxEntries: Int = 8) {
+        if (projekt.isBlank()) return
+        recentProjektListe.remove(projekt)
+        recentProjektListe.add(0, projekt)
+        while (recentProjektListe.size > maxEntries) {
+            recentProjektListe.removeLast()
+        }
     }
 }
 
@@ -242,9 +255,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
-    // --------------------------------------------------
-    // Serial Dialog – gemeinsam für Base und PickListActivity
-    // --------------------------------------------------
     protected fun showSerialDialog(
         maxMenge: Int,
         onSerialsConfirmed: (List<String>) -> Unit
@@ -329,28 +339,15 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
-    /**
-     * Hook: wird aufgerufen, wenn im Serialdialog ein Fehler auftritt.
-     * Subklassen können überschreiben, um z.B. einen Fehlerton abzuspielen.
-     */
     protected open fun onSerialError(message: String) {
+        UiLoadingHelper.playErrorSound(this)
         showMessageDialog(message)
     }
 
-    // --------------------------------------------------
-    // Message Dialog – gemeinsam
-    // --------------------------------------------------
     protected fun showMessageDialog(message: String) {
         AlertDialog.Builder(this).setMessage(message).setPositiveButton("OK", null).show()
     }
 
-    // --------------------------------------------------
-    // DataRepository: Artikel sicherstellen
-    // --------------------------------------------------
-    /**
-     * Stellt sicher, dass Artikel im DataRepository geladen sind.
-     * Lädt ggf. nach. Ruft [onLoaded] auf dem Main-Thread auf.
-     */
     protected fun ensureArtikelLoaded(onLoaded: () -> Unit) {
         if (DataRepository.artikelListe.isNotEmpty()) {
             onLoaded()
@@ -474,15 +471,26 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
+    private fun sortProjekteWithRecents(projekte: List<String>): List<String> {
+        val recent = DataRepository.recentProjektListe
+        return projekte.sortedWith(
+            compareBy<String> { projekt ->
+                val idx = recent.indexOf(projekt)
+                if (idx >= 0) idx else Int.MAX_VALUE
+            }.thenBy { it.lowercase() }
+        )
+    }
+
     private fun setupProjektAdapter() {
+        val sortedProjekte = sortProjekteWithRecents(projektListe)
         val projektView = etProjekt
         projektView.setAdapter(
             object : ArrayAdapter<String>(
                 this,
                 android.R.layout.simple_dropdown_item_1line,
-                projektListe.toMutableList()
+                sortedProjekte.toMutableList()
             ) {
-                private val allItems = projektListe.toMutableList()
+                private val allItems = sortedProjekte.toMutableList()
 
                 override fun getFilter(): Filter {
                     return object : Filter() {
@@ -510,10 +518,30 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         )
         projektView.threshold = 1
 
+        projektView.setOnClickListener {
+            projektView.post {
+                projektView.setText("", false)
+                projektView.showDropDown()
+            }
+        }
+
+        projektView.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                projektView.post {
+                    projektView.setText("", false)
+                    projektView.showDropDown()
+                }
+            }
+        }
+
         projektView.setOnItemClickListener { _, _, position, _ ->
             val projekt = projektView.adapter.getItem(position).toString()
             projektView.setText(projekt)
             projektView.setSelection(0)
+
+            DataRepository.rememberProjekt(projekt)
+            setupProjektAdapter()
+
             buchungMengeView?.let { mengeView ->
                 mengeView.post {
                     mengeView.requestFocus()
@@ -763,7 +791,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     TcpLogHelper.logResponse(this@BaseArtikelScanActivity, "SetBuchung", response)
                     val cleaned = response.replace("\r", "").trim()
 
-                    // Server hat geantwortet → sofort Ergebnis, kein Retry
                     withContext(Dispatchers.Main) {
                         if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
                             UiLoadingHelper.update(
@@ -786,7 +813,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     return@launch
 
                 } catch (e: Exception) {
-                    // Nur bei Timeout/Verbindungsfehler → Retry
                     TcpClient.closeConnection()
                     if (attempts < 3) {
                         withContext(Dispatchers.Main) {
@@ -801,7 +827,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 }
             }
 
-            // Alle 3 Versuche sind fehlgeschlagen
             withContext(Dispatchers.Main) {
                 UiLoadingHelper.update(
                     this@BaseArtikelScanActivity,
@@ -899,9 +924,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 }
 
-// --------------------------------------------------
-// Hilfsfunktion (package-level, für alle Dateien nutzbar)
-// --------------------------------------------------
 fun SpannableStringBuilder.appendBoldAfterColon(text: String) {
     val colonIndex = text.indexOf(":")
     if (colonIndex == -1) {
