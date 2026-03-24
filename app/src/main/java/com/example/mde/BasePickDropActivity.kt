@@ -37,13 +37,13 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     protected abstract val buchungsVorzeichen: Int
     protected abstract val listFilterHint: String
 
-    private val dialogLayoutId   = R.layout.dialog_pick_drop_options
+    private val dialogLayoutId = R.layout.dialog_pick_drop_options
     private val dialogInfoViewId = R.id.tvItemInfo
 
     override fun getLayoutId(): Int = R.layout.activity_pick_drop_list
 
     override val buchungProjektView = null
-    override val buchungMengeView   = null
+    override val buchungMengeView = null
 
     // Artikel/Projekte werden in Pick/Drop nicht gebraucht →
     // verhindert kollidierendes show()/hide() aus der Base
@@ -71,11 +71,11 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         settings = AppSettings(this)
         username = intent.getStringExtra("USERNAME") ?: "?"
 
-        etListFilter   = findViewById(R.id.etListFilter)
+        etListFilter = findViewById(R.id.etListFilter)
         etDetailFilter = findViewById(R.id.etDetailFilter)
-        listView       = findViewById(R.id.rvList)
-        detailsView    = findViewById(R.id.rvDetails)
-        spinnerSort    = findViewById(R.id.spinnerSort)
+        listView = findViewById(R.id.rvList)
+        detailsView = findViewById(R.id.rvDetails)
+        spinnerSort = findViewById(R.id.spinnerSort)
 
         etListFilter.hint = listFilterHint
 
@@ -106,7 +106,11 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 (super.getView(position, convertView, parent) as TextView)
                     .also { it.setTextColor(Color.WHITE) }
 
-            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View =
+            override fun getDropDownView(
+                position: Int,
+                convertView: View?,
+                parent: ViewGroup
+            ): View =
                 (super.getDropDownView(position, convertView, parent) as TextView)
                     .also { it.setTextColor(Color.WHITE) }
         }
@@ -124,6 +128,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 }
                 detailsAdapter.updateList(sorted)
             }
+
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
     }
@@ -153,6 +158,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     listView.visibility = if (filtered.isEmpty()) View.GONE else View.VISIBLE
                 }
             }
+
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
@@ -178,18 +184,19 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     showItemDialog(filtered[0])
                 }
             }
+
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
     }
 
     private fun showItemDialog(item: ListDetail) {
-        val dialogView      = layoutInflater.inflate(dialogLayoutId, null)
-        val tvMessage       = dialogView.findViewById<TextView>(dialogInfoViewId)
-        val btnYes          = dialogView.findViewById<View>(R.id.btnYes)
-        val btnNo           = dialogView.findViewById<View>(R.id.btnNo)
+        val dialogView = layoutInflater.inflate(dialogLayoutId, null)
+        val tvMessage = dialogView.findViewById<TextView>(dialogInfoViewId)
+        val btnYes = dialogView.findViewById<View>(R.id.btnYes)
+        val btnNo = dialogView.findViewById<View>(R.id.btnNo)
         val btnChangeAmount = dialogView.findViewById<View>(R.id.btnChangeAmount)
-        val btnSerials      = dialogView.findViewById<View>(R.id.btnSerials)
+        val btnSerials = dialogView.findViewById<View>(R.id.btnSerials)
 
         fun updateDialogMessage() {
             tvMessage.text = """
@@ -211,7 +218,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
             val artikel = item.artNr
             val projekt = currentProjektNr
-            val menge   = item.menge
+            val menge = item.menge
             if (artikel.isBlank() || projekt.isBlank() || menge.isBlank()) {
                 showMessageDialog("❌ Fehler: Alle Felder müssen ausgefüllt sein!")
                 UiLoadingHelper.playErrorSound(this)
@@ -230,59 +237,76 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 .create()
             statusDialog.show()
 
-            CoroutineScope(Dispatchers.IO).launch {
-                try {
-                    val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY)
-                        .format(Date())
-                    val serialsString =
-                        if (item.serials.isNotEmpty()) item.serials.joinToString(";") else ""
-                    val buchungsMenge = (item.menge.toIntOrNull() ?: 0) * buchungsVorzeichen
-                    val request = buildString {
-                        appendLine("{SetBuchung}")
-                        append("$artikel||$buchungsMenge|${item.listenNummer}|${item.pos}|$projekt|${settings.werkNummer}|$username|$now|")
-                        if (serialsString.isNotEmpty()) {
-                            append(serialsString)
-                            appendLine()
-                        }
-                        appendLine("{/SetBuchung}")
-                    }
-                    TcpLogHelper.logRequest(this@BasePickDropActivity, "SetBuchung", request)
-                    val response = TcpClient.sendCommand(
-                        context = this@BasePickDropActivity,
-                        settings = settings,
-                        command = "SetBuchung",
-                        request = request,
-                        endTag = "{/SetBuchung}"
-                    )
-                    TcpLogHelper.logResponse(this@BasePickDropActivity, "SetBuchung", response)
+            val now =
+                java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
+            val serialsString =
+                if (item.serials.isNotEmpty()) item.serials.joinToString(";") else ""
+            val buchungsMenge = (item.menge.toIntOrNull() ?: 0) * buchungsVorzeichen
+            val request = buildString {
+                appendLine("{SetBuchung}")
+                append("$artikel||$buchungsMenge|${item.listenNummer}|${item.pos}|$projekt|${settings.werkNummer}|$username|$now|")
+                if (serialsString.isNotEmpty()) {
+                    append(serialsString)
+                }
+                appendLine("|")
+                appendLine("{/SetBuchung}")
+            }
+            TcpLogHelper.logRequest(this@BasePickDropActivity, "SetBuchung", request)
 
-                    withContext(Dispatchers.Main) {
+            CoroutineScope(Dispatchers.IO).launch {
+                var attempts = 0
+                while (attempts < 3) {
+                    attempts++
+                    try {
+                        val response = TcpClient.sendCommand(
+                            context = this@BasePickDropActivity,
+                            settings = settings,
+                            command = "SetBuchung",
+                            request = request,
+                            endTag = "{/SetBuchung}"
+                        )
+                        TcpLogHelper.logResponse(this@BasePickDropActivity, "SetBuchung", response)
                         val cleaned = response.replace("\r", "").trim()
-                        if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
-                            statusText.text = "✅ Buchung erfolgreich"
-                            detailsListe = detailsListe.filter { it != item }
-                            detailsOriginal = detailsOriginal.filter { it != item }
-                            detailsAdapter.updateList(detailsListe)
+
+                        // Server hat geantwortet → sofort Ergebnis, kein Retry
+                        withContext(Dispatchers.Main) {
+                            if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
+                                statusText.text = "✅ Buchung erfolgreich"
+                                detailsListe = detailsListe.filter { it != item }
+                                detailsOriginal = detailsOriginal.filter { it != item }
+                                detailsAdapter.updateList(detailsListe)
+                                delay(1000)
+                                statusDialog.dismiss()
+                                dialog.dismiss()
+                            } else {
+                                statusText.text = "❌ Buchung fehlgeschlagen:\n$response"
+                                UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
+                                delay(2000)
+                                statusDialog.dismiss()
+                                btnYes.isEnabled = true
+                            }
+                        }
+                        return@launch
+
+                    } catch (e: Exception) {
+                        // Nur bei Timeout/Verbindungsfehler → Retry
+                        TcpClient.closeConnection()
+                        if (attempts < 3) {
+                            withContext(Dispatchers.Main) {
+                                statusText.text = "⏳ Timeout – Wiederhole... ($attempts/3)"
+                            }
                             delay(1000)
-                            statusDialog.dismiss()
-                            dialog.dismiss()
-                            btnYes.isEnabled = true
-                        } else {
-                            statusText.text = "❌ Buchung fehlgeschlagen:\n$response"
-                            UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
-                            delay(2000)
-                            statusDialog.dismiss()
-                            btnYes.isEnabled = true
                         }
                     }
-                } catch (e: Exception) {
-                    withContext(Dispatchers.Main) {
-                        statusText.text = "❌ Fehler bei der Buchung:\n${e.message}"
-                        UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
-                        statusDialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK") { _, _ ->
-                            statusDialog.dismiss()
-                            btnYes.isEnabled = true
-                        }
+                }
+
+                // Alle 3 Versuche fehlgeschlagen
+                withContext(Dispatchers.Main) {
+                    statusText.text = "❌ Kein Server erreichbar nach 3 Versuchen"
+                    UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
+                    statusDialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK") { _, _ ->
+                        statusDialog.dismiss()
+                        btnYes.isEnabled = true
                     }
                 }
             }
@@ -371,6 +395,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
                 } catch (e: Exception) {
                     lastError = e.message ?: "Unbekannter Fehler"
+                    TcpClient.closeConnection()
                     delay(500)
                 }
             }
@@ -475,6 +500,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
                 } catch (e: Exception) {
                     lastError = e.message ?: "Unbekannter Fehler"
+                    TcpClient.closeConnection()
                     delay(500)
                 }
             }

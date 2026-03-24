@@ -279,9 +279,11 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 serials.contains(input) -> {
                     onSerialError("Seriennummer bereits vorhanden")
                 }
+
                 serials.size >= maxMenge -> {
                     onSerialError("Maximale Menge erreicht")
                 }
+
                 else -> {
                     serials.add(input)
                     tvSerialList.text = "${serials.size} / $maxMenge\n${serials.joinToString("\n")}"
@@ -448,6 +450,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     success = artikelListe.isNotEmpty() && projektListe.isNotEmpty()
 
                 } catch (_: Exception) {
+                    TcpClient.closeConnection()
                     delay(500)
                 }
             }
@@ -632,6 +635,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
                         tvArtikelInfo.setTextColor(Color.RED)
                     }
+
                     1 -> {
                         val artikel = matches.first()
                         showArtikelInfo(artikel)
@@ -658,6 +662,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                             }
                         }
                     }
+
                     else -> {
                         tvArtikelInfo.text = ""
                         etFilter.post { etFilter.showDropDown() }
@@ -693,13 +698,20 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         } else {
             "-${mengeStr.replace(".", ",")}"
         }
-        val buttonText = if (count) "Zählstand setzen" else if (einlagern) "Zubuchen" else "Entnehmen"
+        val buttonText =
+            if (count) "Zählstand setzen" else if (einlagern) "Zubuchen" else "Entnehmen"
 
         if (AppSettings(this@BaseArtikelScanActivity).confirmBook) {
             AlertDialog.Builder(this)
                 .setTitle("Buchung bestätigen")
                 .setMessage("Artikel: $artikel\nProjekt: $projekt\nMenge: $menge")
-                .setPositiveButton(buttonText) { _, _ -> sendBuchung(artikel, projekt, serverMenge) }
+                .setPositiveButton(buttonText) { _, _ ->
+                    sendBuchung(
+                        artikel,
+                        projekt,
+                        serverMenge
+                    )
+                }
                 .setNegativeButton("Abbrechen", null)
                 .show()
         } else {
@@ -713,64 +725,89 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         lastBookingTime = now
 
         CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val nowStr =
-                    java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
-                val username = intent.getStringExtra("USERNAME") ?: "?"
-                val serials = edtSerials.text.toString().trim()
-                val request = buildString {
-                    appendLine("{SetBuchung}")
-                    append("$artikel||$menge|||$projekt|${AppSettings(this@BaseArtikelScanActivity).werkNummer}|$username|$nowStr|")
-                    if (serials.isNotEmpty()) {
-                        append(serials)
-                        appendLine()
-                    }
-                    appendLine("{/SetBuchung}")
-                }
-                withContext(Dispatchers.Main) {
-                    UiLoadingHelper.show(
-                        this@BaseArtikelScanActivity,
-                        "Buchung wird gesendet...",
-                        UiLoadingHelper.LoadingStatus.LOADING
-                    )
-                }
-                TcpLogHelper.logRequest(this@BaseArtikelScanActivity, "SetBuchung", request)
-                val response = TcpClient.sendCommand(
-                    context = this@BaseArtikelScanActivity,
-                    settings = AppSettings(this@BaseArtikelScanActivity),
-                    command = "SetBuchung",
-                    request = request,
-                    endTag = "{/SetBuchung}"
+            withContext(Dispatchers.Main) {
+                UiLoadingHelper.show(
+                    this@BaseArtikelScanActivity,
+                    "Buchung wird gesendet...",
+                    UiLoadingHelper.LoadingStatus.LOADING
                 )
-                TcpLogHelper.logResponse(this@BaseArtikelScanActivity, "SetBuchung", response)
-                val cleaned = response.replace("\r", "").trim()
-                withContext(Dispatchers.Main) {
-                    if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
-                        UiLoadingHelper.update(
-                            this@BaseArtikelScanActivity,
-                            "Buchung erfolgreich",
-                            UiLoadingHelper.LoadingStatus.SUCCESS
-                        )
-                        delay(2000)
-                        if (AppSettings(this@BaseArtikelScanActivity).clearAfterSuccess) {
-                            btnClearClicked()
+            }
+
+            val nowStr =
+                java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
+            val username = intent.getStringExtra("USERNAME") ?: "?"
+            val serials = withContext(Dispatchers.Main) { edtSerials.text.toString().trim() }
+            val request = buildString {
+                appendLine("{SetBuchung}")
+                append("$artikel||$menge|||$projekt|${AppSettings(this@BaseArtikelScanActivity).werkNummer}|$username|$nowStr|")
+                if (serials.isNotEmpty()) {
+                    append(serials)
+                }
+                appendLine("|")
+                appendLine("{/SetBuchung}")
+            }
+
+            TcpLogHelper.logRequest(this@BaseArtikelScanActivity, "SetBuchung", request)
+
+            var attempts = 0
+            while (attempts < 3) {
+                attempts++
+                try {
+                    val response = TcpClient.sendCommand(
+                        context = this@BaseArtikelScanActivity,
+                        settings = AppSettings(this@BaseArtikelScanActivity),
+                        command = "SetBuchung",
+                        request = request,
+                        endTag = "{/SetBuchung}"
+                    )
+                    TcpLogHelper.logResponse(this@BaseArtikelScanActivity, "SetBuchung", response)
+                    val cleaned = response.replace("\r", "").trim()
+
+                    // Server hat geantwortet → sofort Ergebnis, kein Retry
+                    withContext(Dispatchers.Main) {
+                        if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
+                            UiLoadingHelper.update(
+                                this@BaseArtikelScanActivity,
+                                "Buchung erfolgreich",
+                                UiLoadingHelper.LoadingStatus.SUCCESS
+                            )
+                            delay(2000)
+                            if (AppSettings(this@BaseArtikelScanActivity).clearAfterSuccess) {
+                                btnClearClicked()
+                            }
+                        } else {
+                            UiLoadingHelper.update(
+                                this@BaseArtikelScanActivity,
+                                "$response\nBuchung fehlgeschlagen",
+                                UiLoadingHelper.LoadingStatus.ERROR
+                            )
                         }
-                    } else {
-                        UiLoadingHelper.update(
-                            this@BaseArtikelScanActivity,
-                            "$response\nBuchung fehlgeschlagen",
-                            UiLoadingHelper.LoadingStatus.ERROR
-                        )
+                    }
+                    return@launch
+
+                } catch (e: Exception) {
+                    // Nur bei Timeout/Verbindungsfehler → Retry
+                    TcpClient.closeConnection()
+                    if (attempts < 3) {
+                        withContext(Dispatchers.Main) {
+                            UiLoadingHelper.update(
+                                this@BaseArtikelScanActivity,
+                                "Timeout – Wiederhole... ($attempts/3)",
+                                UiLoadingHelper.LoadingStatus.LOADING
+                            )
+                        }
+                        delay(1000)
                     }
                 }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    UiLoadingHelper.update(
-                        this@BaseArtikelScanActivity,
-                        "Timeout\nBuchung fehlgeschlagen",
-                        UiLoadingHelper.LoadingStatus.ERROR
-                    )
-                }
+            }
+
+            // Alle 3 Versuche sind fehlgeschlagen
+            withContext(Dispatchers.Main) {
+                UiLoadingHelper.update(
+                    this@BaseArtikelScanActivity,
+                    "Buchung fehlgeschlagen – kein Server erreichbar (3 Versuche)",
+                    UiLoadingHelper.LoadingStatus.ERROR
+                )
             }
         }
     }
@@ -867,8 +904,15 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 // --------------------------------------------------
 fun SpannableStringBuilder.appendBoldAfterColon(text: String) {
     val colonIndex = text.indexOf(":")
-    if (colonIndex == -1) { append(text); return }
+    if (colonIndex == -1) {
+        append(text); return
+    }
     val start = length
     append(text)
-    setSpan(StyleSpan(Typeface.BOLD), start, start + colonIndex + 1, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+    setSpan(
+        StyleSpan(Typeface.BOLD),
+        start,
+        start + colonIndex + 1,
+        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+    )
 }
