@@ -11,7 +11,7 @@ import android.view.WindowManager
 
 object UserCache {
     val userList = mutableListOf<String>()
-    val userPinMap = mutableMapOf<String,String>()
+    val userPinMap = mutableMapOf<String, String>()
 }
 
 class LoginActivity : AppCompatActivity() {
@@ -26,13 +26,13 @@ class LoginActivity : AppCompatActivity() {
     private val userPinMap get() = UserCache.userPinMap
     private val nameToInitials = mutableMapOf<String, String>()
 
-    private var serverConnected = false
     private var requestRunning = false
-
     private val ioScope = CoroutineScope(Dispatchers.IO + Job())
 
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        TcpLogHelper.clearLogs(this)
+
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
         setContentView(R.layout.activity_login)
 
@@ -49,7 +49,6 @@ class LoginActivity : AppCompatActivity() {
         val txtVersion = findViewById<TextView>(R.id.txtVersion)
         txtVersion.text = "App-Version: ${BuildConfig.VERSION_NAME}"
 
-        // Adapter für Autocomplete, falls UserCache schon Daten hat
         if (userList.isNotEmpty()) {
             val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, userList)
             txtUsername.setAdapter(adapter)
@@ -57,14 +56,9 @@ class LoginActivity : AppCompatActivity() {
         }
 
         btnLogin.setOnClickListener { attemptLogin() }
+        btnReload.setOnClickListener { loadUserList() }
 
-        // Reload-Button für manuelles Nachladen
-        btnReload.setOnClickListener {
-            connectAndLoadUsers()
-        }
-
-        // Initiale Verbindung & Benutzerliste laden
-        connectAndLoadUsers()
+        loadUserList()
     }
 
     override fun onDestroy() {
@@ -72,51 +66,12 @@ class LoginActivity : AppCompatActivity() {
         ioScope.cancel()
     }
 
-    /* ================= SERVERVERBINDUNG + BENUTZERLISTE ================= */
-    private fun connectAndLoadUsers() {
-        UiLoadingHelper.show(this, "Verbinde mit Server...", UiLoadingHelper.LoadingStatus.LOADING)
-
-        ioScope.launch {
-            var serverSuccess = false
-            var attempts = 0
-            while (attempts < 3 && !serverSuccess) {
-                attempts++
-
-                withContext(Dispatchers.Main) {
-                    // Loading Screen mit aktuellem Versuch aktualisieren
-                    UiLoadingHelper.update(
-                        this@LoginActivity,
-                        "Verbinde mit Server... Versuch $attempts/3",
-                        UiLoadingHelper.LoadingStatus.LOADING
-                    )
-                }
-
-                serverSuccess = try {
-                    TcpClient.ensureConnection(settings)
-                    true
-                } catch (_: Exception) {
-                    delay(500) // kleine Pause vor Retry
-                    false
-                }
-            }
-
-            withContext(Dispatchers.Main) {
-                serverConnected = serverSuccess
-                if (serverSuccess) {
-                    UiLoadingHelper.update(this@LoginActivity, "Server verbunden", UiLoadingHelper.LoadingStatus.SUCCESS)
-                    loadUserList()
-                } else {
-                    UiLoadingHelper.update(this@LoginActivity, "Server nicht erreichbar nach 3 Versuchen", UiLoadingHelper.LoadingStatus.ERROR)
-                }
-            }
-        }
-    }
-
+    /* ================= BENUTZERLISTE LADEN ================= */
     private fun loadUserList() {
         if (requestRunning) return
         requestRunning = true
 
-        UiLoadingHelper.update(this, "Lade Benutzerliste...", UiLoadingHelper.LoadingStatus.LOADING)
+        UiLoadingHelper.show(this, "Lade Benutzerliste...", UiLoadingHelper.LoadingStatus.LOADING)
 
         ioScope.launch {
             var success = false
@@ -126,7 +81,6 @@ class LoginActivity : AppCompatActivity() {
                 attempts++
 
                 withContext(Dispatchers.Main) {
-                    // Loading Screen mit aktuellem Versuch aktualisieren
                     UiLoadingHelper.update(
                         this@LoginActivity,
                         "Lade Benutzerliste... Versuch $attempts/3",
@@ -142,11 +96,12 @@ class LoginActivity : AppCompatActivity() {
                         request = "{GetBediener}",
                         endTag = "{/GetBediener}"
                     )
+
                     if (response.isNotEmpty()) {
-                        parseUserList(response)  // Adapter wird auf MainThread gesetzt
+                        parseUserList(response)
                         true
                     } else {
-                        delay(500) // kleine Pause vor Retry
+                        delay(500)
                         false
                     }
                 } catch (_: Exception) {
@@ -158,10 +113,18 @@ class LoginActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 requestRunning = false
                 if (success) {
-                    UiLoadingHelper.update(this@LoginActivity, "Benutzerliste geladen", UiLoadingHelper.LoadingStatus.SUCCESS)
+                    UiLoadingHelper.update(
+                        this@LoginActivity,
+                        "Benutzerliste geladen",
+                        UiLoadingHelper.LoadingStatus.SUCCESS
+                    )
                     selectDefaultUserIfAvailable()
                 } else {
-                    UiLoadingHelper.update(this@LoginActivity, "Fehler beim Laden der Benutzer nach 3 Versuchen", UiLoadingHelper.LoadingStatus.ERROR)
+                    UiLoadingHelper.update(
+                        this@LoginActivity,
+                        "Fehler beim Laden der Benutzer nach 3 Versuchen",
+                        UiLoadingHelper.LoadingStatus.ERROR
+                    )
                 }
             }
         }
@@ -189,8 +152,11 @@ class LoginActivity : AppCompatActivity() {
         }
 
         withContext(Dispatchers.Main) {
-            val adapter = ArrayAdapter(this@LoginActivity,
-                android.R.layout.simple_dropdown_item_1line, userList)
+            val adapter = ArrayAdapter(
+                this@LoginActivity,
+                android.R.layout.simple_dropdown_item_1line,
+                userList
+            )
             txtUsername.setAdapter(adapter)
         }
     }
@@ -212,11 +178,6 @@ class LoginActivity : AppCompatActivity() {
     private fun attemptLogin() {
         val username = txtUsername.text.toString()
         val pin = txtPin.text.toString()
-
-        if (!serverConnected) {
-            UiLoadingHelper.showError(this, "Keine Serververbindung")
-            return
-        }
 
         if (userList.isEmpty()) {
             UiLoadingHelper.showError(this, "Benutzerliste noch nicht geladen")
@@ -240,7 +201,7 @@ class LoginActivity : AppCompatActivity() {
         val intent = Intent(this, MainActivity::class.java)
         intent.putExtra("USERNAME", initials)
         startActivity(intent)
-        overridePendingTransition(0,0)
+        overridePendingTransition(0, 0)
         finish()
     }
 }

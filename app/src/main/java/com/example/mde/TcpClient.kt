@@ -1,43 +1,24 @@
 package com.example.mde
 
 import android.content.Context
-import java.io.*
+import java.io.BufferedWriter
+import java.io.OutputStreamWriter
 import java.net.InetSocketAddress
 import java.net.Socket
 import java.net.SocketTimeoutException
 
 object TcpClient {
 
-    private var socket: Socket? = null
-    private var writer: BufferedWriter? = null
-
-    private fun isConnected(): Boolean {
-        val s = socket ?: return false
-        return s.isConnected &&
-                !s.isClosed &&
-                !s.isInputShutdown &&
-                !s.isOutputShutdown
-    }
-
-    fun ensureConnection(settings: AppSettings) {
-        if (isConnected()) return
-
-        try {
-            socket?.close()
-        } catch (_: Exception) {
-        }
-
-        socket = Socket()
-        socket!!.keepAlive = true
-        socket!!.connect(
+    @Synchronized
+    private fun createConnection(settings: AppSettings): Socket {
+        val socket = Socket()
+        socket.keepAlive = true
+        socket.connect(
             InetSocketAddress(settings.serverIp, settings.serverPort),
             settings.timeoutS * 1000
         )
-        socket!!.soTimeout = settings.timeoutS * 1000
-
-        writer = BufferedWriter(
-            OutputStreamWriter(socket!!.getOutputStream(), Charsets.ISO_8859_1)
-        )
+        socket.soTimeout = settings.timeoutS * 1000
+        return socket
     }
 
     @Synchronized
@@ -52,29 +33,37 @@ object TcpClient {
         val initialTimeout = settings.timeoutS * 1000 / 5
         val readTimeout = settings.timeoutS * 1000 / 2
 
+        var socket: Socket? = null
+        var writer: BufferedWriter? = null
+
         try {
-            ensureConnection(settings)
+            socket = createConnection(settings)
+
+            writer = BufferedWriter(
+                OutputStreamWriter(socket.getOutputStream(), Charsets.ISO_8859_1)
+            )
 
             TcpLogHelper.logRequest(context, command, request)
 
-            writer!!.write(request + "\n")
-            writer!!.flush()
+            writer.write(request + "\n")
+            writer.flush()
 
             val response = StringBuilder()
             val buffer = ByteArray(16 * 1024)
-            val input = socket!!.getInputStream()
+            val input = socket.getInputStream()
             var firstByteReceived = false
 
             while (true) {
                 val read = try {
-                    socket!!.soTimeout =
+                    socket.soTimeout =
                         if (!firstByteReceived) initialTimeout else readTimeout
                     input.read(buffer)
                 } catch (e: SocketTimeoutException) {
-                    if (!firstByteReceived)
+                    if (!firstByteReceived) {
                         throw SocketTimeoutException("Initial timeout – keine Serverantwort")
-                    else
+                    } else {
                         throw SocketTimeoutException("Read timeout – EndTag nicht erreicht")
+                    }
                 }
 
                 if (read == -1) break
@@ -82,6 +71,7 @@ object TcpClient {
                 firstByteReceived = true
                 val chunk = String(buffer, 0, read, Charsets.ISO_8859_1)
                 response.append(chunk)
+
                 if (response.contains(endTag)) break
             }
 
@@ -90,19 +80,18 @@ object TcpClient {
             return stringResponse
 
         } catch (e: Exception) {
-            closeConnection()
             e.printStackTrace()
             throw e
-        }
-    }
+        } finally {
+            try {
+                writer?.close()
+            } catch (_: Exception) {
+            }
 
-    fun closeConnection() {
-        try {
-            socket?.close()
-        } catch (_: Exception) {
+            try {
+                socket?.close()
+            } catch (_: Exception) {
+            }
         }
-
-        socket = null
-        writer = null
     }
 }

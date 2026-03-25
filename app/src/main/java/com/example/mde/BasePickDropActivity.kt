@@ -2,17 +2,28 @@ package com.example.mde
 
 import android.graphics.Color
 import android.os.Bundle
-import android.text.*
+import android.text.Editable
 import android.text.InputType
+import android.text.SpannableStringBuilder
+import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
 import android.view.ViewGroup
-import android.widget.*
+import android.widget.AdapterView
+import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
+import android.widget.Spinner
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
-import kotlinx.coroutines.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.Locale
 
@@ -45,8 +56,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     override val buchungProjektView = null
     override val buchungMengeView = null
 
-    // Artikel/Projekte werden in Pick/Drop nicht gebraucht →
-    // verhindert kollidierendes show()/hide() aus der Base
     override val autoLoadArtikelUndProjekte = false
 
     protected lateinit var etListFilter: AutoCompleteTextView
@@ -251,7 +260,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 append("|\r\n")
                 append("{/SetBuchung}")
             }
-            TcpLogHelper.logRequest(this@BasePickDropActivity, "SetBuchung", request)
 
             CoroutineScope(Dispatchers.IO).launch {
                 var attempts = 0
@@ -265,10 +273,8 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                             request = request,
                             endTag = "{/SetBuchung}"
                         )
-                        TcpLogHelper.logResponse(this@BasePickDropActivity, "SetBuchung", response)
                         val cleaned = response.replace("\r", "").trim()
 
-                        // Server hat geantwortet → sofort Ergebnis, kein Retry
                         withContext(Dispatchers.Main) {
                             if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
                                 statusText.text = "✅ Buchung erfolgreich"
@@ -287,10 +293,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                             }
                         }
                         return@launch
-
                     } catch (e: Exception) {
-                        // Nur bei Timeout/Verbindungsfehler → Retry
-                        TcpClient.closeConnection()
                         if (attempts < 3) {
                             withContext(Dispatchers.Main) {
                                 statusText.text = "⏳ Timeout – Wiederhole... ($attempts/3)"
@@ -300,7 +303,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     }
                 }
 
-                // Alle 3 Versuche fehlgeschlagen
                 withContext(Dispatchers.Main) {
                     statusText.text = "❌ Kein Server erreichbar nach 3 Versuchen"
                     UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
@@ -340,10 +342,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             .show()
     }
 
-    // --------------------------------------------------
-    // loadList mit 3x Retry-Schleife (analog loadArtikelUndProjekteSequential)
-    // hide() NUR in finally
-    // --------------------------------------------------
     private fun loadList() {
         CoroutineScope(Dispatchers.IO).launch {
             withContext(Dispatchers.Main) {
@@ -395,7 +393,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
                 } catch (e: Exception) {
                     lastError = e.message ?: "Unbekannter Fehler"
-                    TcpClient.closeConnection()
                     delay(500)
                 }
             }
@@ -407,8 +404,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                         .setTitle("Fehler")
                         .setMessage("Fehler nach 3 Versuchen:\n$lastError")
                         .setPositiveButton("Retry") { _, _ ->
-                            // post{} stellt sicher dass finally hide() abgeschlossen
-                            // ist bevor loadList() erneut show() aufruft
                             etListFilter.post { loadList() }
                         }
                         .setNegativeButton("Abbrechen", null)
@@ -416,19 +411,14 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     liste = emptyList()
                     listAdapter.updateList(emptyList())
                 }
+                UiLoadingHelper.hide()
             }
-
-            // Einzige Stelle wo hide() aufgerufen wird
-            withContext(Dispatchers.Main) { UiLoadingHelper.hide() }
         }
 
         etListFilter.requestFocus()
         etListFilter.setSelection(0)
     }
 
-    // --------------------------------------------------
-    // loadDetails
-    // --------------------------------------------------
     private var loadDetailsJob: Job? = null
 
     fun loadDetails(nummer: String) {
@@ -500,7 +490,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
                 } catch (e: Exception) {
                     lastError = e.message ?: "Unbekannter Fehler"
-                    TcpClient.closeConnection()
                     delay(500)
                 }
             }
@@ -517,10 +506,8 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                         .setNegativeButton("Abbrechen", null)
                         .show()
                 }
+                UiLoadingHelper.hide()
             }
-
-            // Einzige Stelle wo hide() aufgerufen wird
-            withContext(Dispatchers.Main) { UiLoadingHelper.hide() }
         }
     }
 

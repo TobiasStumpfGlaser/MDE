@@ -85,8 +85,6 @@ class ArtikelAdapter(context: Context, artikelListe: List<Artikel>) :
 object DataRepository {
     var artikelListe: List<Artikel> = emptyList()
     var projektListe: List<String> = emptyList()
-
-    // Merkt sich die zuletzt verwendeten Projekte nur solange die App läuft
     var recentProjektListe: MutableList<String> = mutableListOf()
 
     fun isLoaded(): Boolean = artikelListe.isNotEmpty() && projektListe.isNotEmpty()
@@ -447,7 +445,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     success = artikelListe.isNotEmpty() && projektListe.isNotEmpty()
 
                 } catch (_: Exception) {
-                    TcpClient.closeConnection()
                     delay(500)
                 }
             }
@@ -775,8 +772,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 append("{/SetBuchung}")
             }
 
-            TcpLogHelper.logRequest(this@BaseArtikelScanActivity, "SetBuchung", request)
-
             var attempts = 0
             while (attempts < 3) {
                 attempts++
@@ -788,7 +783,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         request = request,
                         endTag = "{/SetBuchung}"
                     )
-                    TcpLogHelper.logResponse(this@BaseArtikelScanActivity, "SetBuchung", response)
                     val cleaned = response.replace("\r", "").trim()
 
                     withContext(Dispatchers.Main) {
@@ -813,7 +807,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     return@launch
 
                 } catch (e: Exception) {
-                    TcpClient.closeConnection()
                     if (attempts < 3) {
                         withContext(Dispatchers.Main) {
                             UiLoadingHelper.update(
