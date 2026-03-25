@@ -3,7 +3,8 @@
 
     <item
         android:id="@+id/menu_settings"
-        android:title="Einstellungen"
+        android:icon="@drawable/baseline_settings_24"
+        android:title=""
         app:showAsAction="always"/>
 
     <item

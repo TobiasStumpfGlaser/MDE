@@ -16,6 +16,7 @@ class SettingsActivity : AppCompatActivity() {
 
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         toolbar.navigationIcon?.setColorFilter(
             resources.getColor(android.R.color.white, theme),

@@ -40,6 +40,7 @@ class LoginActivity : AppCompatActivity() {
 
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
 
         txtUsername = findViewById(R.id.txtUsername)
         txtPin = findViewById(R.id.txtPin)
@@ -203,5 +204,20 @@ class LoginActivity : AppCompatActivity() {
         startActivity(intent)
         overridePendingTransition(0, 0)
         finish()
+    }
+
+    override fun onCreateOptionsMenu(menu: android.view.Menu?): Boolean {
+        menuInflater.inflate(R.menu.login_menu, menu)
+        return true
+    }
+
+    override fun onOptionsItemSelected(item: android.view.MenuItem): Boolean {
+        return when (item.itemId) {
+            R.id.menu_settings -> {
+                startActivity(Intent(this, SettingsActivity::class.java))
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
+        }
     }
 }

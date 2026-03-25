@@ -109,7 +109,7 @@ object DataRepository {
         recentProjektListe.remove(projekt)
         recentProjektListe.add(0, projekt)
         while (recentProjektListe.size > maxEntries) {
-            recentProjektListe.removeLast()
+            recentProjektListe.removeAt(recentProjektListe.lastIndex)
         }
     }
 }
@@ -189,6 +189,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     private fun setupToolbar() {
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
         toolbar.navigationIcon?.setTint(resources.getColor(android.R.color.white, theme))
     }

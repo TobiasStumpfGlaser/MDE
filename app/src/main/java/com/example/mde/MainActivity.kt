@@ -42,6 +42,7 @@ class MainActivity : AppCompatActivity() {
         // Toolbar
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
+        supportActionBar?.setDisplayShowTitleEnabled(false)
 
         val btnMaterialBook = findViewById<Button>(R.id.btnMaterialBook)
         val btnPicklist = findViewById<androidx.appcompat.widget.AppCompatButton>(R.id.btnPicklist)
