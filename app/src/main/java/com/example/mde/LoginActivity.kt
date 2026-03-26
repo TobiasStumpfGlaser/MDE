@@ -14,6 +14,51 @@ object UserCache {
     val userPinMap = mutableMapOf<String, String>()
 }
 
+class UserAdapter(
+    context: android.content.Context,
+    userList: List<String>
+) : ArrayAdapter<String>(
+    context,
+    android.R.layout.simple_dropdown_item_1line,
+    userList.toMutableList()
+) {
+    private val allItems = userList.toMutableList()
+
+    fun updateList(newList: List<String>) {
+        allItems.clear()
+        allItems.addAll(newList)
+        clear()
+        addAll(allItems)
+        notifyDataSetChanged()
+    }
+
+    override fun getFilter(): Filter {
+        return object : Filter() {
+            override fun performFiltering(constraint: CharSequence?): FilterResults {
+                val results = FilterResults()
+                val filtered = if (constraint.isNullOrBlank()) {
+                    allItems
+                } else {
+                    val query = constraint.toString().lowercase()
+                    allItems.filter { it.lowercase().contains(query) }
+                }
+                results.values = filtered.toMutableList()
+                results.count = filtered.size
+                return results
+            }
+
+            override fun publishResults(constraint: CharSequence?, results: FilterResults?) {
+                clear()
+                if (results?.values is List<*>) {
+                    @Suppress("UNCHECKED_CAST")
+                    addAll(results.values as List<String>)
+                }
+                notifyDataSetChanged()
+            }
+        }
+    }
+}
+
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var settings: AppSettings
@@ -21,7 +66,7 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var txtPin: EditText
     private lateinit var btnLogin: Button
     private lateinit var btnReload: ImageButton
-
+    private lateinit var userAdapter: UserAdapter
     private val userList get() = UserCache.userList
     private val userPinMap get() = UserCache.userPinMap
     private val nameToInitials = mutableMapOf<String, String>()
@@ -51,11 +96,15 @@ class LoginActivity : AppCompatActivity() {
         txtVersion.text = "App-Version: ${BuildConfig.VERSION_NAME}"
 
         if (userList.isNotEmpty()) {
-            val adapter = ArrayAdapter(this, android.R.layout.simple_dropdown_item_1line, userList)
-            txtUsername.setAdapter(adapter)
+            userAdapter = UserAdapter(this, userList)
+            txtUsername.setAdapter(userAdapter)
             selectDefaultUserIfAvailable()
         }
 
+        txtUsername.setOnClickListener { UserTextClicked() }
+        txtUsername.setOnFocusChangeListener { _, hasFocus ->
+            UserTextFocusChanged(hasFocus)
+        }
         btnLogin.setOnClickListener { attemptLogin() }
         btnReload.setOnClickListener { loadUserList() }
 
@@ -65,6 +114,26 @@ class LoginActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         ioScope.cancel()
+    }
+
+    private fun UserTextClicked() {
+        txtUsername.post {
+            txtUsername.setText("", false)
+            userAdapter.updateList(userList)   // <- Filter vollständig zurücksetzen
+            txtUsername.dismissDropDown()
+            txtUsername.showDropDown()
+        }
+    }
+
+    private fun UserTextFocusChanged(hasFocus: Boolean) {
+        if (hasFocus) {
+            txtUsername.post {
+                txtUsername.setText("", false)
+                userAdapter.updateList(userList) // <- Filter vollständig zurücksetzen
+                txtUsername.dismissDropDown()
+                txtUsername.showDropDown()
+            }
+        }
     }
 
     /* ================= BENUTZERLISTE LADEN ================= */
@@ -153,12 +222,12 @@ class LoginActivity : AppCompatActivity() {
         }
 
         withContext(Dispatchers.Main) {
-            val adapter = ArrayAdapter(
-                this@LoginActivity,
-                android.R.layout.simple_dropdown_item_1line,
-                userList
-            )
-            txtUsername.setAdapter(adapter)
+            if (::userAdapter.isInitialized) {
+                userAdapter.updateList(userList)
+            } else {
+                userAdapter = UserAdapter(this@LoginActivity, userList)
+                txtUsername.setAdapter(userAdapter)
+            }
         }
     }
 
