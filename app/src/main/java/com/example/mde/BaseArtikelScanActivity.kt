@@ -2,13 +2,11 @@ package com.example.mde
 
 import android.content.Context
 import android.content.Intent
-import android.graphics.Color
 import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
 import android.text.*
-import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.view.MenuItem
 import android.view.MotionEvent
@@ -20,12 +18,10 @@ import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import com.example.mde.model.Artikel
+import androidx.compose.ui.graphics.Color
 import kotlinx.coroutines.*
 import java.util.*
 
-// --------------------------------------------------
-// ArtikelAdapter
-// --------------------------------------------------
 class ArtikelAdapter(context: Context, artikelListe: List<Artikel>) :
     ArrayAdapter<Artikel>(
         context,
@@ -79,9 +75,6 @@ class ArtikelAdapter(context: Context, artikelListe: List<Artikel>) :
     }
 }
 
-// --------------------------------------------------
-// DataRepository
-// --------------------------------------------------
 object DataRepository {
     var artikelListe: List<Artikel> = emptyList()
     var projektListe: List<String> = emptyList()
@@ -114,9 +107,6 @@ object DataRepository {
     }
 }
 
-// --------------------------------------------------
-// BaseArtikelScanActivity
-// --------------------------------------------------
 abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     abstract fun getLayoutId(): Int
@@ -147,7 +137,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     protected lateinit var adapter: ArtikelAdapter
     private lateinit var handler: Handler
-    private lateinit var username: String
     private lateinit var timeoutRunnable: Runnable
     private var logoutTimeoutMillis = 0L
     private var requestRunning = false
@@ -156,16 +145,20 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     protected abstract val buchungProjektView: AutoCompleteTextView?
     protected abstract val buchungMengeView: EditText?
-
     protected open val autoLoadArtikelUndProjekte: Boolean = true
 
     private var lastBookingTime = 0L
     private val bookingCooldown = 2000L
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        super.onCreate(savedInstanceState)
+        val settings = AppSettings(this)
+        when (settings.selectedTheme) {
+            "dark" -> setTheme(R.style.Theme_MDE_Dark)
+            "colorful" -> setTheme(R.style.Theme_MDE_Colorful)
+            else -> setTheme(R.style.Theme_MDE_Light)
+        }
 
-        username = intent.getStringExtra("USERNAME") ?: "?"
+        super.onCreate(savedInstanceState)
 
         setContentView(getLayoutId())
 
@@ -191,7 +184,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayShowTitleEnabled(false)
         supportActionBar?.setDisplayHomeAsUpEnabled(true)
-        toolbar.navigationIcon?.setTint(resources.getColor(android.R.color.white, theme))
     }
 
     private fun setupTimeout() {
@@ -206,22 +198,14 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     private fun setupViews() {
-        etFilter = findViewById(R.id.etBarcode) ?: AutoCompleteTextView(this).apply {
-            visibility = View.GONE
-        }
-        tvArtikelInfo =
-            findViewById(R.id.tvArtikelInfo) ?: TextView(this).apply { visibility = View.GONE }
+        etFilter = findViewById(R.id.etBarcode) ?: AutoCompleteTextView(this).apply { visibility = View.GONE }
+        tvArtikelInfo = findViewById(R.id.tvArtikelInfo) ?: TextView(this).apply { visibility = View.GONE }
         btnClear = findViewById(R.id.btnClear) ?: Button(this).apply { visibility = View.GONE }
-        btnReloadArtikel = findViewById(R.id.btnReloadArtikel) ?: ImageButton(this).apply {
-            visibility = View.GONE
-        }
+        btnReloadArtikel = findViewById(R.id.btnReloadArtikel) ?: ImageButton(this).apply { visibility = View.GONE }
         btnScan = findViewById(R.id.btnScan) ?: Button(this).apply { visibility = View.GONE }
-        etProjekt = findViewById(R.id.txtProjekt) ?: AutoCompleteTextView(this).apply {
-            visibility = View.GONE
-        }
+        etProjekt = findViewById(R.id.txtProjekt) ?: AutoCompleteTextView(this).apply { visibility = View.GONE }
         edtMenge = findViewById(R.id.edtMenge) ?: EditText(this).apply { visibility = View.GONE }
-        edtSerials =
-            findViewById(R.id.edtSerials) ?: EditText(this).apply { visibility = View.GONE }
+        edtSerials = findViewById(R.id.edtSerials) ?: EditText(this).apply { visibility = View.GONE }
 
         edtSerials.apply {
             isFocusable = false
@@ -254,10 +238,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
-    protected fun showSerialDialog(
-        maxMenge: Int,
-        onSerialsConfirmed: (List<String>) -> Unit
-    ) {
+    protected fun showSerialDialog(maxMenge: Int, onSerialsConfirmed: (List<String>) -> Unit) {
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Seriennummern hinzufügen")
         val layout = layoutInflater.inflate(R.layout.dialog_serials, null)
@@ -285,19 +266,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
         fun tryAddSerial(input: String) {
             when {
-                serials.contains(input) -> {
-                    onSerialError("Seriennummer bereits vorhanden")
-                }
-
-                serials.size >= maxMenge -> {
-                    onSerialError("Maximale Menge erreicht")
-                }
-
+                serials.contains(input) -> onSerialError("Seriennummer bereits vorhanden")
+                serials.size >= maxMenge -> onSerialError("Maximale Menge erreicht")
                 else -> {
                     serials.add(input)
                     tvSerialList.text = "${serials.size} / $maxMenge\n${serials.joinToString("\n")}"
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled =
-                        serials.size == maxMenge
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = serials.size == maxMenge
                 }
             }
         }
@@ -312,7 +286,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 }
                 btnAdd.visibility = if (s.isNullOrBlank()) View.GONE else View.VISIBLE
             }
-
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
@@ -325,9 +298,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 if (input.isNotEmpty()) tryAddSerial(input)
                 etSerial.text.clear()
                 true
-            } else {
-                false
-            }
+            } else false
         }
 
         btnAdd.setOnClickListener {
@@ -444,7 +415,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     }
 
                     success = artikelListe.isNotEmpty() && projektListe.isNotEmpty()
-
                 } catch (_: Exception) {
                     delay(500)
                 }
@@ -452,19 +422,11 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
             withContext(Dispatchers.Main) {
                 requestRunning = false
-                if (success) {
-                    UiLoadingHelper.update(
-                        this@BaseArtikelScanActivity,
-                        "Daten aktualisiert",
-                        UiLoadingHelper.LoadingStatus.SUCCESS
-                    )
-                } else {
-                    UiLoadingHelper.update(
-                        this@BaseArtikelScanActivity,
-                        "Fehler Server Kommunikation nach 3 Versuchen",
-                        UiLoadingHelper.LoadingStatus.ERROR
-                    )
-                }
+                UiLoadingHelper.update(
+                    this@BaseArtikelScanActivity,
+                    if (success) "Daten aktualisiert" else "Fehler Server Kommunikation nach 3 Versuchen",
+                    if (success) UiLoadingHelper.LoadingStatus.SUCCESS else UiLoadingHelper.LoadingStatus.ERROR
+                )
             }
         }
     }
@@ -472,8 +434,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     private fun sortProjekteWithRecents(projekte: List<String>): List<String> {
         val recent = DataRepository.recentProjektListe
         return projekte.sortedWith(
-            compareBy<String> { projekt ->
-                val idx = recent.indexOf(projekt)
+            compareBy<String> {
+                val idx = recent.indexOf(it)
                 if (idx >= 0) idx else Int.MAX_VALUE
             }.thenBy { it.lowercase() }
         )
@@ -536,10 +498,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             val projekt = projektView.adapter.getItem(position).toString()
             projektView.setText(projekt)
             projektView.setSelection(0)
-
             DataRepository.rememberProjekt(projekt)
             setupProjektAdapter()
-
             buchungMengeView?.let { mengeView ->
                 mengeView.post {
                     mengeView.requestFocus()
@@ -560,9 +520,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 etFilter.setSelection(0)
                 if (matchedArtikel == null) {
                     tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
-                    tvArtikelInfo.setTextColor(Color.RED)
+                    tvArtikelInfo.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
                 } else {
-                    tvArtikelInfo.setTextColor(Color.WHITE)
                     showArtikelInfo(matchedArtikel)
                     etFilter.clearFocus()
                     etFilter.isFocusable = false
@@ -583,6 +542,10 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     protected fun showArtikelInfo(artikel: Artikel) {
         hideKeyboardAndClearFocus()
+
+        val itemTextColor = getThemeColor(android.R.attr.textColorPrimary)
+        val accentColor = getThemeColor(android.R.attr.colorAccent)
+
         val infoLines = listOf(
             "Artikelnummer: ${artikel.artNr}",
             "Bezeichnung: ${artikel.bez}",
@@ -599,25 +562,29 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
         val finalSpannable = SpannableStringBuilder()
         infoLines.forEachIndexed { index, line ->
-            val spannable = SpannableString(line + if (index < infoLines.size - 1) "\n" else "")
+            val lineStart = finalSpannable.length
+            finalSpannable.append(line)
+            if (index < infoLines.size - 1) finalSpannable.append("\n")
+
             val colonIndex = line.indexOf(":")
             if (colonIndex != -1) {
-                spannable.setSpan(
+                finalSpannable.setSpan(
                     StyleSpan(Typeface.BOLD),
-                    0,
-                    colonIndex,
+                    lineStart,
+                    lineStart + colonIndex,
                     Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
                 )
             }
-            spannable.setSpan(
-                ForegroundColorSpan(Color.WHITE),
-                0,
-                spannable.length,
-                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-            )
-            finalSpannable.append(spannable)
         }
+
+        tvArtikelInfo.setTextColor(itemTextColor)
         tvArtikelInfo.text = finalSpannable
+    }
+
+    private fun getThemeColor(attrResId: Int): Int {
+        val typedValue = android.util.TypedValue()
+        theme.resolveAttribute(attrResId, typedValue, true)
+        return typedValue.data
     }
 
     private fun setupDropdown() {
@@ -659,7 +626,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 when (matches.size) {
                     0 -> {
                         tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
-                        tvArtikelInfo.setTextColor(Color.RED)
+                        tvArtikelInfo.setTextColor(getThemeColor(android.R.attr.colorError))
                     }
 
                     1 -> {
@@ -681,8 +648,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         buchungProjektView?.let { projektView ->
                             projektView.post {
                                 projektView.requestFocus()
-                                val imm =
-                                    getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                                 imm.showSoftInput(projektView, InputMethodManager.SHOW_IMPLICIT)
                                 projektView.showDropDown()
                             }
@@ -695,7 +661,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     }
                 }
             }
-
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
@@ -724,19 +689,14 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         } else {
             "-${mengeStr.replace(".", ",")}"
         }
-        val buttonText =
-            if (count) "Zählstand setzen" else if (einlagern) "Zubuchen" else "Entnehmen"
+        val buttonText = if (count) "Zählstand setzen" else if (einlagern) "Zubuchen" else "Entnehmen"
 
         if (AppSettings(this@BaseArtikelScanActivity).confirmBook) {
             AlertDialog.Builder(this)
                 .setTitle("Buchung bestätigen")
                 .setMessage("Artikel: $artikel\nProjekt: $projekt\nMenge: $menge")
                 .setPositiveButton(buttonText) { _, _ ->
-                    sendBuchung(
-                        artikel,
-                        projekt,
-                        serverMenge
-                    )
+                    sendBuchung(artikel, projekt, serverMenge)
                 }
                 .setNegativeButton("Abbrechen", null)
                 .show()
@@ -759,16 +719,13 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 )
             }
 
-            val nowStr =
-                java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
+            val nowStr = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
             val username = intent.getStringExtra("USERNAME") ?: "?"
             val serials = withContext(Dispatchers.Main) { edtSerials.text.toString().trim() }
             val request = buildString {
                 append("{SetBuchung}\r\n")
                 append("$artikel||$menge|||$projekt|${AppSettings(this@BaseArtikelScanActivity).werkNummer}|$username|$nowStr|")
-                if (serials.isNotEmpty()) {
-                    append(serials)
-                }
+                if (serials.isNotEmpty()) append(serials)
                 append("|\r\n")
                 append("{/SetBuchung}")
             }
@@ -806,8 +763,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         }
                     }
                     return@launch
-
-                } catch (e: Exception) {
+                } catch (_: Exception) {
                     if (attempts < 3) {
                         withContext(Dispatchers.Main) {
                             UiLoadingHelper.update(
@@ -921,7 +877,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 fun SpannableStringBuilder.appendBoldAfterColon(text: String) {
     val colonIndex = text.indexOf(":")
     if (colonIndex == -1) {
-        append(text); return
+        append(text)
+        return
     }
     val start = length
     append(text)

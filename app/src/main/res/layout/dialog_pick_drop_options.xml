@@ -4,44 +4,45 @@
     android:orientation="vertical"
     android:padding="24dp"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:background="?android:attr/windowBackground">
 
     <TextView
         android:id="@+id/tvItemInfo"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:textSize="16sp"
-        android:paddingBottom="16dp"/>
+        android:paddingBottom="16dp"
+        android:textColor="?android:attr/textColorPrimary" />
 
     <LinearLayout
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical"
-        android:weightSum="4">
+        android:orientation="vertical">
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnYes"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:text="JA"/>
+            android:layout_height="wrap_content"
+            android:text="JA" />
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnNo"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:text="NEIN"/>
+            android:layout_height="wrap_content"
+            android:text="NEIN" />
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnChangeAmount"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:text="Anzahl ändern"/>
+            android:layout_height="wrap_content"
+            android:text="Anzahl ändern" />
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnSerials"
             android:layout_width="match_parent"
-            android:layout_height="match_parent"
-            android:text="Seriennummern"/>
+            android:layout_height="wrap_content"
+            android:text="Seriennummern" />
 
     </LinearLayout>
 

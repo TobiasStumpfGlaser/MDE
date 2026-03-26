@@ -4,7 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/grayBackground"
+    android:background="?android:attr/windowBackground"
     android:fitsSystemWindows="true">
 
     <!-- Toolbar -->
@@ -13,7 +13,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="0dp"
-        android:background="@color/cardview_dark_background"
+        android:background="?attr/colorPrimary"
         android:elevation="4dp"
         android:minHeight="?attr/actionBarSize"
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
@@ -44,7 +44,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="BW MDE"
-                android:textColor="@android:color/white"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textSize="25sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -58,7 +58,7 @@
         app:layout_constraintTop_toBottomOf="@id/toolbar"
         app:layout_constraintBottom_toTopOf="@id/controlsLayout"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent"/>
+        app:layout_constraintEnd_toEndOf="parent" />
 
     <!-- Buttons -->
     <LinearLayout
@@ -79,7 +79,7 @@
             android:focusable="true"
             android:focusableInTouchMode="true"
             android:inputType="text"
-            android:visibility="invisible"/>
+            android:visibility="invisible" />
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnConfirm"
@@ -87,8 +87,7 @@
             android:layout_height="60dp"
             android:layout_weight="1"
             android:layout_marginEnd="8dp"
-            android:text="Bestätigen"
-            android:background="@android:drawable/edit_text"/>
+            android:text="Bestätigen" />
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnCancel"
@@ -96,8 +95,7 @@
             android:layout_height="60dp"
             android:layout_weight="1"
             android:layout_marginStart="8dp"
-            android:text="Abbrechen"
-            android:background="@android:drawable/edit_text"/>
+            android:text="Abbrechen" />
 
     </LinearLayout>
 

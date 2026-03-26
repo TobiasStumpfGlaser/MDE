@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="@color/grayBackground">
+    android:background="?android:attr/windowBackground">
 
     <!-- Toolbar -->
     <androidx.appcompat.widget.Toolbar
@@ -13,7 +13,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="0dp"
-        android:background="@color/cardview_dark_background"
+        android:background="?attr/colorPrimary"
         android:elevation="4dp"
         android:minHeight="?attr/actionBarSize"
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
@@ -44,7 +44,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="BW MDE"
-                android:textColor="@android:color/white"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textSize="25sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -78,14 +78,13 @@
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
                     android:layout_weight="1"
-                    android:background="@android:drawable/edit_text"
+                    android:background="?attr/editTextBackground"
                     android:completionThreshold="1"
                     android:hint="Artikel suchen"
                     android:inputType="textVisiblePassword"
                     android:textAlignment="viewStart"
                     android:paddingTop="0dp"
-                    android:paddingBottom="0dp"
-                    />
+                    android:paddingBottom="0dp" />
 
                 <!-- Abstand -->
                 <View
@@ -107,60 +106,58 @@
             <!-- Projekt -->
 
             <LinearLayout
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:orientation="horizontal"
-            android:weightSum="2"
-            android:layout_marginTop="16dp"
-            android:layout_marginBottom="16dp">
-            <!-- Menge -->
-            <EditText
-                android:id="@+id/edtMenge"
                 android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:layout_weight="1"
-                android:background="@android:drawable/edit_text"
-                android:hint="Menge"
-                android:inputType="numberDecimal"
-                android:textAlignment="viewStart"/>
+                android:layout_height="wrap_content"
+                android:orientation="horizontal"
+                android:weightSum="2"
+                android:layout_marginTop="16dp"
+                android:layout_marginBottom="16dp">
 
-            <View
-                android:layout_width="16dp"
-                android:layout_height="match_parent"/>
+                <!-- Menge -->
+                <EditText
+                    android:id="@+id/edtMenge"
+                    android:layout_width="match_parent"
+                    android:layout_height="70dp"
+                    android:layout_weight="1"
+                    android:background="?attr/editTextBackground"
+                    android:hint="Menge"
+                    android:inputType="numberDecimal"
+                    android:textAlignment="viewStart" />
 
-            <!-- Clear -->
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnClear"
-                android:layout_width="match_parent"
-                android:layout_weight="1"
-                android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
-                android:text="Zurücksetzen"/>
-        </LinearLayout>
+                <View
+                    android:layout_width="16dp"
+                    android:layout_height="match_parent" />
+
+                <!-- Clear -->
+                <androidx.appcompat.widget.AppCompatButton
+                    android:id="@+id/btnClear"
+                    android:layout_width="match_parent"
+                    android:layout_weight="1"
+                    android:layout_height="70dp"
+                    android:text="Zurücksetzen" />
+            </LinearLayout>
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnCount"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
-                android:text="Zählung Senden"/>
+                android:text="Zählung Senden" />
 
             <!-- Artikel Info (BaseActivity ID: tvArtikelInfo) -->
             <TextView
                 android:id="@+id/tvArtikelInfo"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/white"
-                android:textSize="20sp"/>
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="20sp" />
 
             <!-- Scan Button (BaseActivity ID: btnScan) -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnScan"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
                 android:visibility="gone"
-                android:text="Scan"/>
+                android:text="Scan" />
 
         </LinearLayout>
     </ScrollView>

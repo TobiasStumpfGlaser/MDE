@@ -16,9 +16,15 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
     override fun getLayoutId() = R.layout.activity_material_buchung
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        settings = AppSettings(this)
+        when (settings.selectedTheme) {
+            "dark" -> setTheme(R.style.Theme_MDE_Dark)
+            "colorful" -> setTheme(R.style.Theme_MDE_Colorful)
+            else -> setTheme(R.style.Theme_MDE_Light)
+        }
+
         super.onCreate(savedInstanceState)
 
-        settings = AppSettings(this)
         username = intent.getStringExtra("USERNAME") ?: "?"
 
         // Neue Buttons Einlagern / Auslagern

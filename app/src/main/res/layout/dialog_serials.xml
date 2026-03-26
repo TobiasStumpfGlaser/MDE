@@ -2,14 +2,16 @@
     android:orientation="vertical"
     android:padding="16dp"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content">
+    android:layout_height="wrap_content"
+    android:background="?android:attr/windowBackground">
 
     <AutoCompleteTextView
         android:id="@+id/etSerial"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:hint="Seriennummer eingeben"
-        android:inputType="textVisiblePassword"/>
+        android:inputType="textVisiblePassword"
+        android:background="?attr/editTextBackground" />
 
     <Button
         android:id="@+id/btnAddSerial"
@@ -17,12 +19,13 @@
         android:layout_height="wrap_content"
         android:text="Hinzufügen"
         android:visibility="gone"
-        android:layout_marginTop="8dp"/>
+        android:layout_marginTop="8dp" />
 
     <TextView
         android:id="@+id/tvSerialList"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
         android:text="0 / 0"
-        android:layout_marginTop="8dp"/>
+        android:textColor="?android:attr/textColorPrimary"
+        android:layout_marginTop="8dp" />
 </LinearLayout>

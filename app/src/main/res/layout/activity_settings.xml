@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="@color/grayBackground">
+    android:background="?android:attr/windowBackground">
 
     <!-- Toolbar -->
     <androidx.appcompat.widget.Toolbar
@@ -13,7 +13,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="0dp"
-        android:background="@color/cardview_dark_background"
+        android:background="?attr/colorPrimary"
         android:elevation="4dp"
         android:minHeight="?attr/actionBarSize"
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
@@ -44,7 +44,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="BW MDE"
-                android:textColor="@android:color/white"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textSize="25sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -73,7 +73,7 @@
                 android:textSize="20sp"
                 android:textStyle="bold"
                 android:gravity="center"
-                android:textColor="@color/white"
+                android:textColor="?android:attr/textColorPrimary"
                 android:paddingBottom="24dp" />
 
             <!-- Server IP -->
@@ -81,7 +81,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Server IP"
-                android:textColor="@color/white" />
+                android:textColor="?android:attr/textColorPrimary" />
 
             <EditText
                 android:id="@+id/etServerIp"
@@ -89,7 +89,7 @@
                 android:layout_height="56dp"
                 android:hint="Server IP"
                 android:inputType="text"
-                android:background="@android:drawable/edit_text"
+                android:background="?attr/editTextBackground"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp" />
 
@@ -98,7 +98,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Server Port"
-                android:textColor="@color/white" />
+                android:textColor="?android:attr/textColorPrimary" />
 
             <EditText
                 android:id="@+id/etServerPort"
@@ -106,7 +106,7 @@
                 android:layout_height="56dp"
                 android:hint="Server Port"
                 android:inputType="number"
-                android:background="@android:drawable/edit_text"
+                android:background="?attr/editTextBackground"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp" />
 
@@ -115,7 +115,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Timeout Kommunikation (Sekunden)"
-                android:textColor="@color/white" />
+                android:textColor="?android:attr/textColorPrimary" />
 
             <EditText
                 android:id="@+id/etTimeout"
@@ -123,7 +123,7 @@
                 android:layout_height="56dp"
                 android:hint="Timeout Kommunikation (Sekunden)"
                 android:inputType="number"
-                android:background="@android:drawable/edit_text"
+                android:background="?attr/editTextBackground"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp" />
 
@@ -132,7 +132,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Timeout Inaktivität (Sekunden)"
-                android:textColor="@color/white" />
+                android:textColor="?android:attr/textColorPrimary" />
 
             <EditText
                 android:id="@+id/etLogoutTime"
@@ -140,7 +140,7 @@
                 android:layout_height="56dp"
                 android:hint="Timeout Inaktivität (Sekunden)"
                 android:inputType="number"
-                android:background="@android:drawable/edit_text"
+                android:background="?attr/editTextBackground"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp" />
 
@@ -149,7 +149,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Werksnummer"
-                android:textColor="@color/white" />
+                android:textColor="?android:attr/textColorPrimary" />
 
             <EditText
                 android:id="@+id/etWerkNummer"
@@ -157,15 +157,16 @@
                 android:layout_height="56dp"
                 android:hint="Werksnummer"
                 android:inputType="text"
-                android:background="@android:drawable/edit_text"
+                android:background="?attr/editTextBackground"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp" />
 
+            <!-- Standard Benutzer -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Standard Benutzer"
-                android:textColor="@color/white" />
+                android:textColor="?android:attr/textColorPrimary" />
 
             <EditText
                 android:id="@+id/etDefaultUser"
@@ -173,7 +174,23 @@
                 android:layout_height="56dp"
                 android:hint="Standard Benutzer"
                 android:inputType="text"
-                android:background="@android:drawable/edit_text"
+                android:background="?attr/editTextBackground"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp" />
+
+            <!-- Theme -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Thema"
+                android:textColor="?android:attr/textColorPrimary"
+                android:paddingTop="12dp" />
+
+            <Spinner
+                android:id="@+id/spTheme"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:background="?attr/editTextBackground"
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp" />
 
@@ -182,21 +199,20 @@
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Zurücksetzen nach Buchung OK"
-                android:textColor="@color/white"/>
+                android:textColor="?android:attr/textColorPrimary"/>
 
             <CheckBox
                 android:id="@+id/cbConfirmBook"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
                 android:text="Bestätigungsdialog anzeigen"
-                android:textColor="@color/white"/>
+                android:textColor="?android:attr/textColorPrimary"/>
 
             <!-- Speichern -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnSave"
                 android:layout_width="match_parent"
                 android:layout_height="56dp"
-                android:background="@android:drawable/edit_text"
                 android:text="Speichern" />
 
         </LinearLayout>

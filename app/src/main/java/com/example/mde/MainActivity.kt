@@ -18,6 +18,13 @@ class MainActivity : AppCompatActivity() {
     private lateinit var settings: AppSettings
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val settings = AppSettings(this)
+        when (settings.selectedTheme) {
+            "dark" -> setTheme(R.style.Theme_MDE_Dark)
+            "colorful" -> setTheme(R.style.Theme_MDE_Colorful)
+            else -> setTheme(R.style.Theme_MDE_Light)
+        }
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_main)
 
@@ -36,7 +43,6 @@ class MainActivity : AppCompatActivity() {
 
         resetInactivityTimer()
 
-        settings = AppSettings(this) // Context übergeben
         timeoutMillis = settings.logoutTimeSec * 1000L
 
         // Toolbar

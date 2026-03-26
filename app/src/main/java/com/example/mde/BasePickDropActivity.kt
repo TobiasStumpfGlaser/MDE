@@ -75,9 +75,15 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     protected lateinit var username: String
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        settings = AppSettings(this)
+        when (settings.selectedTheme) {
+            "dark" -> setTheme(R.style.Theme_MDE_Dark)
+            "colorful" -> setTheme(R.style.Theme_MDE_Colorful)
+            else -> setTheme(R.style.Theme_MDE_Light)
+        }
+
         super.onCreate(savedInstanceState)
 
-        settings = AppSettings(this)
         username = intent.getStringExtra("USERNAME") ?: "?"
 
         etListFilter = findViewById(R.id.etListFilter)
@@ -108,23 +114,31 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
     private fun setupSpinner() {
         val options = listOf("Sortiere nach Pos", "Sortiere nach W1", "Sortiere nach W2")
-        val spinnerAdapter = object : ArrayAdapter<String>(
-            this, android.R.layout.simple_spinner_item, options
-        ) {
-            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View =
-                (super.getView(position, convertView, parent) as TextView)
-                    .also { it.setTextColor(Color.WHITE) }
 
-            override fun getDropDownView(
-                position: Int,
-                convertView: View?,
-                parent: ViewGroup
-            ): View =
-                (super.getDropDownView(position, convertView, parent) as TextView)
-                    .also { it.setTextColor(Color.WHITE) }
+        val spinnerAdapter = object : ArrayAdapter<String>(
+            this,
+            android.R.layout.simple_spinner_item,
+            options
+        ) {
+            override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = super.getView(position, convertView, parent) as TextView
+                view.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
+                view.setPadding(24, 12, 24, 12)
+                return view
+            }
+
+            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val view = super.getDropDownView(position, convertView, parent) as TextView
+                view.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
+                view.setBackgroundColor(getThemeColor(android.R.attr.windowBackground))
+                view.setPadding(24, 24, 24, 24)
+                return view
+            }
         }
+
         spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spinnerSort.adapter = spinnerAdapter
+
         spinnerSort.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
             override fun onItemSelected(
                 parent: AdapterView<*>?, view: View?, position: Int, id: Long
@@ -140,6 +154,12 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
             override fun onNothingSelected(parent: AdapterView<*>?) {}
         }
+    }
+
+    private fun getThemeColor(attrResId: Int): Int {
+        val typedValue = android.util.TypedValue()
+        theme.resolveAttribute(attrResId, typedValue, true)
+        return typedValue.data
     }
 
     private fun setupListFilter() {
@@ -398,6 +418,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             }
 
             withContext(Dispatchers.Main) {
+                UiLoadingHelper.hide()
                 if (!success) {
                     UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
                     AlertDialog.Builder(this@BasePickDropActivity)
@@ -411,7 +432,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     liste = emptyList()
                     listAdapter.updateList(emptyList())
                 }
-                UiLoadingHelper.hide()
             }
         }
 
@@ -495,6 +515,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             }
 
             withContext(Dispatchers.Main) {
+                UiLoadingHelper.hide()
                 if (!success) {
                     UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
                     AlertDialog.Builder(this@BasePickDropActivity)
@@ -506,7 +527,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                         .setNegativeButton("Abbrechen", null)
                         .show()
                 }
-                UiLoadingHelper.hide()
             }
         }
     }
@@ -564,8 +584,10 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             builder.append("\n")
             builder.appendBoldAfterColon("Lagerorte W2: ${item.lagerOrtW2}")
             holder.tvItem.text = builder
-            holder.tvItem.setTextColor(Color.WHITE)
-            holder.itemView.setBackgroundColor(if (position % 2 == 0) Color.DKGRAY else Color.GRAY)
+            val oddColor = getThemeColor(R.attr.tableRowOddColor)
+            val evenColor = getThemeColor(R.attr.tableRowEvenColor)
+            holder.itemView.setBackgroundColor(if (position % 2 == 0) oddColor else evenColor)
+            holder.tvItem.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
             holder.itemView.setOnClickListener { showItemDialog(item) }
         }
 
@@ -598,8 +620,10 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             builder.append("\n")
             builder.appendBoldAfterColon("Projekt-Name: ${item.projektName}")
             holder.tvItem.text = builder
-            holder.tvItem.setTextColor(Color.WHITE)
-            holder.itemView.setBackgroundColor(if (position % 2 == 0) Color.DKGRAY else Color.GRAY)
+            val oddColor = getThemeColor(R.attr.tableRowOddColor)
+            val evenColor = getThemeColor(R.attr.tableRowEvenColor)
+            holder.itemView.setBackgroundColor(if (position % 2 == 0) oddColor else evenColor)
+            holder.tvItem.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
             holder.itemView.setOnClickListener {
                 CoroutineScope(Dispatchers.Main).launch {
                     currentProjektNr = item.projektNr

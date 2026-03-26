@@ -43,6 +43,13 @@ class ScannerActivity : AppCompatActivity() {
     private val barcodeBuffer = StringBuilder()
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        val settings = AppSettings(this)
+        when (settings.selectedTheme) {
+            "dark" -> setTheme(R.style.Theme_MDE_Dark)
+            "colorful" -> setTheme(R.style.Theme_MDE_Colorful)
+            else -> setTheme(R.style.Theme_MDE_Light)
+        }
+
         super.onCreate(savedInstanceState)
         setContentView(R.layout.activity_scanner)
 

@@ -4,7 +4,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/grayBackground"
+    android:background="?android:attr/windowBackground"
     android:fitsSystemWindows="true">
 
     <!-- Toolbar -->
@@ -13,7 +13,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="0dp"
-        android:background="@color/cardview_dark_background"
+        android:background="?attr/colorPrimary"
         android:elevation="4dp"
         android:minHeight="?attr/actionBarSize"
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
@@ -44,7 +44,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="BW MDE"
-                android:textColor="@android:color/white"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textSize="25sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -75,8 +75,8 @@
                 android:inputType="textVisiblePassword"
                 android:completionThreshold="1"
                 android:padding="8dp"
-                android:background="@android:drawable/edit_text"
-                android:layout_marginBottom="8dp"/>
+                android:background="?attr/editTextBackground"
+                android:layout_marginBottom="8dp" />
 
             <!-- Detail-Filter -->
             <AutoCompleteTextView
@@ -86,10 +86,10 @@
                 android:hint="Artikel filtern"
                 android:inputType="text"
                 android:padding="8dp"
-                android:background="@android:drawable/edit_text"
+                android:background="?attr/editTextBackground"
                 android:visibility="gone"
                 android:layout_marginTop="8dp"
-                android:layout_marginBottom="8dp"/>
+                android:layout_marginBottom="8dp" />
 
             <!-- Spinner Sortierung -->
             <Spinner
@@ -98,10 +98,8 @@
                 android:layout_height="wrap_content"
                 android:layout_marginTop="8dp"
                 android:layout_marginBottom="8dp"
-                android:spinnerMode="dropdown"
-                android:backgroundTint="@android:color/darker_gray"
-                android:popupBackground="@android:color/darker_gray"
-                android:textColor="@android:color/white"/>
+                android:textColor="?android:attr/textColorPrimary"
+                android:spinnerMode="dropdown" />
 
             <!-- Übersichtsliste -->
             <androidx.recyclerview.widget.RecyclerView
@@ -109,7 +107,7 @@
                 android:layout_width="match_parent"
                 android:layout_height="0dp"
                 android:layout_weight="1"
-                android:scrollbars="vertical"/>
+                android:scrollbars="vertical" />
 
             <!-- Detailliste -->
             <androidx.recyclerview.widget.RecyclerView
@@ -118,7 +116,7 @@
                 android:layout_height="0dp"
                 android:layout_weight="1"
                 android:scrollbars="vertical"
-                android:paddingTop="8dp"/>
+                android:paddingTop="8dp" />
 
         </LinearLayout>
 

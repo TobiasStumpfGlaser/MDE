@@ -75,13 +75,18 @@ class LoginActivity : AppCompatActivity() {
     private val ioScope = CoroutineScope(Dispatchers.IO + Job())
 
     override fun onCreate(savedInstanceState: Bundle?) {
+        settings = AppSettings(this)
+        when (settings.selectedTheme) {
+            "dark" -> setTheme(R.style.Theme_MDE_Dark)
+            "colorful" -> setTheme(R.style.Theme_MDE_Colorful)
+            else -> setTheme(R.style.Theme_MDE_Light)
+        }
+
         super.onCreate(savedInstanceState)
         TcpLogHelper.clearLogs(this)
 
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
         setContentView(R.layout.activity_login)
-
-        settings = AppSettings(this)
 
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
@@ -119,7 +124,7 @@ class LoginActivity : AppCompatActivity() {
     private fun UserTextClicked() {
         txtUsername.post {
             txtUsername.setText("", false)
-            userAdapter.updateList(userList)   // <- Filter vollständig zurücksetzen
+            userAdapter.updateList(userList)
             txtUsername.dismissDropDown()
             txtUsername.showDropDown()
         }
@@ -129,14 +134,13 @@ class LoginActivity : AppCompatActivity() {
         if (hasFocus) {
             txtUsername.post {
                 txtUsername.setText("", false)
-                userAdapter.updateList(userList) // <- Filter vollständig zurücksetzen
+                userAdapter.updateList(userList)
                 txtUsername.dismissDropDown()
                 txtUsername.showDropDown()
             }
         }
     }
 
-    /* ================= BENUTZERLISTE LADEN ================= */
     private fun loadUserList() {
         if (requestRunning) return
         requestRunning = true
@@ -244,7 +248,6 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    /* ================= LOGIN ================= */
     private fun attemptLogin() {
         val username = txtUsername.text.toString()
         val pin = txtPin.text.toString()

@@ -3,7 +3,7 @@
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:background="@color/grayBackground"
+    android:background="?android:attr/windowBackground"
     android:fitsSystemWindows="true">
 
     <!-- Toolbar -->
@@ -12,7 +12,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="0dp"
-        android:background="@color/cardview_dark_background"
+        android:background="?attr/colorPrimary"
         android:elevation="4dp"
         android:minHeight="?attr/actionBarSize"
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
@@ -43,7 +43,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="BW MDE"
-                android:textColor="@android:color/white"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textSize="25sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -77,14 +77,13 @@
                     android:layout_width="0dp"
                     android:layout_height="match_parent"
                     android:layout_weight="1"
-                    android:background="@android:drawable/edit_text"
+                    android:background="?attr/editTextBackground"
                     android:completionThreshold="1"
                     android:hint="Artikel suchen"
                     android:inputType="textVisiblePassword"
                     android:textAlignment="viewStart"
                     android:paddingTop="0dp"
-                    android:paddingBottom="0dp"
-                    />
+                    android:paddingBottom="0dp" />
 
                 <!-- Abstand -->
                 <View
@@ -112,7 +111,7 @@
                 android:id="@+id/txtProjekt"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
+                android:background="?attr/editTextBackground"
                 android:completionThreshold="1"
                 android:hint="Projekt suchen"
                 android:inputType="textVisiblePassword"
@@ -125,13 +124,14 @@
                 android:layout_marginBottom="16dp"
                 android:orientation="horizontal"
                 android:weightSum="2">
+
                 <!-- Menge -->
                 <EditText
                     android:id="@+id/edtMenge"
                     android:layout_width="match_parent"
                     android:layout_height="70dp"
                     android:layout_weight="1"
-                    android:background="@android:drawable/edit_text"
+                    android:background="?attr/editTextBackground"
                     android:hint="Menge"
                     android:inputType="numberDecimal"
                     android:textAlignment="viewStart" />
@@ -146,7 +146,6 @@
                     android:layout_width="match_parent"
                     android:layout_height="70dp"
                     android:layout_weight="1"
-                    android:background="@android:drawable/edit_text"
                     android:text="Zurücksetzen" />
             </LinearLayout>
 
@@ -154,7 +153,7 @@
                 android:id="@+id/edtSerials"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
+                android:background="?attr/editTextBackground"
                 android:hint="Seriennummer(n) optional"
                 android:inputType="textVisiblePassword"
                 android:layout_marginBottom="16dp"
@@ -199,7 +198,7 @@
                 android:id="@+id/tvArtikelInfo"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:textColor="@color/white"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textSize="20sp" />
 
             <View
@@ -212,9 +211,8 @@
                 android:id="@+id/btnScan"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
-                android:text="Scan"
-                android:visibility="gone" />
+                android:visibility="gone"
+                android:text="Scan" />
 
         </LinearLayout>
     </ScrollView>

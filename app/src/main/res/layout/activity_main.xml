@@ -5,7 +5,7 @@
     android:layout_width="match_parent"
     android:layout_height="match_parent"
     android:fitsSystemWindows="true"
-    android:background="@color/grayBackground">
+    android:background="?android:attr/windowBackground">
 
     <!-- Toolbar -->
     <androidx.appcompat.widget.Toolbar
@@ -13,7 +13,7 @@
         android:layout_width="0dp"
         android:layout_height="wrap_content"
         android:layout_marginTop="0dp"
-        android:background="@color/cardview_dark_background"
+        android:background="?attr/colorPrimary"
         android:elevation="4dp"
         android:minHeight="?attr/actionBarSize"
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
@@ -44,7 +44,7 @@
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="BW MDE"
-                android:textColor="@android:color/white"
+                android:textColor="?android:attr/textColorPrimary"
                 android:textSize="25sp"
                 android:textStyle="bold" />
         </LinearLayout>
@@ -71,7 +71,6 @@
                 android:id="@+id/btnInfoScan"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
                 android:text="Info Scan"
                 android:visibility="gone"
                 android:textSize="20sp" />
@@ -85,7 +84,6 @@
                 android:id="@+id/btnMaterialBook"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
                 android:text="Material Buchung"
                 android:textSize="20sp" />
 
@@ -98,7 +96,6 @@
                 android:id="@+id/btnPicklist"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
                 android:text="Picklist"
                 android:textSize="20sp" />
 
@@ -106,12 +103,11 @@
                 android:layout_width="match_parent"
                 android:layout_height="10dp" />
 
-            <!-- Picklist -->
+            <!-- Droplist -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnDroplist"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
                 android:text="Droplist"
                 android:textSize="20sp" />
 
@@ -119,13 +115,12 @@
                 android:layout_width="match_parent"
                 android:layout_height="10dp" />
 
-            <!-- Picklist -->
+            <!-- Inventur -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnInventur"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
-                android:background="@android:drawable/edit_text"
-                android:text="Ist-Zähluing"
+                android:text="Ist-Zählung"
                 android:textSize="20sp" />
 
         </LinearLayout>

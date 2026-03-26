@@ -1,0 +1,4 @@
+<resources>
+    <attr name="tableRowOddColor" format="color" />
+    <attr name="tableRowEvenColor" format="color" />
+</resources>

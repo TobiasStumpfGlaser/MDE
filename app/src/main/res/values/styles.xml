@@ -5,4 +5,37 @@
         <item name="colorPrimaryDark">@color/primaryDark</item>
         <item name="colorAccent">@color/accentRed</item>
     </style>
+
+    <style name="Theme.MDE.Light" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimary">@color/mde_light_primary</item>
+        <item name="colorPrimaryDark">@color/mde_light_primary</item>
+        <item name="colorAccent">@color/mde_light_primary</item>
+        <item name="android:windowBackground">@color/mde_light_background</item>
+        <item name="android:textColorPrimary">@color/mde_light_text</item>
+        <item name="android:textColorSecondary">@color/mde_light_text</item>
+        <item name="tableRowOddColor">@color/tableRowOddLight</item>
+        <item name="tableRowEvenColor">@color/tableRowEvenLight</item>
+    </style>
+
+    <style name="Theme.MDE.Dark" parent="Theme.AppCompat.NoActionBar">
+        <item name="colorPrimary">@color/mde_dark_primary</item>
+        <item name="colorPrimaryDark">@color/mde_dark_primary</item>
+        <item name="colorAccent">@color/mde_dark_primary</item>
+        <item name="android:windowBackground">@color/mde_dark_background</item>
+        <item name="android:textColorPrimary">@color/mde_dark_text</item>
+        <item name="android:textColorSecondary">@color/mde_dark_text</item>
+        <item name="tableRowOddColor">@color/tableRowOddDark</item>
+        <item name="tableRowEvenColor">@color/tableRowEvenDark</item>
+    </style>
+
+    <style name="Theme.MDE.Colorful" parent="Theme.AppCompat.Light.NoActionBar">
+        <item name="colorPrimary">@color/mde_colorful_primary</item>
+        <item name="colorPrimaryDark">@color/mde_colorful_primary</item>
+        <item name="colorAccent">@color/mde_colorful_primary</item>
+        <item name="android:windowBackground">@color/mde_colorful_background</item>
+        <item name="android:textColorPrimary">@color/mde_colorful_text</item>
+        <item name="android:textColorSecondary">@color/mde_colorful_text</item>
+        <item name="tableRowOddColor">@color/tableRowOddColorful</item>
+        <item name="tableRowEvenColor">@color/tableRowEvenColorful</item>
+    </style>
 </resources>

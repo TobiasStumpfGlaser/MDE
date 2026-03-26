@@ -5,4 +5,25 @@
     <color name="accentGreen">#388E3C</color>
     <color name="white">#FFFFFF</color>
     <color name="grayBackground">#2C2C2C</color>
+
+    <!-- Light -->
+    <color name="mde_light_background">#F5F5F5</color>
+    <color name="mde_light_primary">#1976D2</color>
+    <color name="mde_light_text">#212121</color>
+    <color name="tableRowOddLight">#FFFFFF</color>
+    <color name="tableRowEvenLight">#D6D6D6</color>
+
+    <!-- Dark -->
+    <color name="mde_dark_background">#121212</color>
+    <color name="mde_dark_primary">#90CAF9</color>
+    <color name="mde_dark_text">#FFFFFF</color>
+    <color name="tableRowOddDark">#0F0F0F</color>
+    <color name="tableRowEvenDark">#383838</color>
+
+    <!-- Colorful -->
+    <color name="mde_colorful_background">#FFF3E0</color>
+    <color name="mde_colorful_primary">#E91E63</color>
+    <color name="mde_colorful_text">#3E2723</color>
+    <color name="tableRowOddColorful">#FFF8F2</color>
+    <color name="tableRowEvenColorful">#FFE0CC</color>
 </resources>
