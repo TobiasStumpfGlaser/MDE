@@ -544,7 +544,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         hideKeyboardAndClearFocus()
 
         val itemTextColor = getThemeColor(android.R.attr.textColorPrimary)
-        val accentColor = getThemeColor(android.R.attr.colorAccent)
+        getThemeColor(android.R.attr.colorAccent)
 
         val infoLines = listOf(
             "Artikelnummer: ${artikel.artNr}",
@@ -694,7 +694,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         if (AppSettings(this@BaseArtikelScanActivity).confirmBook) {
             AlertDialog.Builder(this)
                 .setTitle("Buchung bestätigen")
-                .setMessage("Artikel: $artikel\nProjekt: $projekt\nMenge: $menge")
+                .setMessage("Artikel: $artikel\nProjekt: $projekt\nMenge: $menge\nSeriennummer(n): ${edtSerials.text}")
                 .setPositiveButton(buttonText) { _, _ ->
                     sendBuchung(artikel, projekt, serverMenge)
                 }
@@ -723,10 +723,11 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             val username = intent.getStringExtra("USERNAME") ?: "?"
             val serials = withContext(Dispatchers.Main) { edtSerials.text.toString().trim() }
             val request = buildString {
-                append("{SetBuchung}\r\n")
+                append("{SetBuchung}")
                 append("$artikel||$menge|||$projekt|${AppSettings(this@BaseArtikelScanActivity).werkNummer}|$username|$nowStr|")
-                if (serials.isNotEmpty()) append(serials)
-                append("|\r\n")
+                if (serials.isNotEmpty()) {
+                    append(serials)
+                }
                 append("{/SetBuchung}")
             }
 

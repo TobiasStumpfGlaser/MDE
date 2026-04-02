@@ -127,7 +127,11 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 return view
             }
 
-            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+            override fun getDropDownView(
+                position: Int,
+                convertView: View?,
+                parent: ViewGroup
+            ): View {
                 val view = super.getDropDownView(position, convertView, parent) as TextView
                 view.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
                 view.setBackgroundColor(getThemeColor(android.R.attr.windowBackground))
@@ -235,6 +239,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 Info: ${item.info}
                 Lagerorte W1: ${item.lagerOrtW1}
                 Lagerorte W2: ${item.lagerOrtW2}
+                Seriennummer(n): ${item.serials.joinToString("; ")}
             """.trimIndent()
         }
         updateDialogMessage()
@@ -272,12 +277,11 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 if (item.serials.isNotEmpty()) item.serials.joinToString(";") else ""
             val buchungsMenge = (item.menge.toIntOrNull() ?: 0) * buchungsVorzeichen
             val request = buildString {
-                append("{SetBuchung}\r\n")
+                append("{SetBuchung}")
                 append("$artikel||$buchungsMenge|${item.listenNummer}|${item.pos}|$projekt|${settings.werkNummer}|$username|$now|")
                 if (serialsString.isNotEmpty()) {
                     append(serialsString)
                 }
-                append("|\r\n")
                 append("{/SetBuchung}")
             }
 
