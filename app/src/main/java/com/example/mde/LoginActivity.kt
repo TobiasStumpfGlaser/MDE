@@ -2,12 +2,27 @@ package com.example.mde
 
 import android.content.Intent
 import android.os.Bundle
+import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
-import android.widget.*
+import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
+import android.widget.Button
+import android.widget.EditText
+import android.widget.Filter
+import android.widget.ImageButton
+import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
-import kotlinx.coroutines.*
-import android.view.WindowManager
+import com.datalogic.decode.BarcodeManager
+import com.datalogic.decode.configuration.ScannerProperties
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.cancel
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 
 object UserCache {
     val userList = mutableListOf<String>()
@@ -59,6 +74,30 @@ class UserAdapter(
     }
 }
 
+object DatalogicWedgeController {
+    /**
+     * Tries to enable the Datalogic Keyboard Wedge.
+     * Returns true if it looks like it worked, false if not supported / failed.
+     *
+     * Safe to call on non-Datalogic devices (won't crash).
+     */
+    fun enableKeyboardWedge(manager: BarcodeManager): Boolean {
+        return try {
+            val cfg = ScannerProperties.edit(manager) ?: return false
+
+            // Some environments return a config object with null sub-sections.
+            val wedge = cfg.keyboardWedge ?: return false
+
+            wedge.enable.set(true)
+
+            val errorCode = cfg.store(manager, true)
+            errorCode == 0
+        } catch (_: Throwable) {
+            false
+        }
+    }
+}
+
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var settings: AppSettings
@@ -67,12 +106,15 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var btnLogin: Button
     private lateinit var btnReload: ImageButton
     private lateinit var userAdapter: UserAdapter
+
     private val userList get() = UserCache.userList
     private val userPinMap get() = UserCache.userPinMap
     private val nameToInitials = mutableMapOf<String, String>()
 
     private var requestRunning = false
     private val ioScope = CoroutineScope(Dispatchers.IO + Job())
+
+    private lateinit var barcodeManager: BarcodeManager
 
     override fun onCreate(savedInstanceState: Bundle?) {
         settings = AppSettings(this)
@@ -84,6 +126,10 @@ class LoginActivity : AppCompatActivity() {
 
         super.onCreate(savedInstanceState)
         TcpLogHelper.clearLogs(this)
+
+        // Create manager and enable keyboard wedge
+        barcodeManager = BarcodeManager()
+        DatalogicWedgeController.enableKeyboardWedge(barcodeManager)
 
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
         setContentView(R.layout.activity_login)
@@ -106,9 +152,9 @@ class LoginActivity : AppCompatActivity() {
             selectDefaultUserIfAvailable()
         }
 
-        txtUsername.setOnClickListener { UserTextClicked() }
+        txtUsername.setOnClickListener { userTextClicked() }
         txtUsername.setOnFocusChangeListener { _, hasFocus ->
-            UserTextFocusChanged(hasFocus)
+            userTextFocusChanged(hasFocus)
         }
         btnLogin.setOnClickListener { attemptLogin() }
         btnReload.setOnClickListener { loadUserList() }
@@ -119,9 +165,11 @@ class LoginActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         ioScope.cancel()
+        // Only needed if you add listeners; safe to omit for wedge-only usage.
+        // barcodeManager.release()
     }
 
-    private fun UserTextClicked() {
+    private fun userTextClicked() {
         txtUsername.post {
             txtUsername.setText("", false)
             userAdapter.updateList(userList)
@@ -130,7 +178,7 @@ class LoginActivity : AppCompatActivity() {
         }
     }
 
-    private fun UserTextFocusChanged(hasFocus: Boolean) {
+    private fun userTextFocusChanged(hasFocus: Boolean) {
         if (hasFocus) {
             txtUsername.post {
                 txtUsername.setText("", false)
@@ -152,17 +200,17 @@ class LoginActivity : AppCompatActivity() {
             "Lade Benutzerliste...",
             UiLoadingHelper.LoadingStatus.LOADING,
             onCancel = {
-                loadJob.cancel()          // Coroutine stoppen
-                requestRunning = false    // Flag zurücksetzen
+                loadJob.cancel()
+                requestRunning = false
             }
         )
 
-        ioScope.launch(loadJob) {  // ← loadJob hier einbinden
+        ioScope.launch(loadJob) {
             var success = false
             var attempts = 0
 
             while (attempts < 3 && !success) {
-                if (!isActive) return@launch  // ← abgebrochen?
+                if (!isActive) return@launch
                 attempts++
 
                 withContext(Dispatchers.Main) {
@@ -300,6 +348,7 @@ class LoginActivity : AppCompatActivity() {
                 startActivity(Intent(this, SettingsActivity::class.java))
                 true
             }
+
             else -> super.onOptionsItemSelected(item)
         }
     }

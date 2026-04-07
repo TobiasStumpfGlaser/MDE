@@ -208,6 +208,7 @@
                 android:text="Bestätigungsdialog anzeigen"
                 android:textColor="?android:attr/textColorPrimary"/>
 
+            <!-- Schriftgröße -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -215,11 +216,12 @@
                 android:textColor="?android:attr/textColorPrimary"
                 android:paddingTop="12dp" />
 
+            <!-- 0.25er Schritte von 0.25 bis 2.00 => 8 Schritte => max=7 -->
             <SeekBar
                 android:id="@+id/sbFontScale"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:max="80" />
+                android:max="7" />
 
             <TextView
                 android:id="@+id/tvFontScalePreview"
@@ -231,7 +233,7 @@
                 android:paddingTop="8dp"
                 android:paddingBottom="12dp" />
 
-            <!-- NEW: LayoutScale -->
+            <!-- LayoutScale -->
             <TextView
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
@@ -239,11 +241,12 @@
                 android:textColor="?android:attr/textColorPrimary"
                 android:paddingTop="12dp" />
 
+            <!-- 0.25er Schritte von 0.25 bis 2.00 => 8 Schritte => max=7 -->
             <SeekBar
                 android:id="@+id/sbLayoutScale"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:max="45" />
+                android:max="7" />
 
             <TextView
                 android:id="@+id/tvLayoutScalePreview"

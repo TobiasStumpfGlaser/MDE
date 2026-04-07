@@ -744,7 +744,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 if (serials.isNotEmpty()) {
                     append(serials)
                 }
-                append("{/SetBuchung}")
+                append("|{/SetBuchung}")
             }
 
             var attempts = 0

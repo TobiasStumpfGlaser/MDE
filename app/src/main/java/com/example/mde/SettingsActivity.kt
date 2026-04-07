@@ -5,6 +5,7 @@ import android.os.Bundle
 import android.widget.*
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import kotlin.math.roundToInt
 
 class SettingsActivity : AppCompatActivity() {
 
@@ -59,7 +60,7 @@ class SettingsActivity : AppCompatActivity() {
         themeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spTheme.adapter = themeAdapter
 
-        // --- Laden (deine bestehenden Felder) ---
+        // Laden
         etIp.setText(settings.serverIp)
         etPort.setText(settings.serverPort.toString())
         etTimeout.setText(settings.timeoutS.toString())
@@ -77,33 +78,27 @@ class SettingsActivity : AppCompatActivity() {
             }
         )
 
-        // --- FontScale 0.50 .. 2.00 (progress 0..150 in 0.01-Schritten) ---
-        sbFontScale.max = 150
-        sbFontScale.progress = scaleToProgress(settings.fontScale, min = 0.5f)
-        updateFontPreview(progressToScale(sbFontScale.progress, min = 0.5f))
-
+        // 0.25er Schritte: 0..7 -> 0.25..2.00
+        sbFontScale.progress = scaleToStep(settings.fontScale)
+        updateFontPreview(stepToScale(sbFontScale.progress))
         sbFontScale.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                updateFontPreview(progressToScale(progress, min = 0.5f))
+                updateFontPreview(stepToScale(progress))
             }
             override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
             override fun onStopTrackingTouch(seekBar: SeekBar) = Unit
         })
 
-        // --- LayoutScale 0.50 .. 2.00 (progress 0..150 in 0.01-Schritten) ---
-        sbLayoutScale.max = 150
-        sbLayoutScale.progress = scaleToProgress(settings.layoutScale, min = 0.5f)
-        updateLayoutPreview(progressToScale(sbLayoutScale.progress, min = 0.5f))
-
+        sbLayoutScale.progress = scaleToStep(settings.layoutScale)
+        updateLayoutPreview(stepToScale(sbLayoutScale.progress))
         sbLayoutScale.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
             override fun onProgressChanged(seekBar: SeekBar, progress: Int, fromUser: Boolean) {
-                updateLayoutPreview(progressToScale(progress, min = 0.5f))
+                updateLayoutPreview(stepToScale(progress))
             }
             override fun onStartTrackingTouch(seekBar: SeekBar) = Unit
             override fun onStopTrackingTouch(seekBar: SeekBar) = Unit
         })
 
-        // --- Speichern ---
         btnSave.setOnClickListener {
             settings.serverIp = etIp.text.toString()
             settings.serverPort = etPort.text.toString().toIntOrNull() ?: 5000
@@ -120,8 +115,9 @@ class SettingsActivity : AppCompatActivity() {
                 else -> "light"
             }
 
-            settings.fontScale = progressToScale(sbFontScale.progress, min = 0.5f)
-            settings.layoutScale = progressToScale(sbLayoutScale.progress, min = 0.5f)
+            // speichern (0.25er Schritte)
+            settings.fontScale = stepToScale(sbFontScale.progress)
+            settings.layoutScale = stepToScale(sbLayoutScale.progress)
 
             restartApp()
         }
@@ -142,11 +138,16 @@ class SettingsActivity : AppCompatActivity() {
         finish()
     }
 
-    // progress 0..150 -> scale min..(min+1.50) => 0.50..2.00
-    private fun progressToScale(progress: Int, min: Float): Float = min + (progress / 100f)
+    // Step mapping:
+    // step 0..7 => scale = 0.25 + step*0.25 => 0.25..2.00
+    private fun stepToScale(step: Int): Float =
+        (0.25f + (step.coerceIn(0, 7) * 0.25f)).coerceIn(0.25f, 2.0f)
 
-    private fun scaleToProgress(scale: Float, min: Float): Int =
-        (((scale.coerceIn(min, 2.0f)) - min) * 100).toInt()
+    // scale -> nearest step (0..7)
+    private fun scaleToStep(scale: Float): Int {
+        val clamped = scale.coerceIn(0.25f, 2.0f)
+        return ((clamped - 0.25f) / 0.25f).roundToInt().coerceIn(0, 7)
+    }
 
     private fun updateFontPreview(scale: Float) {
         tvFontScalePreview.text = "Schriftgröße: ${String.format("%.2f", scale)}x"

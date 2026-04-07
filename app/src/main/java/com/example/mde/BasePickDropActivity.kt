@@ -289,7 +289,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 if (serialsString.isNotEmpty()) {
                     append(serialsString)
                 }
-                append("{/SetBuchung}")
+                append("|{/SetBuchung}")
             }
 
             CoroutineScope(Dispatchers.IO).launch {

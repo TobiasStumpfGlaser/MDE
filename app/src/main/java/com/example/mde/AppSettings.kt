@@ -45,10 +45,9 @@ class AppSettings(context: Context) {
 
     var fontScale: Float
         get() = prefs.getFloat("font_scale", 1.0f)
-        set(value) = prefs.edit().putFloat("font_scale", value.coerceIn(0.5f, 2.0f)).apply()
+        set(value) = prefs.edit().putFloat("font_scale", value.coerceIn(0.25f, 2.0f)).apply()
 
-    // 0.50 .. 2.00
     var layoutScale: Float
         get() = prefs.getFloat("layout_scale", 1.0f)
-        set(value) = prefs.edit().putFloat("layout_scale", value.coerceIn(0.5f, 2.0f)).apply()
+        set(value) = prefs.edit().putFloat("layout_scale", value.coerceIn(0.25f, 2.0f)).apply()
 }
