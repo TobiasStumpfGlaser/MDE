@@ -66,12 +66,26 @@
             android:orientation="vertical"
             android:padding="24dp">
 
+            <EditText
+                android:id="@+id/etProjectNumber"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:hint="Projekt Nummer"
+                android:inputType="text"
+                android:padding="8dp"
+                android:background="?attr/editTextBackground"
+                android:layout_marginBottom="8dp"
+                android:focusable="false"
+                android:focusableInTouchMode="false"
+                android:clickable="false"
+                android:cursorVisible="false" />
+
             <!-- Übersichts-Filter -->
             <AutoCompleteTextView
                 android:id="@+id/etListFilter"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
-                android:hint="Nummer"
+                android:hint="Listen Nummer"
                 android:inputType="textVisiblePassword"
                 android:completionThreshold="1"
                 android:padding="8dp"

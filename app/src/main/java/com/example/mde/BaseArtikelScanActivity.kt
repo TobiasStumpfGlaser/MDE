@@ -363,14 +363,26 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected fun loadArtikelUndProjekteSequential() {
         if (requestRunning) return
         requestRunning = true
-        UiLoadingHelper.show(this, "Lade Serverdaten...", UiLoadingHelper.LoadingStatus.LOADING)
 
-        ioScope.launch {
+        val loadJob = Job()
+
+        UiLoadingHelper.show(
+            this,
+            "Lade Serverdaten...",
+            UiLoadingHelper.LoadingStatus.LOADING,
+            onCancel = {
+                loadJob.cancel()
+                requestRunning = false
+            }
+        )
+
+        ioScope.launch(loadJob) {  // ← loadJob einbinden
             val settings = AppSettings(this@BaseArtikelScanActivity)
             var success = false
             var attempts = 0
 
             while (attempts < 3 && !success) {
+                if (!isActive) return@launch  // ← abgebrochen?
                 attempts++
                 try {
                     withContext(Dispatchers.Main) {
@@ -391,6 +403,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     val artikel = parseArtikelResponse(artikelResponse)
 
                     withContext(Dispatchers.Main) {
+                        if (!isActive) return@withContext  // ← nach jedem await prüfen
                         artikelListe = artikel
                         if (!::adapter.isInitialized) {
                             adapter = ArtikelAdapter(this@BaseArtikelScanActivity, artikelListe)
@@ -410,6 +423,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     val projekte = parseProjektList(projekteResponse)
 
                     withContext(Dispatchers.Main) {
+                        if (!isActive) return@withContext
                         projektListe = projekte
                         setupProjektAdapter()
                     }
@@ -419,6 +433,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     delay(500)
                 }
             }
+
+            if (!isActive) return@launch  // ← vor UI-Update prüfen
 
             withContext(Dispatchers.Main) {
                 requestRunning = false

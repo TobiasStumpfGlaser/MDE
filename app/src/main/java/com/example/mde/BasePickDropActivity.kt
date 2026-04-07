@@ -1,6 +1,5 @@
 package com.example.mde
 
-import android.graphics.Color
 import android.os.Bundle
 import android.text.Editable
 import android.text.InputType
@@ -12,6 +11,7 @@ import android.view.ViewGroup
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
+import android.widget.EditText
 import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
@@ -22,6 +22,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Date
@@ -58,6 +59,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
     override val autoLoadArtikelUndProjekte = false
 
+    protected lateinit var etProjectNumber: EditText
     protected lateinit var etListFilter: AutoCompleteTextView
     protected lateinit var etDetailFilter: AutoCompleteTextView
     private lateinit var listView: RecyclerView
@@ -74,6 +76,9 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     protected lateinit var settings: AppSettings
     protected lateinit var username: String
 
+    private var loadListJob: Job? = null
+    private var loadDetailsJob: Job? = null
+
     override fun onCreate(savedInstanceState: Bundle?) {
         settings = AppSettings(this)
         when (settings.selectedTheme) {
@@ -86,6 +91,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
         username = intent.getStringExtra("USERNAME") ?: "?"
 
+        etProjectNumber = findViewById(R.id.etProjectNumber)
         etListFilter = findViewById(R.id.etListFilter)
         etDetailFilter = findViewById(R.id.etDetailFilter)
         listView = findViewById(R.id.rvList)
@@ -183,6 +189,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     val item = filtered[0]
                     currentProjektNr = item.projektNr
                     etListFilter.setText(item.nummer)
+                    etProjectNumber.setText(currentProjektNr)
                     etListFilter.setSelection(0)
                     ignoreChanges = false
                     listView.visibility = View.GONE
@@ -367,24 +374,34 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     }
 
     private fun loadList() {
-        CoroutineScope(Dispatchers.IO).launch {
-            withContext(Dispatchers.Main) {
-                UiLoadingHelper.show(this@BasePickDropActivity, "Lade Liste...")
-            }
+        loadListJob?.cancel()
+        val loadJob = Job()
+        loadListJob = loadJob
 
+        UiLoadingHelper.show(
+            this,
+            "Lade Liste... Versuch 1/3",
+            UiLoadingHelper.LoadingStatus.LOADING,
+            onCancel = { loadJob.cancel() }
+        )
+
+        CoroutineScope(Dispatchers.IO + loadJob).launch {
             var success = false
             var attempts = 0
-            var lastError: String = ""
+            var lastError = ""
 
             while (attempts < 3 && !success) {
+                if (!isActive) return@launch
                 attempts++
                 try {
-                    withContext(Dispatchers.Main) {
-                        UiLoadingHelper.update(
-                            this@BasePickDropActivity,
-                            "Lade Liste... Versuch $attempts/3",
-                            UiLoadingHelper.LoadingStatus.LOADING
-                        )
+                    if (attempts > 1) {
+                        withContext(Dispatchers.Main) {
+                            UiLoadingHelper.update(
+                                this@BasePickDropActivity,
+                                "Lade Liste... Versuch $attempts/3",
+                                UiLoadingHelper.LoadingStatus.LOADING
+                            )
+                        }
                     }
 
                     val response = TcpClient.sendCommand(
@@ -410,8 +427,10 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     }
 
                     withContext(Dispatchers.Main) {
+                        if (!isActive) return@withContext
                         liste = items
                         listAdapter.updateList(liste)
+                        UiLoadingHelper.hide()
                     }
                     success = true
 
@@ -421,9 +440,11 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 }
             }
 
+            if (!isActive) return@launch
+
             withContext(Dispatchers.Main) {
-                UiLoadingHelper.hide()
                 if (!success) {
+                    UiLoadingHelper.hide()
                     UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
                     AlertDialog.Builder(this@BasePickDropActivity)
                         .setTitle("Fehler")
@@ -443,31 +464,39 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         etListFilter.setSelection(0)
     }
 
-    private var loadDetailsJob: Job? = null
-
     fun loadDetails(nummer: String) {
         loadDetailsJob?.cancel()
-        val command = "$detailCommandPrefix$nummer"
-        loadDetailsJob = CoroutineScope(Dispatchers.IO).launch {
-            withContext(Dispatchers.Main) {
-                UiLoadingHelper.show(this@BasePickDropActivity, "Lade Details...")
-            }
+        val loadJob = Job()
+        loadDetailsJob = loadJob
 
+        UiLoadingHelper.hide()
+        UiLoadingHelper.show(
+            this,
+            "Lade Details... Versuch 1/3",
+            UiLoadingHelper.LoadingStatus.LOADING,
+            onCancel = { loadJob.cancel() }
+        )
+
+        CoroutineScope(Dispatchers.IO + loadJob).launch {
             var success = false
             var attempts = 0
-            var lastError: String = ""
+            var lastError = ""
 
             while (attempts < 3 && !success) {
+                if (!isActive) return@launch
                 attempts++
                 try {
-                    withContext(Dispatchers.Main) {
-                        UiLoadingHelper.update(
-                            this@BasePickDropActivity,
-                            "Lade Details... Versuch $attempts/3",
-                            UiLoadingHelper.LoadingStatus.LOADING
-                        )
+                    if (attempts > 1) {
+                        withContext(Dispatchers.Main) {
+                            UiLoadingHelper.update(
+                                this@BasePickDropActivity,
+                                "Lade Details... Versuch $attempts/3",
+                                UiLoadingHelper.LoadingStatus.LOADING
+                            )
+                        }
                     }
 
+                    val command = "$detailCommandPrefix$nummer"
                     val response = TcpClient.sendCommand(
                         context = this@BasePickDropActivity,
                         settings = settings,
@@ -500,7 +529,26 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                         } else null
                     }
 
+                    // Artikeldaten still laden ohne neuen Dialog
+                    if (DataRepository.artikelListe.isEmpty()) {
+                        try {
+                            val artikelResponse = TcpClient.sendCommand(
+                                context = this@BasePickDropActivity,
+                                settings = settings,
+                                command = "GetArtikel",
+                                request = "{GetArtikel}",
+                                endTag = "{/GetArtikel}"
+                            )
+                            val artikel = parseArtikelResponse(artikelResponse)
+                            withContext(Dispatchers.Main) {
+                                if (isActive) artikelListe = artikel
+                            }
+                        } catch (_: Exception) {
+                        }
+                    }
+
                     withContext(Dispatchers.Main) {
+                        if (!isActive) return@withContext
                         detailsListe = details.toMutableList()
                         detailsOriginal = details.toMutableList()
                         detailsAdapter.updateList(detailsListe)
@@ -508,7 +556,8 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                         detailsView.visibility = if (details.isEmpty()) View.GONE else View.VISIBLE
                         etDetailFilter.requestFocus()
                         etDetailFilter.setSelection(etDetailFilter.text.length)
-                        ensureArtikelLoaded { fillDetailsWithLagerorte() }
+                        UiLoadingHelper.hide()  // ← Dialog schließen
+                        fillDetailsWithLagerorte()  // ← direkt aufrufen, kein ensureArtikelLoaded
                     }
                     success = true
 
@@ -518,9 +567,11 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 }
             }
 
+            if (!isActive) return@launch
+
             withContext(Dispatchers.Main) {
-                UiLoadingHelper.hide()
                 if (!success) {
+                    UiLoadingHelper.hide()
                     UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
                     AlertDialog.Builder(this@BasePickDropActivity)
                         .setTitle("Fehler")
@@ -632,6 +683,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 CoroutineScope(Dispatchers.Main).launch {
                     currentProjektNr = item.projektNr
                     etListFilter.setText(item.nummer)
+                    etProjectNumber.setText(currentProjektNr)
                     etListFilter.setSelection(etListFilter.text.length)
                     listView.visibility = View.GONE
                     loadDetails(item.nummer)

@@ -28,7 +28,8 @@ object UiLoadingHelper {
     fun show(
         activity: Activity,
         message: String = "Kommunikation mit Server...",
-        status: LoadingStatus = LoadingStatus.LOADING
+        status: LoadingStatus = LoadingStatus.LOADING,
+        onCancel: (() -> Unit)? = null
     ) {
 
         autoHideJob?.cancel()  // vorherige auto-hide stoppen
@@ -76,7 +77,16 @@ object UiLoadingHelper {
 
         when (status) {
             LoadingStatus.LOADING -> {
-                builder.setCancelable(false)
+                if (onCancel != null) {
+                    builder.setCancelable(false)
+                    builder.setNegativeButton("Abbrechen") { dialog, _ ->
+                        dialog.dismiss()
+                        hide()
+                        onCancel()
+                    }
+                } else {
+                    builder.setCancelable(false)
+                }
             }
 
             LoadingStatus.SUCCESS -> {
@@ -154,6 +164,8 @@ object UiLoadingHelper {
         autoHideJob?.cancel()
 
         val btn = loadingDialog?.getButton(AlertDialog.BUTTON_POSITIVE)
+        val cancelBtn = loadingDialog?.getButton(AlertDialog.BUTTON_NEGATIVE)
+
         // Button je nach Status steuern
         when (status) {
             LoadingStatus.ERROR -> {
@@ -162,10 +174,17 @@ object UiLoadingHelper {
                 btn?.setOnClickListener {
                     hide()
                 }
+                cancelBtn?.visibility = View.GONE
             }
 
-            else -> {
+            LoadingStatus.SUCCESS -> {
                 btn?.visibility = View.GONE
+                cancelBtn?.visibility = View.GONE
+            }
+
+            LoadingStatus.LOADING -> {
+                btn?.visibility = View.GONE
+                // Cancel bleibt sichtbar (falls vorhanden)
             }
         }
 

@@ -145,13 +145,24 @@ class LoginActivity : AppCompatActivity() {
         if (requestRunning) return
         requestRunning = true
 
-        UiLoadingHelper.show(this, "Lade Benutzerliste...", UiLoadingHelper.LoadingStatus.LOADING)
+        val loadJob = Job()
 
-        ioScope.launch {
+        UiLoadingHelper.show(
+            this,
+            "Lade Benutzerliste...",
+            UiLoadingHelper.LoadingStatus.LOADING,
+            onCancel = {
+                loadJob.cancel()          // Coroutine stoppen
+                requestRunning = false    // Flag zurücksetzen
+            }
+        )
+
+        ioScope.launch(loadJob) {  // ← loadJob hier einbinden
             var success = false
             var attempts = 0
 
             while (attempts < 3 && !success) {
+                if (!isActive) return@launch  // ← abgebrochen?
                 attempts++
 
                 withContext(Dispatchers.Main) {
