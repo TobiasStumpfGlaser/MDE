@@ -208,6 +208,53 @@
                 android:text="Bestätigungsdialog anzeigen"
                 android:textColor="?android:attr/textColorPrimary"/>
 
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Schriftgröße"
+                android:textColor="?android:attr/textColorPrimary"
+                android:paddingTop="12dp" />
+
+            <SeekBar
+                android:id="@+id/sbFontScale"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="80" />
+
+            <TextView
+                android:id="@+id/tvFontScalePreview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Schriftgröße: 1.00x"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="16sp"
+                android:paddingTop="8dp"
+                android:paddingBottom="12dp" />
+
+            <!-- NEW: LayoutScale -->
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Layout-Größe (Buttons / Abstände)"
+                android:textColor="?android:attr/textColorPrimary"
+                android:paddingTop="12dp" />
+
+            <SeekBar
+                android:id="@+id/sbLayoutScale"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:max="45" />
+
+            <TextView
+                android:id="@+id/tvLayoutScalePreview"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Layout: 1.00x"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="16sp"
+                android:paddingTop="8dp"
+                android:paddingBottom="12dp" />
+
             <!-- Speichern -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnSave"
