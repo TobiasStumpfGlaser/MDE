@@ -155,8 +155,24 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             ) {
                 val sorted = when (position) {
                     0 -> detailsListe.sortedBy { it.pos.toIntOrNull() ?: Int.MAX_VALUE }
-                    1 -> detailsListe.sortedBy { it.lagerOrtW1 }
-                    2 -> detailsListe.sortedBy { it.lagerOrtW2 }
+                    1 -> detailsListe.sortedWith { a, b ->
+                        val c1 = compareLocationBlankLast(
+                            a.lagerOrtW1.firstLocationToken(),
+                            b.lagerOrtW1.firstLocationToken()
+                        )
+                        if (c1 != 0) return@sortedWith c1
+                        naturalCompare(a.artNr, b.artNr)
+                    }
+
+                    2 -> detailsListe.sortedWith { a, b ->
+                        val c1 = compareLocationBlankLast(
+                            a.lagerOrtW2.firstLocationToken(),
+                            b.lagerOrtW2.firstLocationToken()
+                        )
+                        if (c1 != 0) return@sortedWith c1
+                        naturalCompare(a.artNr, b.artNr)
+                    }
+
                     else -> detailsListe
                 }
                 detailsAdapter.updateList(sorted)
@@ -170,6 +186,58 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         val typedValue = android.util.TypedValue()
         theme.resolveAttribute(attrResId, typedValue, true)
         return typedValue.data
+    }
+
+    private fun String.firstLocationToken(): String {
+        // "1A, 2B" -> "1A"
+        return this.split(",")
+            .firstOrNull()
+            ?.trim()
+            .orEmpty()
+    }
+
+    private fun tokenizeNatural(s: String): List<Any> {
+        // zerlegt "100A-2" -> [100, "a-", 2]
+        val out = mutableListOf<Any>()
+        val regex = Regex("""\d+|\D+""")
+        for (m in regex.findAll(s)) {
+            val part = m.value
+            out += part.toIntOrNull() ?: part.lowercase(Locale.GERMANY)
+        }
+        return out
+    }
+
+    private fun naturalCompare(a: String, b: String): Int {
+        val ta = tokenizeNatural(a)
+        val tb = tokenizeNatural(b)
+        val n = minOf(ta.size, tb.size)
+
+        for (i in 0 until n) {
+            val va = ta[i]
+            val vb = tb[i]
+            val c = when {
+                va is Int && vb is Int -> va.compareTo(vb)
+                va is String && vb is String -> va.compareTo(vb)
+                va is Int && vb is String -> -1 // Zahlen vor Text
+                va is String && vb is Int -> 1
+                else -> 0
+            }
+            if (c != 0) return c
+        }
+        return ta.size.compareTo(tb.size)
+    }
+
+    private fun compareLocationBlankLast(a: String, b: String): Int {
+        val aa = a.trim()
+        val bb = b.trim()
+        val aBlank = aa.isBlank()
+        val bBlank = bb.isBlank()
+        return when {
+            aBlank && bBlank -> 0
+            aBlank -> 1 // blank -> nach hinten
+            bBlank -> -1
+            else -> naturalCompare(aa, bb)
+        }
     }
 
     private fun setupListFilter() {
