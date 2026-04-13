@@ -39,6 +39,12 @@
             android:text="Anzahl ändern" />
 
         <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnChangeArticle"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:text="Artikel ändern" />
+
+        <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnSerials"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"

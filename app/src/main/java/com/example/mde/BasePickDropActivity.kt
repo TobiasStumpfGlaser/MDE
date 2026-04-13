@@ -30,7 +30,7 @@ import java.util.Locale
 
 data class ListItem(val nummer: String, val projektNr: String, val projektName: String)
 data class ListDetail(
-    val artNr: String,
+    var artNr: String,
     var menge: String,
     val pos: String,
     val info: String,
@@ -78,6 +78,9 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
     private var loadListJob: Job? = null
     private var loadDetailsJob: Job? = null
+
+    // NEU: neue Artikelnummer zwischenspeichern und in normaler Buchungsroutine verwenden
+    private var replacementArtNr: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
         settings = AppSettings(this)
@@ -311,18 +314,19 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         val btnYes = dialogView.findViewById<View>(R.id.btnYes)
         val btnNo = dialogView.findViewById<View>(R.id.btnNo)
         val btnChangeAmount = dialogView.findViewById<View>(R.id.btnChangeAmount)
+        val btnChangeArticle = dialogView.findViewById<View>(R.id.btnChangeArticle)
         val btnSerials = dialogView.findViewById<View>(R.id.btnSerials)
 
         fun updateDialogMessage() {
+            val ersatz = if (!replacementArtNr.isNullOrBlank()) replacementArtNr else "-"
+
             tvMessage.text = """
-                Artikel: ${item.artNr}
-                Menge: ${item.menge}
-                Pos: ${item.pos}
-                Info: ${item.info}
-                Lagerorte W1: ${item.lagerOrtW1}
-                Lagerorte W2: ${item.lagerOrtW2}
-                Seriennummer(n): ${item.serials.joinToString("; ")}
-            """.trimIndent()
+                            Artikel: ${item.artNr}
+                            Ersatz Artikel: $ersatz
+                            Menge: ${item.menge}
+                            Info: ${item.info}
+                            Seriennummer(n): ${item.serials.joinToString("; ")}
+                            """.trimIndent()
         }
         updateDialogMessage()
 
@@ -332,11 +336,18 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             if (!btnYes.isEnabled) return@setOnClickListener
             btnYes.isEnabled = false
 
-            val artikel = item.artNr
+            val artikelAlt = item.artNr
+            val artikelNeu = replacementArtNr?.trim().orEmpty()
             val projekt = currentProjektNr
             val menge = item.menge
-            if (artikel.isBlank() || projekt.isBlank() || menge.isBlank()) {
+            if (artikelAlt.isBlank() || projekt.isBlank() || menge.isBlank()) {
                 showMessageDialog("❌ Fehler: Alle Felder müssen ausgefüllt sein!")
+                UiLoadingHelper.playErrorSound(this)
+                btnYes.isEnabled = true
+                return@setOnClickListener
+            }
+            if (replacementArtNr != null && artikelNeu.isBlank()) {
+                showMessageDialog("❌ Fehler: Neue Artikelnummer ist leer.")
                 UiLoadingHelper.playErrorSound(this)
                 btnYes.isEnabled = true
                 return@setOnClickListener
@@ -360,7 +371,14 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             val buchungsMenge = (item.menge.toIntOrNull() ?: 0) * buchungsVorzeichen
             val request = buildString {
                 append("{SetBuchung}")
-                append("$artikel||$buchungsMenge|${item.listenNummer}|${item.pos}|$projekt|${settings.werkNummer}|$username|$now|")
+
+                val artikelTeil = if (replacementArtNr.isNullOrBlank()) {
+                    "$artikelAlt||$buchungsMenge"
+                } else {
+                    "$artikelAlt|$artikelNeu|$buchungsMenge"
+                }
+
+                append("$artikelTeil|${item.listenNummer}|${item.pos}|$projekt|${settings.werkNummer}|$username|$now|")
                 if (serialsString.isNotEmpty()) {
                     append(serialsString)
                 }
@@ -384,6 +402,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                         withContext(Dispatchers.Main) {
                             if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
                                 statusText.text = "✅ Buchung erfolgreich"
+                                replacementArtNr = null
                                 detailsListe = detailsListe.filter { it != item }
                                 detailsOriginal = detailsOriginal.filter { it != item }
                                 applyCurrentSortAndShow()
@@ -422,6 +441,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
         btnNo.setOnClickListener { dialog.dismiss() }
         btnChangeAmount.setOnClickListener { showChangeAmountDialog(item) { updateDialogMessage() } }
+        btnChangeArticle.setOnClickListener { showChangeArticleDialog(item) { updateDialogMessage() } }
         btnSerials.setOnClickListener {
             val mengeInt = item.menge.toIntOrNull() ?: 0
             showSerialDialog(mengeInt) { serials ->
@@ -443,6 +463,39 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 item.menge = et.text.toString()
                 applyCurrentSortAndShow()
                 onAmountChanged()
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+    }
+
+    private fun showChangeArticleDialog(item: ListDetail, onArticleChanged: () -> Unit) {
+        val et = AutoCompleteTextView(this).apply {
+            hint = "Neue Artikelnummer eingeben oder scannen"
+            inputType = InputType.TYPE_CLASS_TEXT
+            setText("")
+            setSelection(0)
+        }
+
+        AlertDialog.Builder(this)
+            .setTitle("Artikel ersetzen")
+            .setMessage("Aktuell: ${item.artNr}\nBitte neue Artikelnummer eingeben.")
+            .setView(et)
+            .setPositiveButton("OK") { _, _ ->
+                val neueArtNr = et.text.toString().trim()
+                if (neueArtNr.isBlank()) {
+                    showMessageDialog("❌ Fehler: Neue Artikelnummer darf nicht leer sein.")
+                    UiLoadingHelper.playErrorSound(this)
+                    return@setPositiveButton
+                }
+
+                if (neueArtNr.equals(item.artNr, ignoreCase = true)) {
+                    replacementArtNr = null
+                    showMessageDialog("ℹ️ Ersatz entfernt (Artikel bleibt unverändert).")
+                } else {
+                    replacementArtNr = neueArtNr
+                }
+
+                onArticleChanged()
             }
             .setNegativeButton("Abbrechen", null)
             .show()
