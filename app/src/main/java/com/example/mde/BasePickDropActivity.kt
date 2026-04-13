@@ -118,8 +118,37 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         loadList()
     }
 
+    private fun applyCurrentSortAndShow() {
+        val sorted = when (spinnerSort.selectedItemPosition) {
+            0 -> detailsListe.sortedBy { it.pos.toIntOrNull() ?: Int.MAX_VALUE }
+
+            1 -> {
+                val useW1 = settings.werkNummer == "10"
+                val useW2 = settings.werkNummer == "20"
+                detailsListe.sortedWith { a, b ->
+                    val la = when {
+                        useW1 -> a.lagerOrtW1.firstLocationToken()
+                        useW2 -> a.lagerOrtW2.firstLocationToken()
+                        else -> a.lagerOrtW1.firstLocationToken()
+                    }
+                    val lb = when {
+                        useW1 -> b.lagerOrtW1.firstLocationToken()
+                        useW2 -> b.lagerOrtW2.firstLocationToken()
+                        else -> b.lagerOrtW1.firstLocationToken()
+                    }
+
+                    val c1 = compareLocationBlankLast(la, lb)
+                    if (c1 != 0) c1 else naturalCompare(a.artNr, b.artNr)
+                }
+            }
+
+            else -> detailsListe
+        }
+        detailsAdapter.updateList(sorted)
+    }
+
     private fun setupSpinner() {
-        val options = listOf("Sortiere nach Pos", "Sortiere nach W1", "Sortiere nach W2")
+        val options = listOf("Sortiere nach Pos", "Sortiere nach Werk Lagerort")
 
         val spinnerAdapter = object : ArrayAdapter<String>(
             this,
@@ -153,29 +182,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             override fun onItemSelected(
                 parent: AdapterView<*>?, view: View?, position: Int, id: Long
             ) {
-                val sorted = when (position) {
-                    0 -> detailsListe.sortedBy { it.pos.toIntOrNull() ?: Int.MAX_VALUE }
-                    1 -> detailsListe.sortedWith { a, b ->
-                        val c1 = compareLocationBlankLast(
-                            a.lagerOrtW1.firstLocationToken(),
-                            b.lagerOrtW1.firstLocationToken()
-                        )
-                        if (c1 != 0) return@sortedWith c1
-                        naturalCompare(a.artNr, b.artNr)
-                    }
-
-                    2 -> detailsListe.sortedWith { a, b ->
-                        val c1 = compareLocationBlankLast(
-                            a.lagerOrtW2.firstLocationToken(),
-                            b.lagerOrtW2.firstLocationToken()
-                        )
-                        if (c1 != 0) return@sortedWith c1
-                        naturalCompare(a.artNr, b.artNr)
-                    }
-
-                    else -> detailsListe
-                }
-                detailsAdapter.updateList(sorted)
+                applyCurrentSortAndShow()
             }
 
             override fun onNothingSelected(parent: AdapterView<*>?) {}
@@ -379,7 +386,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                                 statusText.text = "✅ Buchung erfolgreich"
                                 detailsListe = detailsListe.filter { it != item }
                                 detailsOriginal = detailsOriginal.filter { it != item }
-                                detailsAdapter.updateList(detailsListe)
+                                applyCurrentSortAndShow()
                                 delay(1000)
                                 statusDialog.dismiss()
                                 dialog.dismiss()
@@ -434,7 +441,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             .setView(et)
             .setPositiveButton("OK") { _, _ ->
                 item.menge = et.text.toString()
-                detailsAdapter.updateList(detailsListe)
+                applyCurrentSortAndShow()
                 onAmountChanged()
             }
             .setNegativeButton("Abbrechen", null)
@@ -669,7 +676,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 detail.grossInfo = ""
             }
         }
-        detailsAdapter.updateList(detailsListe)
+        applyCurrentSortAndShow()
     }
 
     override fun onSerialError(message: String) {
@@ -693,19 +700,23 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         override fun onBindViewHolder(holder: DetailViewHolder, position: Int) {
             val item = items[position]
             val builder = SpannableStringBuilder()
-            builder.appendBoldAfterColon("Art.Nr: ${item.artNr}")
-            builder.append("\n")
-            builder.appendBoldAfterColon("$actionLabel: ${item.menge}")
-            builder.append("\n")
-            builder.appendBoldAfterColon("Pos: ${item.pos}")
-            builder.append("\n")
-            builder.appendBoldAfterColon("Info: ${item.info}")
+
+            val lagerOrt = when (settings.werkNummer) {
+                "10" -> item.lagerOrtW1
+                "20" -> item.lagerOrtW2
+                else -> item.lagerOrtW1
+            }
+
+            builder.appendBoldAfterColon("LagerOrt: $lagerOrt")
             builder.append("\n")
             builder.appendBoldAfterColon("Groß-Info: ${item.grossInfo}")
             builder.append("\n")
-            builder.appendBoldAfterColon("Lagerorte W1: ${item.lagerOrtW1}")
+            builder.appendBoldAfterColon("Artikelnummer: ${item.artNr}")
             builder.append("\n")
-            builder.appendBoldAfterColon("Lagerorte W2: ${item.lagerOrtW2}")
+            builder.appendBoldAfterColon("$actionLabel: ${item.menge}")
+            builder.append("\n")
+            builder.appendBoldAfterColon("Bezeichnung: ${item.info}")
+
             holder.tvItem.text = builder
             val oddColor = getThemeColor(R.attr.tableRowOddColor)
             val evenColor = getThemeColor(R.attr.tableRowEvenColor)
