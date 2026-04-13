@@ -6,21 +6,37 @@ import android.graphics.Typeface
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.text.*
+import android.text.Editable
+import android.text.SpannableStringBuilder
+import android.text.Spanned
+import android.text.TextWatcher
 import android.text.style.StyleSpan
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
-import android.widget.*
+import android.widget.ArrayAdapter
+import android.widget.AutoCompleteTextView
+import android.widget.Button
+import android.widget.EditText
+import android.widget.Filter
+import android.widget.ImageButton
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
 import com.example.mde.model.Artikel
-import androidx.compose.ui.graphics.Color
-import kotlinx.coroutines.*
-import java.util.*
+import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
+import kotlinx.coroutines.Runnable
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
+import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
+import java.util.Date
+import java.util.Locale
 
 class ArtikelAdapter(context: Context, artikelListe: List<Artikel>) :
     ArrayAdapter<Artikel>(
@@ -198,14 +214,22 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     private fun setupViews() {
-        etFilter = findViewById(R.id.etBarcode) ?: AutoCompleteTextView(this).apply { visibility = View.GONE }
-        tvArtikelInfo = findViewById(R.id.tvArtikelInfo) ?: TextView(this).apply { visibility = View.GONE }
+        etFilter = findViewById(R.id.etBarcode) ?: AutoCompleteTextView(this).apply {
+            visibility = View.GONE
+        }
+        tvArtikelInfo =
+            findViewById(R.id.tvArtikelInfo) ?: TextView(this).apply { visibility = View.GONE }
         btnClear = findViewById(R.id.btnClear) ?: Button(this).apply { visibility = View.GONE }
-        btnReloadArtikel = findViewById(R.id.btnReloadArtikel) ?: ImageButton(this).apply { visibility = View.GONE }
+        btnReloadArtikel = findViewById(R.id.btnReloadArtikel) ?: ImageButton(this).apply {
+            visibility = View.GONE
+        }
         btnScan = findViewById(R.id.btnScan) ?: Button(this).apply { visibility = View.GONE }
-        etProjekt = findViewById(R.id.txtProjekt) ?: AutoCompleteTextView(this).apply { visibility = View.GONE }
+        etProjekt = findViewById(R.id.txtProjekt) ?: AutoCompleteTextView(this).apply {
+            visibility = View.GONE
+        }
         edtMenge = findViewById(R.id.edtMenge) ?: EditText(this).apply { visibility = View.GONE }
-        edtSerials = findViewById(R.id.edtSerials) ?: EditText(this).apply { visibility = View.GONE }
+        edtSerials =
+            findViewById(R.id.edtSerials) ?: EditText(this).apply { visibility = View.GONE }
 
         edtSerials.apply {
             isFocusable = false
@@ -251,8 +275,13 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         tvSerialList.text = "0 / $maxMenge"
         btnAdd.visibility = View.GONE
         builder.setView(layout)
+
+        var chargeMode = false
+
         builder.setPositiveButton("OK") { _, _ -> onSerialsConfirmed(serials) }
         builder.setNegativeButton("Abbrechen", null)
+        builder.setNeutralButton("Charge", null)
+
         val dialog = builder.create()
         dialog.show()
 
@@ -264,14 +293,30 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
         dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
 
+        dialog.getButton(AlertDialog.BUTTON_NEUTRAL).setOnClickListener {
+            chargeMode = !chargeMode
+            dialog.getButton(AlertDialog.BUTTON_NEUTRAL).text =
+                if (chargeMode) "Charge ✓" else "Charge"
+            serials.clear()
+            tvSerialList.text = if (chargeMode) "0 / 1" else "0 / $maxMenge"
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = false
+            etSerial.text?.clear()
+        }
+
         fun tryAddSerial(input: String) {
             when {
                 serials.contains(input) -> onSerialError("Seriennummer bereits vorhanden")
-                serials.size >= maxMenge -> onSerialError("Maximale Menge erreicht")
+                chargeMode && serials.size >= 1 -> onSerialError("Nur eine Chargennummer erlaubt")
+                !chargeMode && serials.size >= maxMenge -> onSerialError("Maximale Menge erreicht")
                 else -> {
                     serials.add(input)
-                    tvSerialList.text = "${serials.size} / $maxMenge\n${serials.joinToString("\n")}"
-                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = serials.size == maxMenge
+                    tvSerialList.text = if (chargeMode) {
+                        "${serials.size} / 1\n${serials.joinToString("\n")}"
+                    } else {
+                        "${serials.size} / $maxMenge\n${serials.joinToString("\n")}"
+                    }
+                    dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled =
+                        if (chargeMode) serials.size == 1 else serials.size == maxMenge
                 }
             }
         }
@@ -286,6 +331,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 }
                 btnAdd.visibility = if (s.isNullOrBlank()) View.GONE else View.VISIBLE
             }
+
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
@@ -305,7 +351,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             val input = etSerial.text.toString().trim()
             if (input.isNotEmpty()) tryAddSerial(input)
             etSerial.text.clear()
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled = serials.size == maxMenge
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).isEnabled =
+                if (chargeMode) serials.size == 1 else serials.size == maxMenge
         }
     }
 
@@ -664,7 +711,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         buchungProjektView?.let { projektView ->
                             projektView.post {
                                 projektView.requestFocus()
-                                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                                val imm =
+                                    getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
                                 imm.showSoftInput(projektView, InputMethodManager.SHOW_IMPLICIT)
                                 projektView.showDropDown()
                             }
@@ -677,6 +725,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     }
                 }
             }
+
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
             override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
         })
@@ -705,7 +754,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         } else {
             "-${mengeStr.replace(".", ",")}"
         }
-        val buttonText = if (count) "Zählstand setzen" else if (einlagern) "Zubuchen" else "Entnehmen"
+        val buttonText =
+            if (count) "Zählstand setzen" else if (einlagern) "Zubuchen" else "Entnehmen"
 
         if (AppSettings(this@BaseArtikelScanActivity).confirmBook) {
             AlertDialog.Builder(this)
@@ -735,7 +785,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 )
             }
 
-            val nowStr = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
+            val nowStr =
+                java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
             val username = intent.getStringExtra("USERNAME") ?: "?"
             val serials = withContext(Dispatchers.Main) { edtSerials.text.toString().trim() }
             val request = buildString {
