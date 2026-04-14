@@ -7,8 +7,10 @@ import android.text.SpannableStringBuilder
 import android.text.TextUtils
 import android.text.TextWatcher
 import android.view.LayoutInflater
+import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.AdapterView
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
@@ -84,6 +86,9 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     // neue Artikelnummer zwischenspeichern und in normaler Buchungsroutine verwenden
     private var replacementArtNr: String? = null
 
+    // FIX: verhindert, dass etDetailFilter.setText("") den TextWatcher triggert und sofort wieder ein Dialog geöffnet wird
+    private var ignoreDetailFilterChanges: Boolean = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         settings = AppSettings(this)
         when (settings.selectedTheme) {
@@ -120,7 +125,57 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
         setupListFilter()
         setupDetailFilter()
+
+        // Keyboard soll NIE automatisch aufgehen (Scanner darf trotzdem in das Feld schreiben).
+        // Keyboard nur bei aktivem Klick/Tap in etDetailFilter.
+        setupDetailFilterKeyboardBehavior()
+
         loadList()
+    }
+
+    /**
+     * Keyboard-Verhalten für Scanner:
+     * - Fokus ist erlaubt (Scanner kann reinschreiben)
+     * - Soft-Keyboard geht NICHT beim Fokus (auch nicht per Code)
+     * - Soft-Keyboard geht NUR bei aktivem Tap/Klick in das Feld auf
+     */
+    private fun setupDetailFilterKeyboardBehavior() {
+        // verhindert Softkeyboard beim Fokus (API 29+)
+        etDetailFilter.showSoftInputOnFocus = false
+
+        // Fokus für Scanner erlauben
+        etDetailFilter.isFocusable = true
+        etDetailFilter.isFocusableInTouchMode = true
+
+        // Beim Tippen soll das Keyboard ausnahmsweise aufgehen
+        etDetailFilter.setOnTouchListener { v, event ->
+            // Standard-Handling (Cursor setzen, Selection etc.)
+            v.onTouchEvent(event)
+
+            if (event.action == MotionEvent.ACTION_UP) {
+                etDetailFilter.requestFocus()
+                showKeyboard(etDetailFilter)
+            }
+            true
+        }
+    }
+
+    private fun showKeyboard(view: View) {
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.showSoftInput(view, InputMethodManager.SHOW_IMPLICIT)
+    }
+
+    private fun hideKeyboard(view: View) {
+        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+        imm.hideSoftInputFromWindow(view.windowToken, 0)
+    }
+
+    /**
+     * Fokus auf Detail-Filter setzen (Scanner ready), aber Keyboard garantiert aus.
+     */
+    private fun focusDetailFilterWithoutKeyboard() {
+        etDetailFilter.requestFocus()
+        hideKeyboard(etDetailFilter)
     }
 
     private fun applyCurrentSortAndShow() {
@@ -170,11 +225,20 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
                 // nutze dp statt px (24/12 sind sonst auf manchen Geräten riesig)
                 val d = context.resources.displayMetrics.density
-                tv.setPadding((16 * d).toInt(), (10 * d).toInt(), (16 * d).toInt(), (10 * d).toInt())
+                tv.setPadding(
+                    (16 * d).toInt(),
+                    (10 * d).toInt(),
+                    (16 * d).toInt(),
+                    (10 * d).toInt()
+                )
                 return tv
             }
 
-            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+            override fun getDropDownView(
+                position: Int,
+                convertView: View?,
+                parent: ViewGroup
+            ): View {
                 val tv = super.getDropDownView(position, convertView, parent) as TextView
                 tv.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
                 tv.ellipsize = TextUtils.TruncateAt.END
@@ -188,7 +252,12 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         spinnerSort.adapter = spinnerAdapter
 
         spinnerSort.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
+            override fun onItemSelected(
+                parent: AdapterView<*>?,
+                view: View?,
+                position: Int,
+                id: Long
+            ) {
                 applyCurrentSortAndShow()
             }
 
@@ -289,6 +358,8 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     private fun setupDetailFilter() {
         etDetailFilter.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
+                if (ignoreDetailFilterChanges) return
+
                 val input = s.toString().trim()
                 if (input.isEmpty()) {
                     detailsAdapter.updateList(detailsOriginal)
@@ -302,7 +373,11 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 }
                 detailsAdapter.updateList(filtered)
                 if (filtered.size == 1) {
+                    // FIX: erst Filter leeren (ohne erneutes Triggern), dann Dialog öffnen
+                    ignoreDetailFilterChanges = true
                     etDetailFilter.setText("")
+                    ignoreDetailFilterChanges = false
+
                     showItemDialog(filtered[0])
                 }
             }
@@ -410,6 +485,15 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                                 detailsListe = detailsListe.filter { it != item }
                                 detailsOriginal = detailsOriginal.filter { it != item }
                                 applyCurrentSortAndShow()
+
+                                // FIX: Detail-Filter-Feld leeren, damit nicht sofort wieder ein Dialog aufgeht
+                                ignoreDetailFilterChanges = true
+                                etDetailFilter.setText("")
+                                ignoreDetailFilterChanges = false
+
+                                // Scanner ready: Fokus behalten, Keyboard bleibt aus
+                                focusDetailFilterWithoutKeyboard()
+
                                 delay(1000)
                                 statusDialog.dismiss()
                                 dialog.dismiss()
@@ -569,7 +653,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                         UiLoadingHelper.hide()
                     }
                     success = true
-
                 } catch (e: Exception) {
                     lastError = e.message ?: "Unbekannter Fehler"
                     delay(500)
@@ -694,13 +777,15 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                         detailsAdapter.updateList(detailsListe)
                         etDetailFilter.visibility = View.VISIBLE
                         detailsView.visibility = if (details.isEmpty()) View.GONE else View.VISIBLE
-                        etDetailFilter.requestFocus()
+
+                        // Scanner ready: Fokus ja, Keyboard nein
+                        focusDetailFilterWithoutKeyboard()
                         etDetailFilter.setSelection(etDetailFilter.text.length)
+
                         UiLoadingHelper.hide()
                         fillDetailsWithArtikelData()
                     }
                     success = true
-
                 } catch (e: Exception) {
                     lastError = e.message ?: "Unbekannter Fehler"
                     delay(500)
@@ -735,8 +820,10 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         detailsListe.forEach { detail ->
             val artikel = byArtNr[detail.artNr]
             if (artikel != null) {
-                detail.lagerOrtW1 = artikel.lagerorteW1.filter { it.isNotBlank() }.joinToString(", ")
-                detail.lagerOrtW2 = artikel.lagerorteW2.filter { it.isNotBlank() }.joinToString(", ")
+                detail.lagerOrtW1 =
+                    artikel.lagerorteW1.filter { it.isNotBlank() }.joinToString(", ")
+                detail.lagerOrtW2 =
+                    artikel.lagerorteW2.filter { it.isNotBlank() }.joinToString(", ")
                 detail.grossInfo = artikel.grossInfo
 
                 if (detail.info.isBlank()) {
