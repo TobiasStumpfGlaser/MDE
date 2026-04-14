@@ -4,6 +4,7 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.InputType
 import android.text.SpannableStringBuilder
+import android.text.TextUtils
 import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.View
@@ -29,11 +30,12 @@ import java.util.Date
 import java.util.Locale
 
 data class ListItem(val nummer: String, val projektNr: String, val projektName: String)
+
 data class ListDetail(
     var artNr: String,
     var menge: String,
     val pos: String,
-    val info: String,
+    var info: String,
     val listenNummer: String,
     var serials: List<String> = emptyList(),
     var lagerOrtW1: String = "",
@@ -79,7 +81,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     private var loadListJob: Job? = null
     private var loadDetailsJob: Job? = null
 
-    // NEU: neue Artikelnummer zwischenspeichern und in normaler Buchungsroutine verwenden
+    // neue Artikelnummer zwischenspeichern und in normaler Buchungsroutine verwenden
     private var replacementArtNr: String? = null
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -151,7 +153,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     }
 
     private fun setupSpinner() {
-        val options = listOf("Sortiere nach Pos", "Sortiere nach Werk Lagerort")
+        val options = listOf("Position", "Lagerort")
 
         val spinnerAdapter = object : ArrayAdapter<String>(
             this,
@@ -159,32 +161,34 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             options
         ) {
             override fun getView(position: Int, convertView: View?, parent: ViewGroup): View {
-                val view = super.getView(position, convertView, parent) as TextView
-                view.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
-                view.setPadding(24, 12, 24, 12)
-                return view
+                val tv = super.getView(position, convertView, parent) as TextView
+                tv.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
+
+                tv.isSingleLine = true
+                tv.maxLines = 1
+                tv.ellipsize = TextUtils.TruncateAt.END
+
+                // nutze dp statt px (24/12 sind sonst auf manchen Geräten riesig)
+                val d = context.resources.displayMetrics.density
+                tv.setPadding((16 * d).toInt(), (10 * d).toInt(), (16 * d).toInt(), (10 * d).toInt())
+                return tv
             }
 
-            override fun getDropDownView(
-                position: Int,
-                convertView: View?,
-                parent: ViewGroup
-            ): View {
-                val view = super.getDropDownView(position, convertView, parent) as TextView
-                view.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
-                view.setBackgroundColor(getThemeColor(android.R.attr.windowBackground))
-                view.setPadding(24, 24, 24, 24)
-                return view
+            override fun getDropDownView(position: Int, convertView: View?, parent: ViewGroup): View {
+                val tv = super.getDropDownView(position, convertView, parent) as TextView
+                tv.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
+                tv.ellipsize = TextUtils.TruncateAt.END
+                tv.isSingleLine = false
+                tv.maxLines = 2
+                return tv
             }
         }
 
-        spinnerAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
+        spinnerAdapter.setDropDownViewResource(R.layout.spinner_dropdown_item)
         spinnerSort.adapter = spinnerAdapter
 
         spinnerSort.onItemSelectedListener = object : AdapterView.OnItemSelectedListener {
-            override fun onItemSelected(
-                parent: AdapterView<*>?, view: View?, position: Int, id: Long
-            ) {
+            override fun onItemSelected(parent: AdapterView<*>?, view: View?, position: Int, id: Long) {
                 applyCurrentSortAndShow()
             }
 
@@ -546,9 +550,13 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                         continue
                     }
 
-                    val lines = response.lines()
-                        .filter { it.isNotBlank() && !it.startsWith("{") }
-                        .drop(1)
+                    val lines = response
+                        .lineSequence()
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                        .filterNot { it.startsWith("{") }
+                        .toList()
+
                     val items = lines.mapNotNull { line ->
                         val parts = line.split("|").map { it.trim() }
                         if (parts.size >= 3) ListItem(parts[0], parts[1], parts[2]) else null
@@ -639,11 +647,15 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                         continue
                     }
 
-                    val lines = response.lines()
-                        .filter { it.isNotBlank() && !it.startsWith("{") }
-                        .drop(1)
+                    val lines = response
+                        .lineSequence()
+                        .map { it.trim() }
+                        .filter { it.isNotEmpty() }
+                        .filterNot { it.startsWith("{") }
+                        .toList()
+
                     val details = lines.mapNotNull { line ->
-                        val parts = line.split("|").map { it.trim() }
+                        val parts = line.split("|", limit = 4).map { it.trim() }
                         if (parts.size >= 3) {
                             val artNr = parts[0]
                             if (artNr == "000.9999") return@mapNotNull null
@@ -651,13 +663,13 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                                 artNr = artNr,
                                 menge = parts[1],
                                 pos = parts[2],
-                                info = if (parts.size >= 4) parts[3] else "",
+                                info = parts.getOrElse(3) { "" }, // wird gleich via GetArtikel ersetzt
                                 listenNummer = nummer
                             )
                         } else null
                     }
 
-                    // Artikeldaten still laden ohne neuen Dialog
+                    // Artikeldaten still laden (GetArtikel)
                     if (DataRepository.artikelListe.isEmpty()) {
                         try {
                             val artikelResponse = TcpClient.sendCommand(
@@ -684,8 +696,8 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                         detailsView.visibility = if (details.isEmpty()) View.GONE else View.VISIBLE
                         etDetailFilter.requestFocus()
                         etDetailFilter.setSelection(etDetailFilter.text.length)
-                        UiLoadingHelper.hide()  // ← Dialog schließen
-                        fillDetailsWithLagerorte()  // ← direkt aufrufen, kein ensureArtikelLoaded
+                        UiLoadingHelper.hide()
+                        fillDetailsWithArtikelData()
                     }
                     success = true
 
@@ -714,21 +726,29 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         }
     }
 
-    private fun fillDetailsWithLagerorte() {
+    /**
+     * FIX: Bezeichnung / Info aus GetArtikel anhand Artikelnummer übernehmen.
+     */
+    private fun fillDetailsWithArtikelData() {
+        val byArtNr = DataRepository.artikelListe.associateBy { it.artNr }
+
         detailsListe.forEach { detail ->
-            val artikel = DataRepository.artikelListe.find { it.artNr == detail.artNr }
+            val artikel = byArtNr[detail.artNr]
             if (artikel != null) {
-                detail.lagerOrtW1 =
-                    artikel.lagerorteW1.filter { it.isNotBlank() }.joinToString(", ")
-                detail.lagerOrtW2 =
-                    artikel.lagerorteW2.filter { it.isNotBlank() }.joinToString(", ")
+                detail.lagerOrtW1 = artikel.lagerorteW1.filter { it.isNotBlank() }.joinToString(", ")
+                detail.lagerOrtW2 = artikel.lagerorteW2.filter { it.isNotBlank() }.joinToString(", ")
                 detail.grossInfo = artikel.grossInfo
+
+                if (detail.info.isBlank()) {
+                    detail.info = artikel.bez?.trim().orEmpty()
+                }
             } else {
                 detail.lagerOrtW1 = ""
                 detail.lagerOrtW2 = ""
                 detail.grossInfo = ""
             }
         }
+
         applyCurrentSortAndShow()
     }
 
