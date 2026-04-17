@@ -38,6 +38,7 @@ data class ListDetail(
     var menge: String,
     val pos: String,
     var info: String,
+    var isCharge: Boolean = false,
     val listenNummer: String,
     var serials: List<String> = emptyList(),
     var lagerOrtW1: String = "",
@@ -88,6 +89,56 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
     // FIX: verhindert, dass etDetailFilter.setText("") den TextWatcher triggert und sofort wieder ein Dialog geöffnet wird
     private var ignoreDetailFilterChanges: Boolean = false
+
+    // -------- Scroll / "weiter machen" nach Dialog/Buchung --------
+    private data class ScrollAnchor(val key: String, val offsetPx: Int)
+
+    private fun ListDetail.key(): String = "${listenNummer}|${pos}|${artNr}"
+
+    private fun captureScrollAnchor(): ScrollAnchor? {
+        val lm = detailsView.layoutManager as? LinearLayoutManager ?: return null
+        val firstPos = lm.findFirstVisibleItemPosition()
+        if (firstPos == RecyclerView.NO_POSITION) return null
+
+        val firstView = lm.findViewByPosition(firstPos) ?: return null
+        val offset = firstView.top - detailsView.paddingTop
+
+        val item = detailsAdapter.getItems().getOrNull(firstPos) ?: return null
+        return ScrollAnchor(item.key(), offset)
+    }
+
+    private fun restoreScrollAnchor(anchor: ScrollAnchor?) {
+        if (anchor == null) return
+        val lm = detailsView.layoutManager as? LinearLayoutManager ?: return
+
+        val items = detailsAdapter.getItems()
+        val idx = items.indexOfFirst { it.key() == anchor.key }
+        if (idx >= 0) {
+            lm.scrollToPositionWithOffset(idx, anchor.offsetPx)
+        }
+    }
+
+    /**
+     * Alternative: nach erfolgreicher Buchung zum "nächsten" Eintrag scrollen.
+     * - nimmt die Position des gebuchten Items in der *aktuell angezeigten* Liste
+     * - nach dem Entfernen wird zu demselben Index gescrollt (was dann der "nächste" ist),
+     *   bzw. zum letzten, falls das Ende erreicht ist.
+     */
+    private fun scrollToNextAfterRemoval(bookedItemKey: String) {
+        val lm = detailsView.layoutManager as? LinearLayoutManager ?: return
+
+        val before = detailsAdapter.getItems()
+        val bookedIndex = before.indexOfFirst { it.key() == bookedItemKey }
+        if (bookedIndex < 0) return
+
+        detailsView.post {
+            val after = detailsAdapter.getItems()
+            if (after.isEmpty()) return@post
+            val target = bookedIndex.coerceAtMost(after.lastIndex)
+            lm.scrollToPositionWithOffset(target, 0)
+        }
+    }
+    // -------------------------------------------------------------
 
     override fun onCreate(savedInstanceState: Bundle?) {
         settings = AppSettings(this)
@@ -372,13 +423,33 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                             it.info.contains(input, true)
                 }
                 detailsAdapter.updateList(filtered)
-                if (filtered.size == 1) {
+
+                if (filtered.isEmpty()) return
+
+                // NEU:
+                // - Wenn genau 1 Treffer: wie bisher direkt öffnen
+                // - Wenn mehrere Treffer: direkt den Treffer mit der kleinsten Position öffnen,
+                //   aber NUR wenn die Treffer die gleiche Artikelnummer haben.
+                val itemToOpen: ListDetail? = when (filtered.size) {
+                    1 -> filtered[0]
+                    else -> {
+                        val uniqueArtNrs =
+                            filtered.map { it.artNr.trim().lowercase(Locale.GERMANY) }.distinct()
+                        if (uniqueArtNrs.size == 1) {
+                            filtered.minByOrNull { it.pos.toIntOrNull() ?: Int.MAX_VALUE }
+                        } else {
+                            null
+                        }
+                    }
+                }
+
+                if (itemToOpen != null) {
                     // FIX: erst Filter leeren (ohne erneutes Triggern), dann Dialog öffnen
                     ignoreDetailFilterChanges = true
                     etDetailFilter.setText("")
                     ignoreDetailFilterChanges = false
 
-                    showItemDialog(filtered[0])
+                    showItemDialog(itemToOpen)
                 }
             }
 
@@ -388,6 +459,9 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     }
 
     private fun showItemDialog(item: ListDetail) {
+        // Anchor direkt beim Öffnen merken (für "Nein"/Back/Abbruch)
+        val dialogAnchor = captureScrollAnchor()
+
         val dialogView = layoutInflater.inflate(dialogLayoutId, null)
         val tvMessage = dialogView.findViewById<TextView>(dialogInfoViewId)
         val btnYes = dialogView.findViewById<View>(R.id.btnYes)
@@ -399,17 +473,30 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         fun updateDialogMessage() {
             val ersatz = if (!replacementArtNr.isNullOrBlank()) replacementArtNr else "-"
 
+            val serialLine =
+                if (item.serials.isEmpty()) {
+                    "Seriennummer(n): -"
+                } else if (item.isCharge) {
+                    "Charge: ${item.serials.firstOrNull().orEmpty()}"
+                } else {
+                    "Seriennummer(n): ${item.serials.joinToString("; ")}"
+                }
+
             tvMessage.text = """
                             Artikel: ${item.artNr}
                             Ersatz Artikel: $ersatz
                             Menge: ${item.menge}
                             Info: ${item.info}
-                            Seriennummer(n): ${item.serials.joinToString("; ")}
+                            $serialLine
                             """.trimIndent()
         }
         updateDialogMessage()
 
         val dialog = AlertDialog.Builder(this).setView(dialogView).create()
+
+        dialog.setOnDismissListener {
+            detailsView.post { restoreScrollAnchor(dialogAnchor) }
+        }
 
         btnYes.setOnClickListener {
             if (!btnYes.isEnabled) return@setOnClickListener
@@ -445,9 +532,20 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
             val now =
                 java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
-            val serialsString =
-                if (item.serials.isNotEmpty()) item.serials.joinToString(";") else ""
+
+            val serialsString: String =
+                if (item.serials.isEmpty()) {
+                    ""
+                } else if (item.isCharge) {
+                    val chargeNr = item.serials.firstOrNull()?.trim().orEmpty()
+                    if (chargeNr.isBlank()) "" else "Charge:$chargeNr"
+                } else {
+                    item.serials.joinToString(";") { it.trim() }
+                }
+
             val buchungsMenge = (item.menge.toIntOrNull() ?: 0) * buchungsVorzeichen
+            val bookedKey = item.key()
+
             val request = buildString {
                 append("{SetBuchung}")
 
@@ -482,21 +580,26 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                             if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
                                 statusText.text = "✅ Buchung erfolgreich"
                                 replacementArtNr = null
-                                detailsListe = detailsListe.filter { it != item }
-                                detailsOriginal = detailsOriginal.filter { it != item }
+
+                                detailsListe = detailsListe.filterNot { it.key() == bookedKey }
+                                detailsOriginal =
+                                    detailsOriginal.filterNot { it.key() == bookedKey }
+
                                 applyCurrentSortAndShow()
 
-                                // FIX: Detail-Filter-Feld leeren, damit nicht sofort wieder ein Dialog aufgeht
                                 ignoreDetailFilterChanges = true
                                 etDetailFilter.setText("")
                                 ignoreDetailFilterChanges = false
 
-                                // Scanner ready: Fokus behalten, Keyboard bleibt aus
                                 focusDetailFilterWithoutKeyboard()
 
                                 delay(1000)
                                 statusDialog.dismiss()
                                 dialog.dismiss()
+
+                                // Alternative: zum nächsten Eintrag statt Anchor
+                                // scrollToNextAfterRemoval(bookedKey)
+
                             } else {
                                 statusText.text = "❌ Buchung fehlgeschlagen:\n$response"
                                 UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
@@ -532,8 +635,9 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         btnChangeArticle.setOnClickListener { showChangeArticleDialog(item) { updateDialogMessage() } }
         btnSerials.setOnClickListener {
             val mengeInt = item.menge.toIntOrNull() ?: 0
-            showSerialDialog(mengeInt) { serials ->
+            showSerialDialog(mengeInt) { serials, isCharge ->
                 item.serials = serials
+                item.isCharge = isCharge
                 updateDialogMessage()
             }
         }
@@ -811,9 +915,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         }
     }
 
-    /**
-     * FIX: Bezeichnung / Info aus GetArtikel anhand Artikelnummer übernehmen.
-     */
     private fun fillDetailsWithArtikelData() {
         val byArtNr = DataRepository.artikelListe.associateBy { it.artNr }
 
@@ -846,6 +947,8 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
     inner class ListDetailsAdapter(private var items: List<ListDetail>) :
         RecyclerView.Adapter<ListDetailsAdapter.DetailViewHolder>() {
+
+        fun getItems(): List<ListDetail> = items
 
         inner class DetailViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
             val tvItem: TextView = itemView.findViewById(android.R.id.text1)

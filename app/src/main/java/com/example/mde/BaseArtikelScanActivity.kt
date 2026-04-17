@@ -166,6 +166,10 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     private var lastBookingTime = 0L
     private val bookingCooldown = 2000L
 
+    // NEU: merkt sich (optional), ob die zuletzt erfassten "Serials" eine Charge waren.
+    // (Wird v.a. beim Clear zurückgesetzt; für das Senden reicht aber der Text in edtSerials.)
+    private var serialsAreCharge: Boolean = false
+
     override fun onCreate(savedInstanceState: Bundle?) {
         val settings = AppSettings(this)
         when (settings.selectedTheme) {
@@ -243,12 +247,29 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     showError("Bitte zuerst eine gültige Menge eingeben")
                     return@setOnClickListener
                 }
-                showSerialDialog(mengeInt) { serials ->
-                    setText(serials.joinToString(";"))
+
+                // FIX: Charge-Info wirklich übernehmen (nicht immer false)
+                showSerialDialog(mengeInt) { serials, isCharge ->
+                    serialsAreCharge = isCharge
+
+                    val value =
+                        if (serials.isEmpty()) {
+                            ""
+                        } else if (isCharge) {
+                            // Charge => genau eine Nummer
+                            val nr = serials.first().trim()
+                            if (nr.isBlank()) "" else "Charge:$nr"
+                        } else {
+                            // Seriennummern => Liste
+                            serials.joinToString(";") { it.trim() }
+                        }
+
+                    setText(value)
                     setSelection(text.length)
                 }
             }
         }
+
         etFilterKeyListener = etFilter.keyListener
 
         btnClear.setOnClickListener { btnClearClicked() }
@@ -262,7 +283,10 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
-    protected fun showSerialDialog(maxMenge: Int, onSerialsConfirmed: (List<String>) -> Unit) {
+    protected fun showSerialDialog(
+        maxMenge: Int,
+        onSerialsConfirmed: (serials: List<String>, isCharge: Boolean) -> Unit
+    ) {
         val builder = AlertDialog.Builder(this)
         builder.setTitle("Seriennummern hinzufügen")
         val layout = layoutInflater.inflate(R.layout.dialog_serials, null)
@@ -278,7 +302,9 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
         var chargeMode = false
 
-        builder.setPositiveButton("OK") { _, _ -> onSerialsConfirmed(serials) }
+        builder.setPositiveButton("OK") { _, _ ->
+            onSerialsConfirmed(serials, chargeMode)
+        }
         builder.setNegativeButton("Abbrechen", null)
         builder.setNeutralButton("Charge", null)
 
@@ -396,6 +422,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     open fun btnClearClicked() {
         tvArtikelInfo.text = ""
         edtSerials.text.clear()
+        serialsAreCharge = false
+
         etFilter.text.clear()
         etFilter.isFocusable = true
         etFilter.isFocusableInTouchMode = true
@@ -423,13 +451,13 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             }
         )
 
-        ioScope.launch(loadJob) {  // ← loadJob einbinden
+        ioScope.launch(loadJob) {
             val settings = AppSettings(this@BaseArtikelScanActivity)
             var success = false
             var attempts = 0
 
             while (attempts < 3 && !success) {
-                if (!isActive) return@launch  // ← abgebrochen?
+                if (!isActive) return@launch
                 attempts++
                 try {
                     withContext(Dispatchers.Main) {
@@ -450,7 +478,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     val artikel = parseArtikelResponse(artikelResponse)
 
                     withContext(Dispatchers.Main) {
-                        if (!isActive) return@withContext  // ← nach jedem await prüfen
+                        if (!isActive) return@withContext
                         artikelListe = artikel
                         if (!::adapter.isInitialized) {
                             adapter = ArtikelAdapter(this@BaseArtikelScanActivity, artikelListe)
@@ -481,7 +509,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 }
             }
 
-            if (!isActive) return@launch  // ← vor UI-Update prüfen
+            if (!isActive) return@launch
 
             withContext(Dispatchers.Main) {
                 requestRunning = false
