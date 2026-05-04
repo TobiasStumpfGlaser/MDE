@@ -2,21 +2,18 @@ package com.example.mde
 
 import android.app.Activity
 import android.app.AlertDialog
+import android.content.Context
+import android.media.MediaPlayer
+import android.view.Gravity
+import android.view.View
 import android.widget.LinearLayout
 import android.widget.ProgressBar
 import android.widget.TextView
-import android.view.Gravity
-import android.view.View
-import kotlinx.coroutines.Job
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import android.content.Context
-import android.media.MediaPlayer
-import android.widget.*
-import kotlinx.coroutines.*
-import java.util.*
 
 object UiLoadingHelper {
 
@@ -25,6 +22,9 @@ object UiLoadingHelper {
     private var iconView: View? = null
     private var autoHideJob: Job? = null
 
+    /**
+     * Standard-Show (Loading/Success/Error)
+     */
     fun show(
         activity: Activity,
         message: String = "Kommunikation mit Server...",
@@ -34,6 +34,10 @@ object UiLoadingHelper {
 
         autoHideJob?.cancel()  // vorherige auto-hide stoppen
 
+        // ggf. bestehenden Dialog schließen (wichtig, damit Confirm/Show sich nicht stapeln)
+        loadingDialog?.dismiss()
+        loadingDialog = null
+
         // Icon erstellen
         iconView = when (status) {
             LoadingStatus.LOADING -> ProgressBar(activity)
@@ -42,6 +46,7 @@ object UiLoadingHelper {
                 textSize = 48f
                 gravity = Gravity.CENTER
             }
+
             LoadingStatus.ERROR -> {
                 playErrorSound(activity)
                 TextView(activity).apply {
@@ -106,17 +111,25 @@ object UiLoadingHelper {
         loadingDialog?.show()
         loadingDialog?.getButton(AlertDialog.BUTTON_POSITIVE)?.visibility = View.GONE
 
-        // Auto-hide nur bei SUCCESS oder ERROR
+        // Auto-hide nur bei SUCCESS
         if (status == LoadingStatus.SUCCESS) {
             autoHideJob = CoroutineScope(Dispatchers.Main).launch {
-                delay(2000)  // 2 Sekunden sichtbar
+                delay(2000)
                 hide()
             }
         }
     }
 
+    /**
+     * Convenience für Error-Dialog (wie vorher)
+     */
     fun showError(activity: Activity, message: String) {
         autoHideJob?.cancel()
+
+        // ggf. bestehenden Dialog schließen (wichtig, damit Confirm/Show sich nicht stapeln)
+        loadingDialog?.dismiss()
+        loadingDialog = null
+
         playErrorSound(activity)
 
         // Icon erstellen
@@ -156,6 +169,79 @@ object UiLoadingHelper {
         loadingDialog?.show()
     }
 
+    /**
+     * NEU: Confirm-Dialog über UiLoadingHelper (für "Projekt leer?! Trotzdem buchen?" etc.)
+     *
+     * - Genau EIN Dialog (wird nicht von anderen UiLoadingHelper-Dialogs überlagert)
+     * - cancelable standardmäßig false (Scanner-Workflow)
+     * - optional errorSound
+     */
+    fun confirm(
+        activity: Activity,
+        message: String,
+        title: String? = null,
+        okText: String = "OK",
+        cancelText: String = "Abbruch",
+        cancelable: Boolean = false,
+        playErrorSound: Boolean = true,
+        onOk: () -> Unit,
+        onCancel: () -> Unit = {}
+    ) {
+        autoHideJob?.cancel()
+
+        // ggf. bestehenden Dialog schließen (wichtig, damit Confirm/Show sich nicht stapeln)
+        loadingDialog?.dismiss()
+        loadingDialog = null
+
+        if (playErrorSound) {
+            playErrorSound(activity)
+        }
+
+        // Icon erstellen (Error-Icon)
+        iconView = TextView(activity).apply {
+            text = "❌"
+            textSize = 48f
+            gravity = Gravity.CENTER
+        }
+
+        val text = TextView(activity).apply {
+            this.text = message
+            setPadding(20, 20, 20, 20)
+            gravity = Gravity.CENTER
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+        }
+        loadingText = text
+
+        val layout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 40, 40, 40)
+            gravity = Gravity.CENTER
+            addView(iconView)
+            addView(text)
+        }
+
+        val builder = AlertDialog.Builder(activity)
+            .setView(layout)
+            .setCancelable(cancelable)
+            .setPositiveButton(okText) { dialog, _ ->
+                dialog.dismiss()
+                hide()
+                onOk()
+            }
+            .setNegativeButton(cancelText) { dialog, _ ->
+                dialog.dismiss()
+                hide()
+                onCancel()
+            }
+
+        if (!title.isNullOrBlank()) {
+            builder.setTitle(title)
+        }
+
+        loadingDialog = builder.create()
+        loadingDialog?.show()
+    }
+
     fun update(
         activity: Activity,
         message: String,
@@ -171,9 +257,7 @@ object UiLoadingHelper {
             LoadingStatus.ERROR -> {
                 playErrorSound(activity)
                 btn?.visibility = View.VISIBLE
-                btn?.setOnClickListener {
-                    hide()
-                }
+                btn?.setOnClickListener { hide() }
                 cancelBtn?.visibility = View.GONE
             }
 
@@ -196,6 +280,7 @@ object UiLoadingHelper {
                 textSize = 48f
                 gravity = Gravity.CENTER
             }
+
             LoadingStatus.ERROR -> TextView(activity).apply {
                 text = "❌"
                 textSize = 48f
@@ -222,7 +307,6 @@ object UiLoadingHelper {
 
             LoadingStatus.SUCCESS -> {
                 loadingDialog?.setCancelable(false)
-
                 autoHideJob = CoroutineScope(Dispatchers.Main).launch {
                     delay(2000)
                     hide()
@@ -231,7 +315,6 @@ object UiLoadingHelper {
 
             LoadingStatus.ERROR -> {
                 loadingDialog?.setCancelable(false)
-
                 loadingDialog?.setButton(AlertDialog.BUTTON_POSITIVE, "OK") { dialog, _ ->
                     dialog.dismiss()
                     hide()

@@ -1,6 +1,7 @@
 package com.example.mde
 
 import android.os.Bundle
+import android.os.SystemClock
 import android.text.Editable
 import android.text.InputType
 import android.text.SpannableStringBuilder
@@ -28,6 +29,9 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
+import java.math.BigDecimal
+import java.text.DecimalFormat
+import java.text.DecimalFormatSymbols
 import java.util.Date
 import java.util.Locale
 
@@ -74,8 +78,10 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     private lateinit var detailsAdapter: ListDetailsAdapter
 
     private var liste: List<ListItem> = emptyList()
+
     private var detailsListe: List<ListDetail> = emptyList()
     private var detailsOriginal: List<ListDetail> = emptyList()
+
     protected var currentProjektNr: String = ""
 
     protected lateinit var settings: AppSettings
@@ -84,11 +90,13 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     private var loadListJob: Job? = null
     private var loadDetailsJob: Job? = null
 
-    // neue Artikelnummer zwischenspeichern und in normaler Buchungsroutine verwenden
     private var replacementArtNr: String? = null
 
-    // FIX: verhindert, dass etDetailFilter.setText("") den TextWatcher triggert und sofort wieder ein Dialog geöffnet wird
     private var ignoreDetailFilterChanges: Boolean = false
+    private var detailDialogOpenOrPending: Boolean = false
+
+    private var lastAutoOpenAtMs: Long = 0L
+    private val autoOpenCooldownMs: Long = 250L
 
     // -------- Scroll / "weiter machen" nach Dialog/Buchung --------
     private data class ScrollAnchor(val key: String, val offsetPx: Int)
@@ -118,12 +126,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         }
     }
 
-    /**
-     * Alternative: nach erfolgreicher Buchung zum "nächsten" Eintrag scrollen.
-     * - nimmt die Position des gebuchten Items in der *aktuell angezeigten* Liste
-     * - nach dem Entfernen wird zu demselben Index gescrollt (was dann der "nächste" ist),
-     *   bzw. zum letzten, falls das Ende erreicht ist.
-     */
     private fun scrollToNextAfterRemoval(bookedItemKey: String) {
         val lm = detailsView.layoutManager as? LinearLayoutManager ?: return
 
@@ -138,7 +140,61 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             lm.scrollToPositionWithOffset(target, 0)
         }
     }
+
+    private fun scrollToItemInCurrentList(item: ListDetail) {
+        val lm = detailsView.layoutManager as? LinearLayoutManager ?: return
+        val items = detailsAdapter.getItems()
+        val idx = items.indexOfFirst { it.key() == item.key() }
+        if (idx >= 0) {
+            detailsView.post { lm.scrollToPositionWithOffset(idx, 0) }
+        }
+    }
     // -------------------------------------------------------------
+
+    private fun uiInfo(message: String) {
+        UiLoadingHelper.show(
+            activity = this,
+            message = message,
+            status = UiLoadingHelper.LoadingStatus.SUCCESS,
+            onCancel = null
+        )
+    }
+
+    private fun uiError(message: String) {
+        UiLoadingHelper.showError(this, message)
+    }
+
+    private fun parseMengeOrNull(raw: String): BigDecimal? {
+        val s = raw.trim()
+            .replace(" ", "")
+            .replace("\u00A0", "")
+            .replace(",", ".")
+        if (s.isBlank()) return null
+        return try {
+            BigDecimal(s)
+        } catch (_: Exception) {
+            null
+        }
+    }
+
+    private fun formatMengeForServer(value: BigDecimal): String {
+        val symbols = DecimalFormatSymbols(Locale.GERMANY).apply {
+            decimalSeparator = ','
+            groupingSeparator = '.'
+        }
+        val df = DecimalFormat("0.################", symbols).apply {
+            isGroupingUsed = false
+        }
+        return df.format(value)
+    }
+
+    private fun isIntegerValue(value: BigDecimal): Boolean {
+        return try {
+            value.stripTrailingZeros().scale() <= 0
+        } catch (_: Exception) {
+            false
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         settings = AppSettings(this)
@@ -176,33 +232,18 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
         setupListFilter()
         setupDetailFilter()
-
-        // Keyboard soll NIE automatisch aufgehen (Scanner darf trotzdem in das Feld schreiben).
-        // Keyboard nur bei aktivem Klick/Tap in etDetailFilter.
         setupDetailFilterKeyboardBehavior()
 
         loadList()
     }
 
-    /**
-     * Keyboard-Verhalten für Scanner:
-     * - Fokus ist erlaubt (Scanner kann reinschreiben)
-     * - Soft-Keyboard geht NICHT beim Fokus (auch nicht per Code)
-     * - Soft-Keyboard geht NUR bei aktivem Tap/Klick in das Feld auf
-     */
     private fun setupDetailFilterKeyboardBehavior() {
-        // verhindert Softkeyboard beim Fokus (API 29+)
         etDetailFilter.showSoftInputOnFocus = false
-
-        // Fokus für Scanner erlauben
         etDetailFilter.isFocusable = true
         etDetailFilter.isFocusableInTouchMode = true
 
-        // Beim Tippen soll das Keyboard ausnahmsweise aufgehen
         etDetailFilter.setOnTouchListener { v, event ->
-            // Standard-Handling (Cursor setzen, Selection etc.)
             v.onTouchEvent(event)
-
             if (event.action == MotionEvent.ACTION_UP) {
                 etDetailFilter.requestFocus()
                 showKeyboard(etDetailFilter)
@@ -221,9 +262,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         imm.hideSoftInputFromWindow(view.windowToken, 0)
     }
 
-    /**
-     * Fokus auf Detail-Filter setzen (Scanner ready), aber Keyboard garantiert aus.
-     */
     private fun focusDetailFilterWithoutKeyboard() {
         etDetailFilter.requestFocus()
         hideKeyboard(etDetailFilter)
@@ -255,6 +293,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
             else -> detailsListe
         }
+
         detailsAdapter.updateList(sorted)
     }
 
@@ -274,7 +313,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 tv.maxLines = 1
                 tv.ellipsize = TextUtils.TruncateAt.END
 
-                // nutze dp statt px (24/12 sind sonst auf manchen Geräten riesig)
                 val d = context.resources.displayMetrics.density
                 tv.setPadding(
                     (16 * d).toInt(),
@@ -322,16 +360,10 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         return typedValue.data
     }
 
-    private fun String.firstLocationToken(): String {
-        // "1A, 2B" -> "1A"
-        return this.split(",")
-            .firstOrNull()
-            ?.trim()
-            .orEmpty()
-    }
+    private fun String.firstLocationToken(): String =
+        this.split(",").firstOrNull()?.trim().orEmpty()
 
     private fun tokenizeNatural(s: String): List<Any> {
-        // zerlegt "100A-2" -> [100, "a-", 2]
         val out = mutableListOf<Any>()
         val regex = Regex("""\d+|\D+""")
         for (m in regex.findAll(s)) {
@@ -352,7 +384,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             val c = when {
                 va is Int && vb is Int -> va.compareTo(vb)
                 va is String && vb is String -> va.compareTo(vb)
-                va is Int && vb is String -> -1 // Zahlen vor Text
+                va is Int && vb is String -> -1
                 va is String && vb is Int -> 1
                 else -> 0
             }
@@ -368,7 +400,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         val bBlank = bb.isBlank()
         return when {
             aBlank && bBlank -> 0
-            aBlank -> 1 // blank -> nach hinten
+            aBlank -> 1
             bBlank -> -1
             else -> naturalCompare(aa, bb)
         }
@@ -412,31 +444,24 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 if (ignoreDetailFilterChanges) return
 
                 val input = s.toString().trim()
-                if (input.isEmpty()) {
-                    detailsAdapter.updateList(detailsOriginal)
-                    return
-                }
-                val filtered = detailsOriginal.filter {
+                if (input.isEmpty()) return
+                if (detailDialogOpenOrPending) return
+
+                val matches = detailsOriginal.filter {
                     it.artNr.contains(input, true) ||
                             it.menge.contains(input, true) ||
                             it.pos.contains(input, true) ||
                             it.info.contains(input, true)
                 }
-                detailsAdapter.updateList(filtered)
+                if (matches.isEmpty()) return
 
-                if (filtered.isEmpty()) return
-
-                // NEU:
-                // - Wenn genau 1 Treffer: wie bisher direkt öffnen
-                // - Wenn mehrere Treffer: direkt den Treffer mit der kleinsten Position öffnen,
-                //   aber NUR wenn die Treffer die gleiche Artikelnummer haben.
-                val itemToOpen: ListDetail? = when (filtered.size) {
-                    1 -> filtered[0]
+                val itemToOpen: ListDetail? = when (matches.size) {
+                    1 -> matches[0]
                     else -> {
                         val uniqueArtNrs =
-                            filtered.map { it.artNr.trim().lowercase(Locale.GERMANY) }.distinct()
+                            matches.map { it.artNr.trim().lowercase(Locale.GERMANY) }.distinct()
                         if (uniqueArtNrs.size == 1) {
-                            filtered.minByOrNull { it.pos.toIntOrNull() ?: Int.MAX_VALUE }
+                            matches.minByOrNull { it.pos.toIntOrNull() ?: Int.MAX_VALUE }
                         } else {
                             null
                         }
@@ -444,12 +469,21 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 }
 
                 if (itemToOpen != null) {
-                    // FIX: erst Filter leeren (ohne erneutes Triggern), dann Dialog öffnen
+                    val nowMs = SystemClock.elapsedRealtime()
+                    if (nowMs - lastAutoOpenAtMs < autoOpenCooldownMs) return
+                    lastAutoOpenAtMs = nowMs
+
+                    detailDialogOpenOrPending = true
+
                     ignoreDetailFilterChanges = true
                     etDetailFilter.setText("")
                     ignoreDetailFilterChanges = false
 
+                    scrollToItemInCurrentList(itemToOpen)
                     showItemDialog(itemToOpen)
+                } else {
+                    val best = matches.minByOrNull { it.pos.toIntOrNull() ?: Int.MAX_VALUE }
+                    if (best != null) scrollToItemInCurrentList(best)
                 }
             }
 
@@ -459,7 +493,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     }
 
     private fun showItemDialog(item: ListDetail) {
-        // Anchor direkt beim Öffnen merken (für "Nein"/Back/Abbruch)
         val dialogAnchor = captureScrollAnchor()
 
         val dialogView = layoutInflater.inflate(dialogLayoutId, null)
@@ -492,10 +525,16 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         }
         updateDialogMessage()
 
+        val mengeValue = parseMengeOrNull(item.menge)
+        val mengeIsInteger = mengeValue?.let { isIntegerValue(it) } ?: false
+        btnSerials.isEnabled = mengeIsInteger
+
         val dialog = AlertDialog.Builder(this).setView(dialogView).create()
 
         dialog.setOnDismissListener {
             detailsView.post { restoreScrollAnchor(dialogAnchor) }
+            detailDialogOpenOrPending = false
+            focusDetailFilterWithoutKeyboard()
         }
 
         btnYes.setOnClickListener {
@@ -505,47 +544,35 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             val artikelAlt = item.artNr
             val artikelNeu = replacementArtNr?.trim().orEmpty()
             val projekt = currentProjektNr
-            val menge = item.menge
 
-            // Alles was "wirklich buchen" soll, kommt in eine Funktion/Lambda:
             fun proceedBooking() {
                 if (artikelAlt.isBlank()) {
-                    showMessageDialog("❌ Fehler: Artikel darf nicht leer sein!")
-                    UiLoadingHelper.playErrorSound(this)
+                    uiError("Fehler: Artikel darf nicht leer sein!")
                     btnYes.isEnabled = true
                     return
                 }
 
-                if (menge.isBlank()) {
-                    showMessageDialog("❌ Fehler: Menge darf nicht leer sein!")
-                    UiLoadingHelper.playErrorSound(this)
+                val mengeParsed = parseMengeOrNull(item.menge)
+                if (mengeParsed == null) {
+                    uiError("Fehler: Menge ist ungültig (z.B. 5 oder 5,1).")
                     btnYes.isEnabled = true
                     return
                 }
 
                 if (replacementArtNr != null && artikelNeu.isBlank()) {
-                    showMessageDialog("❌ Fehler: Neue Artikelnummer ist leer.")
-                    UiLoadingHelper.playErrorSound(this)
+                    uiError("Fehler: Neue Artikelnummer ist leer.")
                     btnYes.isEnabled = true
                     return
                 }
 
-                val statusText = TextView(this).apply {
-                    text = "Buchung läuft…"
-                    setPadding(50, 50, 50, 50)
-                    textSize = 18f
-                }
-                val statusDialog = AlertDialog.Builder(this)
-                    .setView(statusText)
-                    .setCancelable(false)
-                    .create()
-                statusDialog.show()
-
+                val bookedKey = item.key()
                 val now =
                     java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
 
                 val serialsString: String =
                     if (item.serials.isEmpty()) {
+                        ""
+                    } else if (!isIntegerValue(mengeParsed)) {
                         ""
                     } else if (item.isCharge) {
                         val chargeNr = item.serials.firstOrNull()?.trim().orEmpty()
@@ -554,30 +581,45 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                         item.serials.joinToString(";") { it.trim() }
                     }
 
-                val buchungsMenge = (item.menge.toIntOrNull() ?: 0) * buchungsVorzeichen
-                val bookedKey = item.key()
+                val buchungsMengeSigned = mengeParsed.multiply(BigDecimal(buchungsVorzeichen))
+                val buchungsMengeServer = formatMengeForServer(buchungsMengeSigned)
 
                 val request = buildString {
                     append("{SetBuchung}")
 
                     val artikelTeil = if (replacementArtNr.isNullOrBlank()) {
-                        "$artikelAlt||$buchungsMenge"
+                        "$artikelAlt||$buchungsMengeServer"
                     } else {
-                        "$artikelAlt|$artikelNeu|$buchungsMenge"
+                        "$artikelAlt|$artikelNeu|$buchungsMengeServer"
                     }
 
                     append("$artikelTeil|${item.listenNummer}|${item.pos}|$projekt|${settings.werkNummer}|$username|$now|")
-                    if (serialsString.isNotEmpty()) {
-                        append(serialsString)
-                    }
+                    if (serialsString.isNotEmpty()) append(serialsString)
                     append("|{/SetBuchung}")
                 }
+
+                UiLoadingHelper.show(
+                    activity = this@BasePickDropActivity,
+                    message = "Buchung läuft…",
+                    status = UiLoadingHelper.LoadingStatus.LOADING,
+                    onCancel = null
+                )
 
                 CoroutineScope(Dispatchers.IO).launch {
                     var attempts = 0
                     while (attempts < 3) {
                         attempts++
                         try {
+                            if (attempts > 1) {
+                                withContext(Dispatchers.Main) {
+                                    UiLoadingHelper.update(
+                                        activity = this@BasePickDropActivity,
+                                        message = "Buchung läuft… Versuch $attempts/3",
+                                        status = UiLoadingHelper.LoadingStatus.LOADING
+                                    )
+                                }
+                            }
+
                             val response = TcpClient.sendCommand(
                                 context = this@BasePickDropActivity,
                                 settings = settings,
@@ -589,36 +631,45 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
                             withContext(Dispatchers.Main) {
                                 if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
-                                    statusText.text = "✅ Buchung erfolgreich"
+                                    UiLoadingHelper.update(
+                                        activity = this@BasePickDropActivity,
+                                        message = "Buchung erfolgreich",
+                                        status = UiLoadingHelper.LoadingStatus.SUCCESS
+                                    )
+
                                     replacementArtNr = null
 
                                     detailsListe = detailsListe.filterNot { it.key() == bookedKey }
-                                    detailsOriginal = detailsOriginal.filterNot { it.key() == bookedKey }
+                                    detailsOriginal =
+                                        detailsOriginal.filterNot { it.key() == bookedKey }
 
                                     applyCurrentSortAndShow()
+                                    scrollToNextAfterRemoval(bookedKey)
 
                                     ignoreDetailFilterChanges = true
                                     etDetailFilter.setText("")
                                     ignoreDetailFilterChanges = false
 
                                     focusDetailFilterWithoutKeyboard()
-
-                                    delay(1000)
-                                    statusDialog.dismiss()
                                     dialog.dismiss()
                                 } else {
-                                    statusText.text = "❌ Buchung fehlgeschlagen:\n$response"
-                                    UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
-                                    delay(2000)
-                                    statusDialog.dismiss()
+                                    UiLoadingHelper.update(
+                                        activity = this@BasePickDropActivity,
+                                        message = "Buchung fehlgeschlagen:\n$response",
+                                        status = UiLoadingHelper.LoadingStatus.ERROR
+                                    )
                                     btnYes.isEnabled = true
                                 }
                             }
                             return@launch
-                        } catch (e: Exception) {
+                        } catch (_: Exception) {
                             if (attempts < 3) {
                                 withContext(Dispatchers.Main) {
-                                    statusText.text = "⏳ Timeout – Wiederhole... ($attempts/3)"
+                                    UiLoadingHelper.update(
+                                        activity = this@BasePickDropActivity,
+                                        message = "Timeout – Wiederhole... ($attempts/3)",
+                                        status = UiLoadingHelper.LoadingStatus.LOADING
+                                    )
                                 }
                                 delay(1000)
                             }
@@ -626,41 +677,37 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     }
 
                     withContext(Dispatchers.Main) {
-                        statusText.text = "❌ Kein Server erreichbar nach 3 Versuchen"
-                        UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
-                        statusDialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK") { _, _ ->
-                            statusDialog.dismiss()
-                            btnYes.isEnabled = true
-                        }
+                        UiLoadingHelper.update(
+                            activity = this@BasePickDropActivity,
+                            message = "Kein Server erreichbar nach 3 Versuchen",
+                            status = UiLoadingHelper.LoadingStatus.ERROR
+                        )
+                        btnYes.isEnabled = true
                     }
                 }
             }
 
-            // Hier die gewünschte Logik:
-            // - Projekt leer => Dialog zeigen
-            // - OK => proceedBooking()
-            // - Abbruch => nur re-enable Button, sonst nichts
+            // HIER: UiLoadingHelper.confirm(...) statt zweitem AlertDialog
             if (projekt.isBlank()) {
-                UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
-
-                AlertDialog.Builder(this)
-                    .setMessage("❌ Projekt ist leer?! Trotzdem buchen?")
-                    .setCancelable(false)
-                    .setPositiveButton("OK") { _, _ ->
+                UiLoadingHelper.confirm(
+                    activity = this@BasePickDropActivity,
+                    title = "Fehler",
+                    message = "Projekt ist leer?! Trotzdem buchen?",
+                    okText = "OK",
+                    cancelText = "Abbruch",
+                    cancelable = false,
+                    playErrorSound = true,
+                    onOk = {
                         proceedBooking()
-                    }
-                    .setNegativeButton("Abbruch") { _, _ ->
-                        // Button wieder freigeben (falls Dialog aus irgendeinem Grund stehen bleibt)
+                    },
+                    onCancel = {
                         btnYes.isEnabled = true
-
-                        // ganzen Buchungsdialog (den mit Ja/Nein/Ändern/Seriennummern) schließen
                         dialog.dismiss()
                     }
-                    .show()
+                )
                 return@setOnClickListener
             }
 
-            // Projekt vorhanden => direkt buchen
             proceedBooking()
         }
 
@@ -668,25 +715,51 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         btnChangeAmount.setOnClickListener { showChangeAmountDialog(item) { updateDialogMessage() } }
         btnChangeArticle.setOnClickListener { showChangeArticleDialog(item) { updateDialogMessage() } }
         btnSerials.setOnClickListener {
-            val mengeInt = item.menge.toIntOrNull() ?: 0
+            val mengeParsed = parseMengeOrNull(item.menge) ?: BigDecimal.ZERO
+            if (!isIntegerValue(mengeParsed)) {
+                uiError("Seriennummern sind nur bei ganzen Mengen möglich.")
+                return@setOnClickListener
+            }
+
+            val mengeInt = try {
+                mengeParsed.toInt()
+            } catch (_: Exception) {
+                0
+            }
+
             showSerialDialog(mengeInt) { serials, isCharge ->
                 item.serials = serials
                 item.isCharge = isCharge
                 updateDialogMessage()
             }
         }
+
         dialog.show()
     }
 
     private fun showChangeAmountDialog(item: ListDetail, onAmountChanged: () -> Unit) {
         val et = AutoCompleteTextView(this)
-        et.inputType = InputType.TYPE_CLASS_NUMBER
+        et.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
         et.setText(item.menge)
+
         AlertDialog.Builder(this)
             .setTitle("Menge ändern")
             .setView(et)
             .setPositiveButton("OK") { _, _ ->
-                item.menge = et.text.toString()
+                val raw = et.text.toString()
+                val parsed = parseMengeOrNull(raw)
+                if (parsed == null) {
+                    uiError("Ungültige Menge. Beispiele: 5 oder 5,1 oder 5.1")
+                    return@setPositiveButton
+                }
+
+                item.menge = formatMengeForServer(parsed)
+
+                if (!isIntegerValue(parsed)) {
+                    item.serials = emptyList()
+                    item.isCharge = false
+                }
+
                 applyCurrentSortAndShow()
                 onAmountChanged()
             }
@@ -709,16 +782,15 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             .setPositiveButton("OK") { _, _ ->
                 val neueArtNr = et.text.toString().trim()
                 if (neueArtNr.isBlank()) {
-                    showMessageDialog("❌ Fehler: Neue Artikelnummer darf nicht leer sein.")
-                    UiLoadingHelper.playErrorSound(this)
+                    uiError("Neue Artikelnummer darf nicht leer sein.")
                     return@setPositiveButton
                 }
 
-                if (neueArtNr.equals(item.artNr, ignoreCase = true)) {
-                    replacementArtNr = null
-                    showMessageDialog("ℹ️ Ersatz entfernt (Artikel bleibt unverändert).")
+                replacementArtNr = if (neueArtNr.equals(item.artNr, ignoreCase = true)) {
+                    uiInfo("Ersatz entfernt (Artikel bleibt unverändert).")
+                    null
                 } else {
-                    replacementArtNr = neueArtNr
+                    neueArtNr
                 }
 
                 onArticleChanged()
@@ -733,9 +805,9 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         loadListJob = loadJob
 
         UiLoadingHelper.show(
-            this,
-            "Lade Liste... Versuch 1/3",
-            UiLoadingHelper.LoadingStatus.LOADING,
+            activity = this,
+            message = "Lade Liste... Versuch 1/3",
+            status = UiLoadingHelper.LoadingStatus.LOADING,
             onCancel = { loadJob.cancel() }
         )
 
@@ -751,9 +823,9 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     if (attempts > 1) {
                         withContext(Dispatchers.Main) {
                             UiLoadingHelper.update(
-                                this@BasePickDropActivity,
-                                "Lade Liste... Versuch $attempts/3",
-                                UiLoadingHelper.LoadingStatus.LOADING
+                                activity = this@BasePickDropActivity,
+                                message = "Lade Liste... Versuch $attempts/3",
+                                status = UiLoadingHelper.LoadingStatus.LOADING
                             )
                         }
                     }
@@ -801,16 +873,11 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
             withContext(Dispatchers.Main) {
                 if (!success) {
-                    UiLoadingHelper.hide()
-                    UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
-                    AlertDialog.Builder(this@BasePickDropActivity)
-                        .setTitle("Fehler")
-                        .setMessage("Fehler nach 3 Versuchen:\n$lastError")
-                        .setPositiveButton("Retry") { _, _ ->
-                            etListFilter.post { loadList() }
-                        }
-                        .setNegativeButton("Abbrechen", null)
-                        .show()
+                    UiLoadingHelper.update(
+                        activity = this@BasePickDropActivity,
+                        message = "Fehler nach 3 Versuchen:\n$lastError",
+                        status = UiLoadingHelper.LoadingStatus.ERROR
+                    )
                     liste = emptyList()
                     listAdapter.updateList(emptyList())
                 }
@@ -828,9 +895,9 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
         UiLoadingHelper.hide()
         UiLoadingHelper.show(
-            this,
-            "Lade Details... Versuch 1/3",
-            UiLoadingHelper.LoadingStatus.LOADING,
+            activity = this,
+            message = "Lade Details... Versuch 1/3",
+            status = UiLoadingHelper.LoadingStatus.LOADING,
             onCancel = { loadJob.cancel() }
         )
 
@@ -846,9 +913,9 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     if (attempts > 1) {
                         withContext(Dispatchers.Main) {
                             UiLoadingHelper.update(
-                                this@BasePickDropActivity,
-                                "Lade Details... Versuch $attempts/3",
-                                UiLoadingHelper.LoadingStatus.LOADING
+                                activity = this@BasePickDropActivity,
+                                message = "Lade Details... Versuch $attempts/3",
+                                status = UiLoadingHelper.LoadingStatus.LOADING
                             )
                         }
                     }
@@ -884,13 +951,12 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                                 artNr = artNr,
                                 menge = parts[1],
                                 pos = parts[2],
-                                info = parts.getOrElse(3) { "" }, // wird gleich via GetArtikel ersetzt
+                                info = parts.getOrElse(3) { "" },
                                 listenNummer = nummer
                             )
                         } else null
                     }
 
-                    // Artikeldaten still laden (GetArtikel)
                     if (DataRepository.artikelListe.isEmpty()) {
                         try {
                             val artikelResponse = TcpClient.sendCommand(
@@ -912,11 +978,12 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                         if (!isActive) return@withContext
                         detailsListe = details.toMutableList()
                         detailsOriginal = details.toMutableList()
+
                         detailsAdapter.updateList(detailsListe)
+
                         etDetailFilter.visibility = View.VISIBLE
                         detailsView.visibility = if (details.isEmpty()) View.GONE else View.VISIBLE
 
-                        // Scanner ready: Fokus ja, Keyboard nein
                         focusDetailFilterWithoutKeyboard()
                         etDetailFilter.setSelection(etDetailFilter.text.length)
 
@@ -934,16 +1001,11 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
             withContext(Dispatchers.Main) {
                 if (!success) {
-                    UiLoadingHelper.hide()
-                    UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
-                    AlertDialog.Builder(this@BasePickDropActivity)
-                        .setTitle("Fehler")
-                        .setMessage("Fehler nach 3 Versuchen:\n$lastError")
-                        .setPositiveButton("Retry") { _, _ ->
-                            etDetailFilter.post { loadDetails(nummer) }
-                        }
-                        .setNegativeButton("Abbrechen", null)
-                        .show()
+                    UiLoadingHelper.update(
+                        activity = this@BasePickDropActivity,
+                        message = "Fehler nach 3 Versuchen:\n$lastError",
+                        status = UiLoadingHelper.LoadingStatus.ERROR
+                    )
                 }
             }
         }
@@ -975,8 +1037,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     }
 
     override fun onSerialError(message: String) {
-        showMessageDialog(message)
-        UiLoadingHelper.playErrorSound(this)
+        uiError(message)
     }
 
     inner class ListDetailsAdapter(private var items: List<ListDetail>) :
@@ -1019,10 +1080,16 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             val evenColor = getThemeColor(R.attr.tableRowEvenColor)
             holder.itemView.setBackgroundColor(if (position % 2 == 0) oddColor else evenColor)
             holder.tvItem.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
-            holder.itemView.setOnClickListener { showItemDialog(item) }
+            holder.itemView.setOnClickListener {
+                if (!detailDialogOpenOrPending) {
+                    detailDialogOpenOrPending = true
+                    showItemDialog(item)
+                }
+            }
         }
 
         override fun getItemCount() = items.size
+
         fun updateList(newItems: List<ListDetail>) {
             items = newItems
             notifyDataSetChanged()
@@ -1068,6 +1135,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         }
 
         override fun getItemCount() = items.size
+
         fun updateList(newItems: List<ListItem>) {
             items = newItems
             notifyDataSetChanged()
