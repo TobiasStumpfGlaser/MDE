@@ -159,6 +159,17 @@
                 android:layout_marginBottom="16dp"
                 android:textAlignment="viewStart" />
 
+            <!-- NEU: Gemeinsames Error-TextView (Artikel/Projekt) - ÜBER den Buttons -->
+            <TextView
+                android:id="@+id/tvErrorMessages"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:layout_marginBottom="12dp"
+                android:padding="10dp"
+                android:textColor="?android:attr/colorError"
+                android:textSize="18sp"
+                android:visibility="gone" />
+
             <!-- Einlagern / Auslagern Buttons -->
             <LinearLayout
                 android:layout_width="match_parent"

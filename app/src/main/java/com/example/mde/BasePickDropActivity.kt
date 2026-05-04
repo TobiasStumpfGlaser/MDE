@@ -506,128 +506,162 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             val artikelNeu = replacementArtNr?.trim().orEmpty()
             val projekt = currentProjektNr
             val menge = item.menge
-            if (artikelAlt.isBlank() || projekt.isBlank() || menge.isBlank()) {
-                showMessageDialog("❌ Fehler: Alle Felder müssen ausgefüllt sein!")
-                UiLoadingHelper.playErrorSound(this)
-                btnYes.isEnabled = true
-                return@setOnClickListener
-            }
-            if (replacementArtNr != null && artikelNeu.isBlank()) {
-                showMessageDialog("❌ Fehler: Neue Artikelnummer ist leer.")
-                UiLoadingHelper.playErrorSound(this)
-                btnYes.isEnabled = true
-                return@setOnClickListener
-            }
 
-            val statusText = TextView(this).apply {
-                text = "Buchung läuft…"
-                setPadding(50, 50, 50, 50)
-                textSize = 18f
-            }
-            val statusDialog = AlertDialog.Builder(this)
-                .setView(statusText)
-                .setCancelable(false)
-                .create()
-            statusDialog.show()
-
-            val now =
-                java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
-
-            val serialsString: String =
-                if (item.serials.isEmpty()) {
-                    ""
-                } else if (item.isCharge) {
-                    val chargeNr = item.serials.firstOrNull()?.trim().orEmpty()
-                    if (chargeNr.isBlank()) "" else "Charge:$chargeNr"
-                } else {
-                    item.serials.joinToString(";") { it.trim() }
+            // Alles was "wirklich buchen" soll, kommt in eine Funktion/Lambda:
+            fun proceedBooking() {
+                if (artikelAlt.isBlank()) {
+                    showMessageDialog("❌ Fehler: Artikel darf nicht leer sein!")
+                    UiLoadingHelper.playErrorSound(this)
+                    btnYes.isEnabled = true
+                    return
                 }
 
-            val buchungsMenge = (item.menge.toIntOrNull() ?: 0) * buchungsVorzeichen
-            val bookedKey = item.key()
-
-            val request = buildString {
-                append("{SetBuchung}")
-
-                val artikelTeil = if (replacementArtNr.isNullOrBlank()) {
-                    "$artikelAlt||$buchungsMenge"
-                } else {
-                    "$artikelAlt|$artikelNeu|$buchungsMenge"
+                if (menge.isBlank()) {
+                    showMessageDialog("❌ Fehler: Menge darf nicht leer sein!")
+                    UiLoadingHelper.playErrorSound(this)
+                    btnYes.isEnabled = true
+                    return
                 }
 
-                append("$artikelTeil|${item.listenNummer}|${item.pos}|$projekt|${settings.werkNummer}|$username|$now|")
-                if (serialsString.isNotEmpty()) {
-                    append(serialsString)
+                if (replacementArtNr != null && artikelNeu.isBlank()) {
+                    showMessageDialog("❌ Fehler: Neue Artikelnummer ist leer.")
+                    UiLoadingHelper.playErrorSound(this)
+                    btnYes.isEnabled = true
+                    return
                 }
-                append("|{/SetBuchung}")
-            }
 
-            CoroutineScope(Dispatchers.IO).launch {
-                var attempts = 0
-                while (attempts < 3) {
-                    attempts++
-                    try {
-                        val response = TcpClient.sendCommand(
-                            context = this@BasePickDropActivity,
-                            settings = settings,
-                            command = "SetBuchung",
-                            request = request,
-                            endTag = "{/SetBuchung}"
-                        )
-                        val cleaned = response.replace("\r", "").trim()
+                val statusText = TextView(this).apply {
+                    text = "Buchung läuft…"
+                    setPadding(50, 50, 50, 50)
+                    textSize = 18f
+                }
+                val statusDialog = AlertDialog.Builder(this)
+                    .setView(statusText)
+                    .setCancelable(false)
+                    .create()
+                statusDialog.show()
 
-                        withContext(Dispatchers.Main) {
-                            if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
-                                statusText.text = "✅ Buchung erfolgreich"
-                                replacementArtNr = null
+                val now =
+                    java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
 
-                                detailsListe = detailsListe.filterNot { it.key() == bookedKey }
-                                detailsOriginal =
-                                    detailsOriginal.filterNot { it.key() == bookedKey }
+                val serialsString: String =
+                    if (item.serials.isEmpty()) {
+                        ""
+                    } else if (item.isCharge) {
+                        val chargeNr = item.serials.firstOrNull()?.trim().orEmpty()
+                        if (chargeNr.isBlank()) "" else "Charge:$chargeNr"
+                    } else {
+                        item.serials.joinToString(";") { it.trim() }
+                    }
 
-                                applyCurrentSortAndShow()
+                val buchungsMenge = (item.menge.toIntOrNull() ?: 0) * buchungsVorzeichen
+                val bookedKey = item.key()
 
-                                ignoreDetailFilterChanges = true
-                                etDetailFilter.setText("")
-                                ignoreDetailFilterChanges = false
+                val request = buildString {
+                    append("{SetBuchung}")
 
-                                focusDetailFilterWithoutKeyboard()
+                    val artikelTeil = if (replacementArtNr.isNullOrBlank()) {
+                        "$artikelAlt||$buchungsMenge"
+                    } else {
+                        "$artikelAlt|$artikelNeu|$buchungsMenge"
+                    }
 
-                                delay(1000)
-                                statusDialog.dismiss()
-                                dialog.dismiss()
+                    append("$artikelTeil|${item.listenNummer}|${item.pos}|$projekt|${settings.werkNummer}|$username|$now|")
+                    if (serialsString.isNotEmpty()) {
+                        append(serialsString)
+                    }
+                    append("|{/SetBuchung}")
+                }
 
-                                // Alternative: zum nächsten Eintrag statt Anchor
-                                // scrollToNextAfterRemoval(bookedKey)
+                CoroutineScope(Dispatchers.IO).launch {
+                    var attempts = 0
+                    while (attempts < 3) {
+                        attempts++
+                        try {
+                            val response = TcpClient.sendCommand(
+                                context = this@BasePickDropActivity,
+                                settings = settings,
+                                command = "SetBuchung",
+                                request = request,
+                                endTag = "{/SetBuchung}"
+                            )
+                            val cleaned = response.replace("\r", "").trim()
 
-                            } else {
-                                statusText.text = "❌ Buchung fehlgeschlagen:\n$response"
-                                UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
-                                delay(2000)
-                                statusDialog.dismiss()
-                                btnYes.isEnabled = true
-                            }
-                        }
-                        return@launch
-                    } catch (e: Exception) {
-                        if (attempts < 3) {
                             withContext(Dispatchers.Main) {
-                                statusText.text = "⏳ Timeout – Wiederhole... ($attempts/3)"
+                                if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
+                                    statusText.text = "✅ Buchung erfolgreich"
+                                    replacementArtNr = null
+
+                                    detailsListe = detailsListe.filterNot { it.key() == bookedKey }
+                                    detailsOriginal = detailsOriginal.filterNot { it.key() == bookedKey }
+
+                                    applyCurrentSortAndShow()
+
+                                    ignoreDetailFilterChanges = true
+                                    etDetailFilter.setText("")
+                                    ignoreDetailFilterChanges = false
+
+                                    focusDetailFilterWithoutKeyboard()
+
+                                    delay(1000)
+                                    statusDialog.dismiss()
+                                    dialog.dismiss()
+                                } else {
+                                    statusText.text = "❌ Buchung fehlgeschlagen:\n$response"
+                                    UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
+                                    delay(2000)
+                                    statusDialog.dismiss()
+                                    btnYes.isEnabled = true
+                                }
                             }
-                            delay(1000)
+                            return@launch
+                        } catch (e: Exception) {
+                            if (attempts < 3) {
+                                withContext(Dispatchers.Main) {
+                                    statusText.text = "⏳ Timeout – Wiederhole... ($attempts/3)"
+                                }
+                                delay(1000)
+                            }
+                        }
+                    }
+
+                    withContext(Dispatchers.Main) {
+                        statusText.text = "❌ Kein Server erreichbar nach 3 Versuchen"
+                        UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
+                        statusDialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK") { _, _ ->
+                            statusDialog.dismiss()
+                            btnYes.isEnabled = true
                         }
                     }
                 }
-
-                withContext(Dispatchers.Main) {
-                    statusText.text = "❌ Kein Server erreichbar nach 3 Versuchen"
-                    UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
-                    statusDialog.setButton(AlertDialog.BUTTON_POSITIVE, "OK") { _, _ ->
-                        statusDialog.dismiss()
-                        btnYes.isEnabled = true
-                    }
-                }
             }
+
+            // Hier die gewünschte Logik:
+            // - Projekt leer => Dialog zeigen
+            // - OK => proceedBooking()
+            // - Abbruch => nur re-enable Button, sonst nichts
+            if (projekt.isBlank()) {
+                UiLoadingHelper.playErrorSound(this@BasePickDropActivity)
+
+                AlertDialog.Builder(this)
+                    .setMessage("❌ Projekt ist leer?! Trotzdem buchen?")
+                    .setCancelable(false)
+                    .setPositiveButton("OK") { _, _ ->
+                        proceedBooking()
+                    }
+                    .setNegativeButton("Abbruch") { _, _ ->
+                        // Button wieder freigeben (falls Dialog aus irgendeinem Grund stehen bleibt)
+                        btnYes.isEnabled = true
+
+                        // ganzen Buchungsdialog (den mit Ja/Nein/Ändern/Seriennummern) schließen
+                        dialog.dismiss()
+                    }
+                    .show()
+                return@setOnClickListener
+            }
+
+            // Projekt vorhanden => direkt buchen
+            proceedBooking()
         }
 
         btnNo.setOnClickListener { dialog.dismiss() }

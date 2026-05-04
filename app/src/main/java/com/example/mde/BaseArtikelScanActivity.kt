@@ -137,6 +137,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected lateinit var btnClear: Button
     protected lateinit var btnReloadArtikel: ImageButton
 
+    protected lateinit var tvErrorMessages: TextView
+
     protected var artikelListe: List<Artikel>
         get() = DataRepository.artikelListe
         set(value) {
@@ -166,9 +168,11 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     private var lastBookingTime = 0L
     private val bookingCooldown = 2000L
 
-    // NEU: merkt sich (optional), ob die zuletzt erfassten "Serials" eine Charge waren.
-    // (Wird v.a. beim Clear zurückgesetzt; für das Senden reicht aber der Text in edtSerials.)
     private var serialsAreCharge: Boolean = false
+
+    // Sound nur beim Zustandswechsel "hat Treffer" <-> "keine Treffer"
+    private var projektNoMatchActive = false
+    private var artikelNoMatchActive = false
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val settings = AppSettings(this)
@@ -217,12 +221,41 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
+    protected fun showErrorWithLoadingHelper(message: String) {
+        runOnUiThread {
+            UiLoadingHelper.hide()
+            UiLoadingHelper.showError(this, message) // sicherer OK Button
+        }
+    }
+
+    private fun setInlineErrorTextOnly(message: String) {
+        tvErrorMessages.visibility = View.VISIBLE
+        tvErrorMessages.text = "❌ $message"
+        tvErrorMessages.setTextColor(getThemeColor(android.R.attr.colorError))
+    }
+
+    protected fun showInlineError(message: String) {
+        setInlineErrorTextOnly(message)
+        UiLoadingHelper.playErrorSound(this)
+    }
+
+    protected fun clearInlineError() {
+        tvErrorMessages.text = ""
+        tvErrorMessages.visibility = View.GONE
+        projektNoMatchActive = false
+        artikelNoMatchActive = false
+    }
+
     private fun setupViews() {
         etFilter = findViewById(R.id.etBarcode) ?: AutoCompleteTextView(this).apply {
             visibility = View.GONE
         }
         tvArtikelInfo =
             findViewById(R.id.tvArtikelInfo) ?: TextView(this).apply { visibility = View.GONE }
+
+        tvErrorMessages =
+            findViewById(R.id.tvErrorMessages) ?: TextView(this).apply { visibility = View.GONE }
+
         btnClear = findViewById(R.id.btnClear) ?: Button(this).apply { visibility = View.GONE }
         btnReloadArtikel = findViewById(R.id.btnReloadArtikel) ?: ImageButton(this).apply {
             visibility = View.GONE
@@ -244,11 +277,10 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             setOnClickListener {
                 val mengeInt = edtMenge.text.toString().trim().toIntOrNull() ?: 0
                 if (mengeInt <= 0) {
-                    showError("Bitte zuerst eine gültige Menge eingeben")
+                    showErrorWithLoadingHelper("Bitte zuerst eine gültige Menge eingeben")
                     return@setOnClickListener
                 }
 
-                // FIX: Charge-Info wirklich übernehmen (nicht immer false)
                 showSerialDialog(mengeInt) { serials, isCharge ->
                     serialsAreCharge = isCharge
 
@@ -256,11 +288,9 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         if (serials.isEmpty()) {
                             ""
                         } else if (isCharge) {
-                            // Charge => genau eine Nummer
                             val nr = serials.first().trim()
                             if (nr.isBlank()) "" else "Charge:$nr"
                         } else {
-                            // Seriennummern => Liste
                             serials.joinToString(";") { it.trim() }
                         }
 
@@ -383,8 +413,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     protected open fun onSerialError(message: String) {
-        UiLoadingHelper.playErrorSound(this)
-        showMessageDialog(message)
+        showErrorWithLoadingHelper(message)
     }
 
     protected fun showMessageDialog(message: String) {
@@ -413,7 +442,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 }
             } catch (e: Exception) {
                 withContext(Dispatchers.Main) {
-                    showMessageDialog("Fehler beim Laden der Artikelliste:\n${e.message}")
+                    showErrorWithLoadingHelper("Fehler beim Laden der Artikelliste:\n${e.message}")
                 }
             }
         }
@@ -421,6 +450,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     open fun btnClearClicked() {
         tvArtikelInfo.text = ""
+        clearInlineError()
         edtSerials.text.clear()
         serialsAreCharge = false
 
@@ -429,8 +459,10 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         etFilter.isFocusableInTouchMode = true
         etFilter.keyListener = etFilterKeyListener
         textWatcherEnabled = true
+
         buchungProjektView?.text?.clear()
         buchungMengeView?.text?.clear()
+
         etFilter.requestFocus()
         etFilter.setSelection(0)
     }
@@ -443,7 +475,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
         UiLoadingHelper.show(
             this,
-            "Lade Serverdaten...",
+            "Lade Serverdaten... Versuch 1/3",
             UiLoadingHelper.LoadingStatus.LOADING,
             onCancel = {
                 loadJob.cancel()
@@ -455,6 +487,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             val settings = AppSettings(this@BaseArtikelScanActivity)
             var success = false
             var attempts = 0
+            var lastError = ""
 
             while (attempts < 3 && !success) {
                 if (!isActive) return@launch
@@ -504,7 +537,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     }
 
                     success = artikelListe.isNotEmpty() && projektListe.isNotEmpty()
-                } catch (_: Exception) {
+                } catch (e: Exception) {
+                    lastError = e.message ?: "Unbekannter Fehler"
                     delay(500)
                 }
             }
@@ -513,11 +547,19 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
             withContext(Dispatchers.Main) {
                 requestRunning = false
-                UiLoadingHelper.update(
-                    this@BaseArtikelScanActivity,
-                    if (success) "Daten aktualisiert" else "Fehler Server Kommunikation nach 3 Versuchen",
-                    if (success) UiLoadingHelper.LoadingStatus.SUCCESS else UiLoadingHelper.LoadingStatus.ERROR
-                )
+                if (success) {
+                    UiLoadingHelper.update(
+                        this@BaseArtikelScanActivity,
+                        "Daten aktualisiert",
+                        UiLoadingHelper.LoadingStatus.SUCCESS
+                    )
+                } else {
+                    UiLoadingHelper.update(
+                        this@BaseArtikelScanActivity,
+                        "Fehler nach 3 Versuchen:\n${if (lastError.isBlank()) "Server Kommunikation fehlgeschlagen" else lastError}",
+                        UiLoadingHelper.LoadingStatus.ERROR
+                    )
+                }
             }
         }
     }
@@ -535,6 +577,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     private fun setupProjektAdapter() {
         val sortedProjekte = sortProjekteWithRecents(projektListe)
         val projektView = etProjekt
+
         projektView.setAdapter(
             object : ArrayAdapter<String>(
                 this,
@@ -547,9 +590,10 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     return object : Filter() {
                         override fun performFiltering(constraint: CharSequence?): FilterResults {
                             val results = FilterResults()
+                            val c = constraint?.toString()?.trim().orEmpty()
                             results.values =
-                                if (constraint.isNullOrBlank()) allItems else allItems.filter {
-                                    it.lowercase().contains(constraint.toString().lowercase())
+                                if (c.isBlank()) allItems else allItems.filter {
+                                    it.lowercase().contains(c.lowercase())
                                 }
                             results.count = (results.values as List<*>).size
                             return results
@@ -560,8 +604,42 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                             results: FilterResults?
                         ) {
                             clear()
-                            if (results?.values is List<*>) addAll(results.values as List<String>)
+                            val count = results?.count ?: 0
+
+                            if (results?.values is List<*>) {
+                                @Suppress("UNCHECKED_CAST")
+                                addAll(results.values as List<String>)
+                            }
                             notifyDataSetChanged()
+
+                            val input = constraint?.toString()?.trim().orEmpty()
+                            if (input.isBlank()) {
+                                if (tvErrorMessages.text.toString()
+                                        .contains("Projekt", ignoreCase = true)
+                                ) {
+                                    clearInlineError()
+                                }
+                                projektNoMatchActive = false
+                                return
+                            }
+
+                            if (count == 0) {
+                                // nur 1x piepen beim Wechsel -> jetzt "kein Match"
+                                if (!projektNoMatchActive) {
+                                    showInlineError("Kein Projekt gefunden!")
+                                    projektNoMatchActive = true
+                                } else {
+                                    setInlineErrorTextOnly("Kein Projekt gefunden!")
+                                }
+                            } else {
+                                // sobald Match => Fehler weg + Status zurücksetzen
+                                if (tvErrorMessages.text.toString()
+                                        .contains("Projekt", ignoreCase = true)
+                                ) {
+                                    clearInlineError()
+                                }
+                                projektNoMatchActive = false
+                            }
                         }
                     }
                 }
@@ -586,11 +664,15 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
 
         projektView.setOnItemClickListener { _, _, position, _ ->
+            if (tvErrorMessages.text.toString().contains("Projekt", ignoreCase = true)) {
+                clearInlineError()
+            }
             val projekt = projektView.adapter.getItem(position).toString()
             projektView.setText(projekt)
             projektView.setSelection(0)
             DataRepository.rememberProjekt(projekt)
             setupProjektAdapter()
+
             buchungMengeView?.let { mengeView ->
                 mengeView.post {
                     mengeView.requestFocus()
@@ -610,9 +692,19 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 etFilter.setText(barcode)
                 etFilter.setSelection(0)
                 if (matchedArtikel == null) {
-                    tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
-                    tvArtikelInfo.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
+                    // Zustand -> no match (nur 1x piepen beim Wechsel)
+                    if (!artikelNoMatchActive) {
+                        showInlineError("Kein Artikel gefunden!")
+                        artikelNoMatchActive = true
+                    } else {
+                        setInlineErrorTextOnly("Kein Artikel gefunden!")
+                    }
                 } else {
+                    if (tvErrorMessages.text.toString().contains("Artikel", ignoreCase = true)) {
+                        clearInlineError()
+                    }
+                    artikelNoMatchActive = false
+
                     showArtikelInfo(matchedArtikel)
                     etFilter.clearFocus()
                     etFilter.isFocusable = false
@@ -685,6 +777,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
         etFilter.setOnItemClickListener { _, _, position, _ ->
             val artikel = adapter.getItem(position) ?: return@setOnItemClickListener
+
+            if (tvErrorMessages.text.toString().contains("Artikel", ignoreCase = true)) {
+                clearInlineError()
+            }
+            artikelNoMatchActive = false
+
             showArtikelInfo(artikel)
             val text = "${artikel.artNr} | ${artikel.bez}"
             textWatcherEnabled = false
@@ -705,22 +803,40 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             override fun afterTextChanged(s: Editable?) {
                 if (!textWatcherEnabled) return
                 if (etFilter.isPerformingCompletion) return
+
                 val input = s.toString().trim()
                 if (input.isEmpty()) {
-                    tvArtikelInfo.text = ""
+                    if (tvErrorMessages.text.toString().contains("Artikel", ignoreCase = true)) {
+                        clearInlineError()
+                    }
+                    artikelNoMatchActive = false
                     return
                 }
+
                 val filterText = input.split("|")[0].trim()
                 val matches = artikelListe.filter {
                     it.artNr.contains(filterText, true) || it.bez.contains(filterText, true)
                 }
+
                 when (matches.size) {
                     0 -> {
-                        tvArtikelInfo.text = "⚠ Kein Artikel gefunden!"
-                        tvArtikelInfo.setTextColor(getThemeColor(android.R.attr.colorError))
+                        // nur 1x piepen beim Wechsel -> jetzt "kein Match"
+                        if (!artikelNoMatchActive) {
+                            showInlineError("Kein Artikel gefunden!")
+                            artikelNoMatchActive = true
+                        } else {
+                            setInlineErrorTextOnly("Kein Artikel gefunden!")
+                        }
                     }
 
                     1 -> {
+                        if (tvErrorMessages.text.toString()
+                                .contains("Artikel", ignoreCase = true)
+                        ) {
+                            clearInlineError()
+                        }
+                        artikelNoMatchActive = false
+
                         val artikel = matches.first()
                         showArtikelInfo(artikel)
                         val text = "${artikel.artNr} | ${artikel.bez}"
@@ -748,7 +864,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     }
 
                     else -> {
-                        tvArtikelInfo.text = ""
+                        if (tvErrorMessages.text.toString()
+                                .contains("Artikel", ignoreCase = true)
+                        ) {
+                            clearInlineError()
+                        }
+                        artikelNoMatchActive = false
                         etFilter.post { etFilter.showDropDown() }
                     }
                 }
@@ -762,19 +883,28 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     fun doBuchen(einlagern: Boolean, count: Boolean = false) {
         val artikelText = etFilter.text.toString().trim()
         val artikel = artikelText.split("|")[0].trim()
+
         val projektText = buchungProjektView?.text?.toString()?.trim()
         val projekt = projektText?.let { text -> text.split("–")[0].trim() } ?: ""
+
         val mengeStr = buchungMengeView?.text?.toString()?.trim()
 
-        if (artikel.isNullOrBlank() || (projekt.isNullOrBlank() && !count) || mengeStr.isNullOrBlank()) {
-            showError("Bitte alle Felder ausfüllen")
+        if (artikel.isBlank() || mengeStr.isNullOrBlank() || (!count && projekt.isBlank())) {
+            showErrorWithLoadingHelper("Bitte alle Felder ausfüllen")
             return
         }
+
+        if (!count && projektNoMatchActive) {
+            // Inline-Fehler ist bereits gesetzt (und hat nur 1x gepiepst beim Wechsel)
+            return
+        }
+
         val menge = mengeStr.replace(",", ".").toDoubleOrNull()
         if (menge == null || (!count && menge == 0.0)) {
-            showError("Ungültige Menge")
+            showErrorWithLoadingHelper("Ungültige Menge")
             return
         }
+
         val serverMenge = if (count) {
             "=${mengeStr.replace(".", ",")}"
         } else if (einlagern) {
@@ -808,7 +938,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 UiLoadingHelper.show(
                     this@BaseArtikelScanActivity,
-                    "Buchung wird gesendet...",
+                    "Buchung läuft…",
                     UiLoadingHelper.LoadingStatus.LOADING
                 )
             }
@@ -853,7 +983,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         } else {
                             UiLoadingHelper.update(
                                 this@BaseArtikelScanActivity,
-                                "$response\nBuchung fehlgeschlagen",
+                                "Buchung fehlgeschlagen:\n$response",
                                 UiLoadingHelper.LoadingStatus.ERROR
                             )
                         }
@@ -876,7 +1006,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             withContext(Dispatchers.Main) {
                 UiLoadingHelper.update(
                     this@BaseArtikelScanActivity,
-                    "Buchung fehlgeschlagen – kein Server erreichbar (3 Versuche)",
+                    "Kein Server erreichbar nach 3 Versuchen",
                     UiLoadingHelper.LoadingStatus.ERROR
                 )
             }
@@ -884,13 +1014,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     protected fun showError(msg: String) {
-        runOnUiThread {
-            AlertDialog.Builder(this)
-                .setTitle("Fehler")
-                .setMessage(msg)
-                .setPositiveButton("OK", null)
-                .show()
-        }
+        showErrorWithLoadingHelper(msg)
     }
 
     protected fun parseProjektList(raw: String): List<String> {
