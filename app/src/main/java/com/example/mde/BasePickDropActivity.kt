@@ -37,6 +37,14 @@ import java.util.Locale
 
 data class ListItem(val nummer: String, val projektNr: String, val projektName: String)
 
+/** Returns `true` when [input] exactly matches the Artikelnummer format `ddd.dddd` (8 chars). */
+internal fun isFullArtNr(input: String): Boolean =
+    input.length == 8 && input.matches(Regex("""\d{3}\.\d{4}"""))
+
+/** Returns `true` when [input] equals [artNr] (both trimmed, case-insensitive). */
+internal fun isArtNrExactMatch(input: String, artNr: String): Boolean =
+    input.trim().equals(artNr.trim(), ignoreCase = true)
+
 data class ListDetail(
     var artNr: String,
     var menge: String,
@@ -444,47 +452,27 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 if (ignoreDetailFilterChanges) return
 
                 val input = s.toString().trim()
-                if (input.isEmpty()) return
+                if (!isFullArtNr(input)) return
                 if (detailDialogOpenOrPending) return
 
-                val matches = detailsOriginal.filter {
-                    it.artNr.contains(input, true) ||
-                            it.menge.contains(input, true) ||
-                            it.pos.contains(input, true) ||
-                            it.info.contains(input, true)
-                }
+                val matches = detailsOriginal.filter { isArtNrExactMatch(input, it.artNr) }
                 if (matches.isEmpty()) return
 
-                val itemToOpen: ListDetail? = when (matches.size) {
-                    1 -> matches[0]
-                    else -> {
-                        val uniqueArtNrs =
-                            matches.map { it.artNr.trim().lowercase(Locale.GERMANY) }.distinct()
-                        if (uniqueArtNrs.size == 1) {
-                            matches.minByOrNull { it.pos.toIntOrNull() ?: Int.MAX_VALUE }
-                        } else {
-                            null
-                        }
-                    }
-                }
+                val itemToOpen = matches.minByOrNull { it.pos.toIntOrNull() ?: Int.MAX_VALUE }
+                    ?: return
 
-                if (itemToOpen != null) {
-                    val nowMs = SystemClock.elapsedRealtime()
-                    if (nowMs - lastAutoOpenAtMs < autoOpenCooldownMs) return
-                    lastAutoOpenAtMs = nowMs
+                val nowMs = SystemClock.elapsedRealtime()
+                if (nowMs - lastAutoOpenAtMs < autoOpenCooldownMs) return
+                lastAutoOpenAtMs = nowMs
 
-                    detailDialogOpenOrPending = true
+                detailDialogOpenOrPending = true
 
-                    ignoreDetailFilterChanges = true
-                    etDetailFilter.setText("")
-                    ignoreDetailFilterChanges = false
+                ignoreDetailFilterChanges = true
+                etDetailFilter.setText("")
+                ignoreDetailFilterChanges = false
 
-                    scrollToItemInCurrentList(itemToOpen)
-                    showItemDialog(itemToOpen)
-                } else {
-                    val best = matches.minByOrNull { it.pos.toIntOrNull() ?: Int.MAX_VALUE }
-                    if (best != null) scrollToItemInCurrentList(best)
-                }
+                scrollToItemInCurrentList(itemToOpen)
+                showItemDialog(itemToOpen)
             }
 
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
