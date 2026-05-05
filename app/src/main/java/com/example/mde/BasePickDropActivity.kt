@@ -149,14 +149,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         }
     }
 
-    private fun scrollToItemInCurrentList(item: ListDetail) {
-        val lm = detailsView.layoutManager as? LinearLayoutManager ?: return
-        val items = detailsAdapter.getItems()
-        val idx = items.indexOfFirst { it.key() == item.key() }
-        if (idx >= 0) {
-            detailsView.post { lm.scrollToPositionWithOffset(idx, 0) }
-        }
-    }
     // -------------------------------------------------------------
 
     private fun uiInfo(message: String) {
@@ -471,7 +463,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 etDetailFilter.setText("")
                 ignoreDetailFilterChanges = false
 
-                scrollToItemInCurrentList(itemToOpen)
                 showItemDialog(itemToOpen)
             }
 
