@@ -1003,7 +1003,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 detail.grossInfo = artikel.grossInfo
 
                 if (detail.info.isBlank()) {
-                    detail.info = artikel.bez?.trim().orEmpty()
+                    detail.info = artikel.bez.trim().orEmpty()
                 }
             } else {
                 detail.lagerOrtW1 = ""
