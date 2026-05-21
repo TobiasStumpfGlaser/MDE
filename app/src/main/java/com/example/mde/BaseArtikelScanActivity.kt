@@ -199,6 +199,9 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             }
         }
 
+        val txtHeader = findViewById<TextView>(R.id.txtHeader)
+        txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
+
         etFilter.requestFocus()
         etFilter.setSelection(0)
     }

@@ -230,6 +230,9 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         detailsView.addItemDecoration(DividerItemDecoration(this, DividerItemDecoration.VERTICAL))
         detailsView.visibility = View.GONE
 
+        val txtHeader = findViewById<TextView>(R.id.txtHeader)
+        txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
+
         setupListFilter()
         setupDetailFilter()
         setupDetailFilterKeyboardBehavior()

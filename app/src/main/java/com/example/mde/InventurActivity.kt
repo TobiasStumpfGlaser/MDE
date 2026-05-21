@@ -27,6 +27,9 @@ class InventurActivity : BaseArtikelScanActivity() {
 
         username = intent.getStringExtra("USERNAME") ?: "?"
 
+        val txtHeader = findViewById<TextView>(R.id.txtHeader)
+        txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
+
         val btnCount = findViewById<Button>(R.id.btnCount)
 
         btnCount.setOnClickListener { doBuchen(true, count = true) }

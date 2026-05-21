@@ -1,7 +1,9 @@
 package com.example.mde
 
+import android.Manifest
 import android.app.AlertDialog
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -10,21 +12,22 @@ import android.view.MenuItem
 import android.view.MotionEvent
 import android.widget.Button
 import android.widget.EditText
+import android.widget.TextView
 import android.widget.Toast
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
-import androidx.camera.core.*
+import androidx.camera.core.CameraSelector
+import androidx.camera.core.ImageAnalysis
+import androidx.camera.core.Preview
 import androidx.camera.lifecycle.ProcessCameraProvider
 import androidx.camera.view.PreviewView
+import androidx.core.app.ActivityCompat
 import androidx.core.content.ContextCompat
-import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.barcode.BarcodeScannerOptions
+import com.google.mlkit.vision.barcode.BarcodeScanning
 import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
-import android.Manifest
-import android.content.pm.PackageManager
-import androidx.core.app.ActivityCompat
 
 class ScannerActivity : AppCompatActivity() {
 
@@ -90,6 +93,9 @@ class ScannerActivity : AppCompatActivity() {
         setupDatalogicScanInput()
 
         btnCancel.setOnClickListener { finish() }
+
+        val txtHeader = findViewById<TextView>(R.id.txtHeader)
+        txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
     }
 
     override fun onRequestPermissionsResult(

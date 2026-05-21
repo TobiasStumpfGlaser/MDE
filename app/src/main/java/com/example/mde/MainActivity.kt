@@ -55,6 +55,9 @@ class MainActivity : AppCompatActivity() {
         val btnDroplist = findViewById<androidx.appcompat.widget.AppCompatButton>(R.id.btnDroplist)
         val btnInventur = findViewById<androidx.appcompat.widget.AppCompatButton>(R.id.btnInventur)
 
+        val txtHeader = findViewById<TextView>(R.id.txtHeader)
+        txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
+
         btnMaterialBook.setOnClickListener {
             val intent = Intent(this@MainActivity, MaterialBuchungActivity::class.java)
             intent.putExtra("USERNAME", username)

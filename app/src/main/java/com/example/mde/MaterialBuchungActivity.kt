@@ -58,5 +58,8 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             doBuchen(false)
             btnAuslagern.isEnabled = true
         }
+
+        val txtHeader = findViewById<TextView>(R.id.txtHeader)
+        txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
     }
 }

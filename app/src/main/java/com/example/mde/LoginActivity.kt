@@ -146,6 +146,9 @@ class LoginActivity : AppCompatActivity() {
         val txtVersion = findViewById<TextView>(R.id.txtVersion)
         txtVersion.text = "App-Version: ${BuildConfig.VERSION_NAME}"
 
+        val txtHeader = findViewById<TextView>(R.id.txtHeader)
+        txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
+
         if (userList.isNotEmpty()) {
             userAdapter = UserAdapter(this, userList)
             txtUsername.setAdapter(userAdapter)

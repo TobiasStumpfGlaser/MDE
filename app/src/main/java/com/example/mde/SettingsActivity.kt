@@ -121,6 +121,9 @@ class SettingsActivity : AppCompatActivity() {
 
             restartApp()
         }
+
+        val txtHeader = findViewById<TextView>(R.id.txtHeader)
+        txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
     }
 
     private fun applyTheme(theme: String) {
