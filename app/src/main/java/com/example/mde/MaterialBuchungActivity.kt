@@ -9,6 +9,7 @@ import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.EditText
+import android.widget.Filter
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 
@@ -73,6 +74,10 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         return DataRepository.artikelListe.any { it.artNr.equals(artikel, ignoreCase = true) }
     }
 
+    private fun normalizeProjektFilter(value: String): String {
+        return value.lowercase().replace(Regex("[^a-z0-9]+"), "")
+    }
+
     private fun openBookingDialogIfArticleValid(einlagern: Boolean) {
         if (!hasValidSelectedArticle()) {
             showErrorWithLoadingHelper("Bitte zuerst einen gültigen Artikel auswählen")
@@ -97,11 +102,45 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         edtDialogSerials.text = ""
 
         if (DataRepository.projektListe.isNotEmpty()) {
-            val projektAdapter = ArrayAdapter<String>(
+            val projektAdapter = object : ArrayAdapter<String>(
                 this,
                 android.R.layout.simple_dropdown_item_1line,
-                DataRepository.projektListe
-            )
+                DataRepository.projektListe.toMutableList()
+            ) {
+                private val allProjects = DataRepository.projektListe.toMutableList()
+
+                override fun getFilter(): Filter {
+                    return object : Filter() {
+                        override fun performFiltering(constraint: CharSequence?): FilterResults {
+                            val results = FilterResults()
+                            val query = constraint?.toString()?.trim().orEmpty()
+                            val normalizedQuery = normalizeProjektFilter(query)
+                            val filtered = if (query.isBlank()) {
+                                allProjects
+                            } else {
+                                allProjects.filter { project ->
+                                    normalizeProjektFilter(project).contains(normalizedQuery)
+                                }
+                            }
+                            results.values = filtered
+                            results.count = filtered.size
+                            return results
+                        }
+
+                        override fun publishResults(
+                            constraint: CharSequence?,
+                            results: FilterResults?
+                        ) {
+                            clear()
+                            if (results?.values is List<*>) {
+                                @Suppress("UNCHECKED_CAST")
+                                addAll(results.values as List<String>)
+                            }
+                            notifyDataSetChanged()
+                        }
+                    }
+                }
+            }
             etDialogProjekt.setAdapter(projektAdapter)
             etDialogProjekt.threshold = 1
             etDialogProjekt.setOnClickListener {
