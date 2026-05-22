@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.EditText
@@ -96,16 +97,15 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         edtDialogSerials.text = ""
 
         if (DataRepository.projektListe.isNotEmpty()) {
-            etDialogProjekt.setAdapter(
-                ArrayAdapter(
-                    this,
-                    android.R.layout.simple_dropdown_item_1line,
-                    DataRepository.projektListe
-                )
+            val projektAdapter = ArrayAdapter<String>(
+                this,
+                android.R.layout.simple_dropdown_item_1line,
+                DataRepository.projektListe
             )
+            etDialogProjekt.setAdapter(projektAdapter)
             etDialogProjekt.threshold = 1
             etDialogProjekt.setOnClickListener { etDialogProjekt.showDropDown() }
-            etDialogProjekt.setOnFocusChangeListener { _, hasFocus ->
+            etDialogProjekt.setOnFocusChangeListener { _, hasFocus: Boolean ->
                 if (hasFocus) etDialogProjekt.showDropDown()
             }
         }
