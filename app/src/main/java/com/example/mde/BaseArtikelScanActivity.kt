@@ -888,9 +888,9 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         doBuchenWithDetails(
             einlagern = einlagern,
             count = count,
-            projektText = buchungProjektView?.text?.toString(),
-            mengeText = buchungMengeView?.text?.toString(),
-            serialsText = edtSerials.text?.toString(),
+            projektText = buchungProjektView?.text?.toString()?.trim(),
+            mengeText = buchungMengeView?.text?.toString()?.trim(),
+            serialsText = edtSerials.text?.toString()?.trim(),
             validateProjektMatch = true
         )
     }
@@ -906,7 +906,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         val artikelText = etFilter.text.toString().trim()
         val artikel = artikelText.split("|")[0].trim()
 
-        val projekt = projektText?.trim()?.let { text -> text.split("–")[0].trim() } ?: ""
+        val projekt = projektText?.split("–")?.firstOrNull()?.trim().orEmpty()
 
         val mengeStr = mengeText?.trim()
 

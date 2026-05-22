@@ -62,7 +62,7 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
     }
 
     private fun hasValidSelectedArticle(): Boolean {
-        val artikel = etFilter.text.toString().trim().split("|")[0].trim()
+        val artikel = etFilter.text.toString().trim().split("|").firstOrNull()?.trim().orEmpty()
         if (artikel.isBlank()) return false
         return DataRepository.artikelListe.any { it.artNr.equals(artikel, ignoreCase = true) }
     }
@@ -110,7 +110,7 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
                 showErrorWithLoadingHelper("Bitte zuerst eine gültige Menge eingeben")
                 return@setOnClickListener
             }
-            if (menge % 1.0 != 0.0) {
+            if (menge != menge.toInt().toDouble()) {
                 showErrorWithLoadingHelper("Für Seriennummern bitte eine ganze Menge eingeben")
                 return@setOnClickListener
             }
