@@ -5,8 +5,10 @@ import android.os.SystemClock
 import android.text.Editable
 import android.text.InputType
 import android.text.SpannableStringBuilder
+import android.text.Spanned
 import android.text.TextUtils
 import android.text.TextWatcher
+import android.text.style.StyleSpan
 import android.view.LayoutInflater
 import android.view.MotionEvent
 import android.view.View
@@ -106,7 +108,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     private var lastAutoOpenAtMs: Long = 0L
     private val autoOpenCooldownMs: Long = 250L
 
-    // -------- Scroll / "weiter machen" nach Dialog/Buchung --------
     private data class ScrollAnchor(val key: String, val offsetPx: Int)
 
     private fun ListDetail.key(): String = "${listenNummer}|${pos}|${artNr}"
@@ -148,8 +149,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             lm.scrollToPositionWithOffset(target, 0)
         }
     }
-
-    // -------------------------------------------------------------
 
     private fun uiInfo(message: String) {
         UiLoadingHelper.show(
@@ -193,6 +192,20 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             value.stripTrailingZeros().scale() <= 0
         } catch (_: Exception) {
             false
+        }
+    }
+
+    private fun SpannableStringBuilder.appendBoldAfterColon(line: String) {
+        val start = length
+        append(line)
+        val colonIndex = line.indexOf(":")
+        if (colonIndex > 0) {
+            setSpan(
+                StyleSpan(android.graphics.Typeface.BOLD),
+                start,
+                start + colonIndex,
+                Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
+            )
         }
     }
 
@@ -273,7 +286,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     private fun applyCurrentSortAndShow() {
         val sorted = when (spinnerSort.selectedItemPosition) {
             0 -> detailsListe.sortedBy { it.pos.toIntOrNull() ?: Int.MAX_VALUE }
-
             1 -> {
                 val useW1 = settings.werkNummer == "10"
                 val useW2 = settings.werkNummer == "20"
@@ -293,7 +305,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     if (c1 != 0) c1 else naturalCompare(a.artNr, b.artNr)
                 }
             }
-
             else -> detailsListe
         }
 
@@ -669,7 +680,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 }
             }
 
-            // HIER: UiLoadingHelper.confirm(...) statt zweitem AlertDialog
             if (projekt.isBlank()) {
                 UiLoadingHelper.confirm(
                     activity = this@BasePickDropActivity,
@@ -1004,22 +1014,10 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 detail.lagerOrtW2 =
                     artikel.lagerorteW2.filter { it.isNotBlank() }.joinToString(", ")
                 detail.grossInfo = artikel.grossInfo
-
-                if (detail.info.isBlank()) {
-                    detail.info = artikel.bez.trim().orEmpty()
-                }
-            } else {
-                detail.lagerOrtW1 = ""
-                detail.lagerOrtW2 = ""
-                detail.grossInfo = ""
             }
         }
 
         applyCurrentSortAndShow()
-    }
-
-    override fun onSerialError(message: String) {
-        uiError(message)
     }
 
     inner class ListDetailsAdapter(private var items: List<ListDetail>) :
