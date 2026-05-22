@@ -934,7 +934,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         val serverMenge = if (count) {
             "=${mengeStr.replace(".", ",")}"
         } else if (einlagern) {
-            "+${mengeStr.replace(".", ",")}" 
+            "+${mengeStr.replace(".", ",")}"
         } else {
             "-${mengeStr.replace(".", ",")}"
         }
