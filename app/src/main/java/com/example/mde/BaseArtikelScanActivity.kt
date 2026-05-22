@@ -606,6 +606,10 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         )
     }
 
+    private fun normalizeProjectSearchText(value: String): String {
+        return value.lowercase().replace(Regex("[^a-z0-9]+"), "")
+    }
+
     private fun setupProjektAdapter() {
         val sortedProjekte = sortProjekteWithRecents(projektListe)
         val projektView = etProjekt
@@ -623,19 +627,14 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         override fun performFiltering(constraint: CharSequence?): FilterResults {
                             val results = FilterResults()
                             val rawInput = constraint?.toString()?.trim().orEmpty()
-                            val normalizedInput = rawInput.lowercase()
-                            val queryParts = normalizedInput
-                                .split(Regex("[^a-z0-9]+"))
-                                .filter { it.isNotBlank() }
+                            val normalizedInput = normalizeProjectSearchText(rawInput)
 
                             val filtered = if (rawInput.isBlank()) {
                                 allItems
                             } else {
                                 allItems.filter { item ->
-                                    val normalizedItem = item.lowercase()
-                                    queryParts.isEmpty() || queryParts.all { part ->
-                                        normalizedItem.contains(part)
-                                    }
+                                    val normalizedItem = normalizeProjectSearchText(item)
+                                    normalizedItem.contains(normalizedInput)
                                 }
                             }
 
