@@ -10,6 +10,7 @@ import android.text.Editable
 import android.text.SpannableStringBuilder
 import android.text.Spanned
 import android.text.TextWatcher
+import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
 import android.view.MenuItem
 import android.view.MotionEvent
@@ -201,6 +202,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         val txtHeader = findViewById<TextView>(R.id.txtHeader)
         txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
 
+        showEmptyArtikelInfo()
         etFilter.requestFocus()
         etFilter.setSelection(0)
     }
@@ -246,6 +248,19 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         tvErrorMessages.visibility = View.GONE
         projektNoMatchActive = false
         artikelNoMatchActive = false
+    }
+
+    protected fun showEmptyArtikelInfo() {
+        tvArtikelInfo.text = "Kein Artikel ausgewählt"
+        tvArtikelInfo.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
+    }
+
+    protected fun showNoArtikelInfo(message: String = "Kein Artikel") {
+        val errorColor = getThemeColor(android.R.attr.colorError)
+        val spannable = SpannableStringBuilder(message)
+        spannable.setSpan(StyleSpan(Typeface.BOLD), 0, message.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        spannable.setSpan(ForegroundColorSpan(errorColor), 0, message.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
+        tvArtikelInfo.text = spannable
     }
 
     private fun setupViews() {
@@ -466,7 +481,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     open fun btnClearClicked() {
-        tvArtikelInfo.text = ""
+        showEmptyArtikelInfo()
         clearInlineError()
         edtSerials.text.clear()
         serialsAreCharge = false
@@ -707,16 +722,10 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 etFilter.setText(barcode)
                 etFilter.setSelection(0)
                 if (matchedArtikel == null) {
-                    if (!artikelNoMatchActive) {
-                        showInlineError("Kein Artikel gefunden!")
-                        artikelNoMatchActive = true
-                    } else {
-                        setInlineErrorTextOnly("Kein Artikel gefunden!")
-                    }
+                    showNoArtikelInfo()
+                    artikelNoMatchActive = true
                 } else {
-                    if (tvErrorMessages.text.toString().contains("Artikel", ignoreCase = true)) {
-                        clearInlineError()
-                    }
+                    clearInlineError()
                     artikelNoMatchActive = false
 
                     showArtikelInfo(matchedArtikel)
@@ -741,7 +750,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         hideKeyboardAndClearFocus()
 
         val itemTextColor = getThemeColor(android.R.attr.textColorPrimary)
-        getThemeColor(android.R.attr.colorAccent)
 
         val infoLines = listOf(
             "Artikelnummer: ${artikel.artNr}",
@@ -792,9 +800,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         etFilter.setOnItemClickListener { _, _, position, _ ->
             val artikel = adapter.getItem(position) ?: return@setOnItemClickListener
 
-            if (tvErrorMessages.text.toString().contains("Artikel", ignoreCase = true)) {
-                clearInlineError()
-            }
+            clearInlineError()
             artikelNoMatchActive = false
 
             showArtikelInfo(artikel)
@@ -820,10 +826,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
                 val input = s.toString().trim()
                 if (input.isEmpty()) {
-                    if (tvErrorMessages.text.toString().contains("Artikel", ignoreCase = true)) {
-                        clearInlineError()
-                    }
                     artikelNoMatchActive = false
+                    showEmptyArtikelInfo()
                     return
                 }
 
@@ -834,20 +838,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
                 when (matches.size) {
                     0 -> {
-                        if (!artikelNoMatchActive) {
-                            showInlineError("Kein Artikel gefunden!")
-                            artikelNoMatchActive = true
-                        } else {
-                            setInlineErrorTextOnly("Kein Artikel gefunden!")
-                        }
+                        artikelNoMatchActive = true
+                        showNoArtikelInfo()
                     }
 
                     1 -> {
-                        if (tvErrorMessages.text.toString()
-                                .contains("Artikel", ignoreCase = true)
-                        ) {
-                            clearInlineError()
-                        }
+                        clearInlineError()
                         artikelNoMatchActive = false
 
                         val artikel = matches.first()
@@ -877,11 +873,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     }
 
                     else -> {
-                        if (tvErrorMessages.text.toString()
-                                .contains("Artikel", ignoreCase = true)
-                        ) {
-                            clearInlineError()
-                        }
+                        clearInlineError()
                         artikelNoMatchActive = false
                         etFilter.post { etFilter.showDropDown() }
                     }
@@ -942,7 +934,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         val serverMenge = if (count) {
             "=${mengeStr.replace(".", ",")}"
         } else if (einlagern) {
-            "+${mengeStr.replace(".", ",")}"
+            "+${mengeStr.replace(".", ",")}" 
         } else {
             "-${mengeStr.replace(".", ",")}"
         }
