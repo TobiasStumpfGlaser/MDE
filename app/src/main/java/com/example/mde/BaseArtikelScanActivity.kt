@@ -914,7 +914,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         val artikelText = etFilter.text.toString().trim()
         val artikel = artikelText.split("|")[0].trim()
 
-        val projekt = projektText?.split("–")?.firstOrNull()?.trim().orEmpty()
+        val projekt =
+            projektText
+                ?.split(Regex("\\s[–-]\\s"), limit = 2)
+                ?.firstOrNull()
+                ?.trim()
+                .orEmpty()
 
         val mengeStr = mengeText?.trim()
 

@@ -114,7 +114,7 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
                 showErrorWithLoadingHelper("Bitte zuerst eine gültige Menge eingeben")
                 return@setOnClickListener
             }
-            if (menge != menge.toInt().toDouble()) {
+            if (!isWholeNumber(menge)) {
                 showErrorWithLoadingHelper("Für Seriennummern bitte eine ganze Menge eingeben")
                 return@setOnClickListener
             }
@@ -177,4 +177,6 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         }
         return serials.joinToString(";") { it.trim() }
     }
+
+    private fun isWholeNumber(value: Double): Boolean = value % 1.0 == 0.0
 }
