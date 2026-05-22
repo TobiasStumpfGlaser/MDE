@@ -84,16 +84,12 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         val dialogView =
             LayoutInflater.from(this).inflate(R.layout.dialog_material_buchung_details, null)
 
-        val tvDialogActionInfo = dialogView.findViewById<TextView>(R.id.tvDialogActionInfo)
         val etDialogProjekt = dialogView.findViewById<AutoCompleteTextView>(R.id.etDialogProjekt)
         val edtDialogMenge = dialogView.findViewById<EditText>(R.id.edtDialogMenge)
         val edtDialogSerials = dialogView.findViewById<TextView>(R.id.edtDialogSerials)
         val btnDialogSerials = dialogView.findViewById<Button>(R.id.btnDialogSerials)
         val btnDialogCancel = dialogView.findViewById<Button>(R.id.btnDialogCancel)
         val btnDialogOk = dialogView.findViewById<Button>(R.id.btnDialogOk)
-
-        val actionText = if (einlagern) "Zubuchung" else "Entnahme"
-        tvDialogActionInfo.text = "Buchungsart: $actionText"
 
         // Jedes Öffnen beginnt bewusst leer für schnelle, sichere Bedienung.
         etDialogProjekt.setText("", false)
