@@ -2,7 +2,9 @@ package com.example.mde
 
 import android.content.Context
 import android.os.Bundle
+import android.view.LayoutInflater
 import android.widget.*
+import androidx.appcompat.app.AlertDialog
 
 class MaterialBuchungActivity : BaseArtikelScanActivity() {
 
@@ -16,11 +18,11 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         super.attachBaseContext(scaledBase)
     }
 
-    override val buchungMengeView: EditText
-        get() = edtMenge
+    override val buchungMengeView: EditText?
+        get() = null
 
-    override val buchungProjektView: AutoCompleteTextView
-        get() = etProjekt
+    override val buchungProjektView: AutoCompleteTextView?
+        get() = null
 
     override fun getLayoutId() = R.layout.activity_material_buchung
 
@@ -47,19 +49,117 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
 
         btnEinlagern.setOnClickListener {
             if (!btnEinlagern.isEnabled || !btnAuslagern.isEnabled) return@setOnClickListener
-            btnEinlagern.isEnabled = false
-            doBuchen(true)
-            btnEinlagern.isEnabled = true
+            if (!hasValidSelectedArtikel()) {
+                showErrorWithLoadingHelper("Bitte zuerst einen gültigen Artikel auswählen")
+                return@setOnClickListener
+            }
+            showBookingDetailsDialog(einlagern = true)
         }
 
         btnAuslagern.setOnClickListener {
             if (!btnAuslagern.isEnabled || !btnEinlagern.isEnabled) return@setOnClickListener
-            btnAuslagern.isEnabled = false
-            doBuchen(false)
-            btnAuslagern.isEnabled = true
+            if (!hasValidSelectedArtikel()) {
+                showErrorWithLoadingHelper("Bitte zuerst einen gültigen Artikel auswählen")
+                return@setOnClickListener
+            }
+            showBookingDetailsDialog(einlagern = false)
         }
 
         val txtHeader = findViewById<TextView>(R.id.txtHeader)
         txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
+    }
+
+    private fun hasValidSelectedArtikel(): Boolean {
+        val artikel = etFilter.text.toString().trim().split("|")[0].trim()
+        if (artikel.isBlank()) return false
+        return DataRepository.artikelListe.any { it.artNr.equals(artikel, ignoreCase = true) }
+    }
+
+    private fun showBookingDetailsDialog(einlagern: Boolean) {
+        val dialogView =
+            LayoutInflater.from(this).inflate(R.layout.dialog_material_buchung_details, null)
+
+        val tvDialogActionInfo = dialogView.findViewById<TextView>(R.id.tvDialogActionInfo)
+        val etDialogProjekt = dialogView.findViewById<AutoCompleteTextView>(R.id.etDialogProjekt)
+        val edtDialogMenge = dialogView.findViewById<EditText>(R.id.edtDialogMenge)
+        val edtDialogSerials = dialogView.findViewById<EditText>(R.id.edtDialogSerials)
+        val btnDialogSerials = dialogView.findViewById<Button>(R.id.btnDialogSerials)
+
+        val actionText = if (einlagern) "Zubuchung" else "Entnahme"
+        tvDialogActionInfo.text = "Buchungsart: $actionText"
+
+        if (DataRepository.projektListe.isNotEmpty()) {
+            etDialogProjekt.setAdapter(
+                ArrayAdapter(
+                    this,
+                    android.R.layout.simple_dropdown_item_1line,
+                    DataRepository.projektListe.toMutableList()
+                )
+            )
+            etDialogProjekt.threshold = 1
+            etDialogProjekt.setOnClickListener { etDialogProjekt.showDropDown() }
+        }
+
+        DataRepository.recentProjektListe.firstOrNull()?.let { recent ->
+            etDialogProjekt.setText(recent, false)
+        }
+
+        btnDialogSerials.setOnClickListener {
+            val mengeInt = edtDialogMenge.text.toString().trim().toIntOrNull() ?: 0
+            if (mengeInt <= 0) {
+                showErrorWithLoadingHelper("Bitte zuerst eine gültige Menge eingeben")
+                return@setOnClickListener
+            }
+            showSerialDialog(mengeInt) { serials, isCharge ->
+                val value =
+                    if (serials.isEmpty()) {
+                        ""
+                    } else if (isCharge) {
+                        val nr = serials.first().trim()
+                        if (nr.isBlank()) "" else "Charge:$nr"
+                    } else {
+                        serials.joinToString(";") { it.trim() }
+                    }
+                edtDialogSerials.setText(value)
+                edtDialogSerials.setSelection(edtDialogSerials.text.length)
+            }
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(if (einlagern) "Zubuchung erfassen" else "Entnahme erfassen")
+            .setView(dialogView)
+            .setPositiveButton("OK", null)
+            .setNegativeButton("Abbrechen") { d, _ -> d.dismiss() }
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val projekt = etDialogProjekt.text.toString().trim()
+                val menge = edtDialogMenge.text.toString().trim()
+                val serials = edtDialogSerials.text.toString().trim()
+
+                if (projekt.isBlank()) {
+                    showErrorWithLoadingHelper("Bitte ein Projekt eingeben")
+                    return@setOnClickListener
+                }
+                if (menge.isBlank()) {
+                    showErrorWithLoadingHelper("Bitte eine Menge eingeben")
+                    return@setOnClickListener
+                }
+
+                val started = doBuchenWithDetails(
+                    einlagern = einlagern,
+                    projektText = projekt,
+                    mengeText = menge,
+                    serialsText = serials
+                )
+                if (started) {
+                    DataRepository.rememberProjekt(projekt)
+                    dialog.dismiss()
+                }
+            }
+        }
+
+        dialog.show()
     }
 }

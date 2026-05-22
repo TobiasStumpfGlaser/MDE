@@ -885,28 +885,45 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     fun doBuchen(einlagern: Boolean, count: Boolean = false) {
+        doBuchenWithDetails(
+            einlagern = einlagern,
+            count = count,
+            projektText = buchungProjektView?.text?.toString(),
+            mengeText = buchungMengeView?.text?.toString(),
+            serialsText = edtSerials.text?.toString(),
+            respectProjektNoMatch = true
+        )
+    }
+
+    protected fun doBuchenWithDetails(
+        einlagern: Boolean,
+        count: Boolean = false,
+        projektText: String?,
+        mengeText: String?,
+        serialsText: String?,
+        respectProjektNoMatch: Boolean = false
+    ): Boolean {
         val artikelText = etFilter.text.toString().trim()
         val artikel = artikelText.split("|")[0].trim()
 
-        val projektText = buchungProjektView?.text?.toString()?.trim()
-        val projekt = projektText?.let { text -> text.split("–")[0].trim() } ?: ""
+        val projekt = projektText?.trim()?.let { text -> text.split("–")[0].trim() } ?: ""
 
-        val mengeStr = buchungMengeView?.text?.toString()?.trim()
+        val mengeStr = mengeText?.trim()
 
         if (artikel.isBlank() || mengeStr.isNullOrBlank() || (!count && projekt.isBlank())) {
             showErrorWithLoadingHelper("Bitte alle Felder ausfüllen")
-            return
+            return false
         }
 
-        if (!count && projektNoMatchActive) {
+        if (!count && respectProjektNoMatch && projektNoMatchActive) {
             // Inline-Fehler ist bereits gesetzt (und hat nur 1x gepiepst beim Wechsel)
-            return
+            return false
         }
 
         val menge = mengeStr.replace(",", ".").toDoubleOrNull()
         if (menge == null || (!count && menge == 0.0)) {
             showErrorWithLoadingHelper("Ungültige Menge")
-            return
+            return false
         }
 
         val serverMenge = if (count) {
@@ -922,18 +939,23 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         if (AppSettings(this@BaseArtikelScanActivity).confirmBook) {
             AlertDialog.Builder(this)
                 .setTitle("Buchung bestätigen")
-                .setMessage("Artikel: $artikel\nProjekt: $projekt\nMenge: $menge\nSeriennummer(n): ${edtSerials.text}")
+                .setMessage(
+                    "Artikel: $artikel\nProjekt: $projekt\nMenge: $menge\nSeriennummer(n): ${
+                        serialsText?.trim().orEmpty()
+                    }"
+                )
                 .setPositiveButton(buttonText) { _, _ ->
-                    sendBuchung(artikel, projekt, serverMenge)
+                    sendBuchung(artikel, projekt, serverMenge, serialsText?.trim().orEmpty())
                 }
                 .setNegativeButton("Abbrechen", null)
                 .show()
         } else {
-            sendBuchung(artikel, projekt, serverMenge)
+            sendBuchung(artikel, projekt, serverMenge, serialsText?.trim().orEmpty())
         }
+        return true
     }
 
-    private fun sendBuchung(artikel: String, projekt: String, menge: String) {
+    private fun sendBuchung(artikel: String, projekt: String, menge: String, serials: String) {
         val now = System.currentTimeMillis()
         if (now - lastBookingTime < bookingCooldown) return
         lastBookingTime = now
@@ -950,7 +972,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             val nowStr =
                 java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
             val username = intent.getStringExtra("USERNAME") ?: "?"
-            val serials = withContext(Dispatchers.Main) { edtSerials.text.toString().trim() }
             val request = buildString {
                 append("{SetBuchung}")
                 append("$artikel||$menge|||$projekt|${AppSettings(this@BaseArtikelScanActivity).werkNummer}|$username|$nowStr|")

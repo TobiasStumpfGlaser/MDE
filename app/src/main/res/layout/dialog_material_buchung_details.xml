@@ -1,0 +1,51 @@
+<?xml version="1.0" encoding="utf-8"?>
+<LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
+    android:layout_width="match_parent"
+    android:layout_height="wrap_content"
+    android:background="?android:attr/windowBackground"
+    android:orientation="vertical"
+    android:padding="20dp">
+
+    <TextView
+        android:id="@+id/tvDialogActionInfo"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="12dp"
+        android:textColor="?android:attr/textColorPrimary"
+        android:textSize="16sp"
+        android:textStyle="bold" />
+
+    <AutoCompleteTextView
+        android:id="@+id/etDialogProjekt"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:background="?attr/editTextBackground"
+        android:hint="Projekt"
+        android:inputType="textVisiblePassword" />
+
+    <EditText
+        android:id="@+id/edtDialogMenge"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:background="?attr/editTextBackground"
+        android:hint="Menge"
+        android:inputType="numberDecimal" />
+
+    <EditText
+        android:id="@+id/edtDialogSerials"
+        android:layout_width="match_parent"
+        android:layout_height="wrap_content"
+        android:layout_marginBottom="10dp"
+        android:background="?attr/editTextBackground"
+        android:hint="Seriennummer(n) optional"
+        android:inputType="textVisiblePassword" />
+
+    <androidx.appcompat.widget.AppCompatButton
+        android:id="@+id/btnDialogSerials"
+        android:layout_width="wrap_content"
+        android:layout_height="wrap_content"
+        android:text="Seriennummern erfassen" />
+
+</LinearLayout>
