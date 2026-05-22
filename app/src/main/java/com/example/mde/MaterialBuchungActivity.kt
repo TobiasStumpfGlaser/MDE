@@ -4,6 +4,7 @@ import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
 import android.view.ViewGroup
+import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
@@ -91,7 +92,6 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         val btnDialogCancel = dialogView.findViewById<Button>(R.id.btnDialogCancel)
         val btnDialogOk = dialogView.findViewById<Button>(R.id.btnDialogOk)
 
-        // Jedes Öffnen beginnt bewusst leer für schnelle, sichere Bedienung.
         etDialogProjekt.setText("", false)
         edtDialogMenge.setText("")
         edtDialogSerials.text = ""
@@ -107,6 +107,13 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             etDialogProjekt.setOnClickListener { etDialogProjekt.showDropDown() }
             etDialogProjekt.setOnFocusChangeListener { _, hasFocus: Boolean ->
                 if (hasFocus) etDialogProjekt.showDropDown()
+            }
+            etDialogProjekt.setOnItemClickListener { _, _, _, _ ->
+                edtDialogMenge.post {
+                    edtDialogMenge.requestFocus()
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.showSoftInput(edtDialogMenge, InputMethodManager.SHOW_IMPLICIT)
+                }
             }
         }
 
@@ -174,6 +181,13 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             ViewGroup.LayoutParams.MATCH_PARENT,
             ViewGroup.LayoutParams.MATCH_PARENT
         )
+
+        etDialogProjekt.post {
+            etDialogProjekt.requestFocus()
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(etDialogProjekt, InputMethodManager.SHOW_IMPLICIT)
+            etDialogProjekt.showDropDown()
+        }
     }
 
     private fun formatSerialNumbers(serials: List<String>, isCharge: Boolean): String {
