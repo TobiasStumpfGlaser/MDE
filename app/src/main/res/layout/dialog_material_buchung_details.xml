@@ -22,7 +22,7 @@
         android:layout_marginBottom="10dp"
         android:background="?attr/editTextBackground"
         android:hint="Projekt"
-        android:inputType="textVisiblePassword" />
+        android:inputType="text" />
 
     <EditText
         android:id="@+id/edtDialogMenge"

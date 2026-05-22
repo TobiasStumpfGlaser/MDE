@@ -891,7 +891,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             projektText = buchungProjektView?.text?.toString(),
             mengeText = buchungMengeView?.text?.toString(),
             serialsText = edtSerials.text?.toString(),
-            respectProjektNoMatch = true
+            validateProjektMatch = true
         )
     }
 
@@ -901,7 +901,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         projektText: String?,
         mengeText: String?,
         serialsText: String?,
-        respectProjektNoMatch: Boolean = false
+        validateProjektMatch: Boolean = false
     ): Boolean {
         val artikelText = etFilter.text.toString().trim()
         val artikel = artikelText.split("|")[0].trim()
@@ -915,7 +915,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             return false
         }
 
-        if (!count && respectProjektNoMatch && projektNoMatchActive) {
+        if (!count && validateProjektMatch && projektNoMatchActive) {
             // Inline-Fehler ist bereits gesetzt (und hat nur 1x gepiepst beim Wechsel)
             return false
         }

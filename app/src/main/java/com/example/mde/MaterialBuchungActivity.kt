@@ -49,30 +49,30 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
 
         btnEinlagern.setOnClickListener {
             if (!btnEinlagern.isEnabled || !btnAuslagern.isEnabled) return@setOnClickListener
-            if (!hasValidSelectedArtikel()) {
-                showErrorWithLoadingHelper("Bitte zuerst einen gültigen Artikel auswählen")
-                return@setOnClickListener
-            }
-            showBookingDetailsDialog(einlagern = true)
+            openBookingDialogIfArticleValid(einlagern = true)
         }
 
         btnAuslagern.setOnClickListener {
             if (!btnAuslagern.isEnabled || !btnEinlagern.isEnabled) return@setOnClickListener
-            if (!hasValidSelectedArtikel()) {
-                showErrorWithLoadingHelper("Bitte zuerst einen gültigen Artikel auswählen")
-                return@setOnClickListener
-            }
-            showBookingDetailsDialog(einlagern = false)
+            openBookingDialogIfArticleValid(einlagern = false)
         }
 
         val txtHeader = findViewById<TextView>(R.id.txtHeader)
         txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
     }
 
-    private fun hasValidSelectedArtikel(): Boolean {
+    private fun hasValidSelectedArticle(): Boolean {
         val artikel = etFilter.text.toString().trim().split("|")[0].trim()
         if (artikel.isBlank()) return false
         return DataRepository.artikelListe.any { it.artNr.equals(artikel, ignoreCase = true) }
+    }
+
+    private fun openBookingDialogIfArticleValid(einlagern: Boolean) {
+        if (!hasValidSelectedArticle()) {
+            showErrorWithLoadingHelper("Bitte zuerst einen gültigen Artikel auswählen")
+            return
+        }
+        showBookingDetailsDialog(einlagern)
     }
 
     private fun showBookingDetailsDialog(einlagern: Boolean) {
@@ -105,21 +105,18 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         }
 
         btnDialogSerials.setOnClickListener {
-            val mengeInt = edtDialogMenge.text.toString().trim().toIntOrNull() ?: 0
-            if (mengeInt <= 0) {
+            val menge = edtDialogMenge.text.toString().trim().replace(",", ".").toDoubleOrNull()
+            if (menge == null || menge <= 0.0) {
                 showErrorWithLoadingHelper("Bitte zuerst eine gültige Menge eingeben")
                 return@setOnClickListener
             }
+            if (menge % 1.0 != 0.0) {
+                showErrorWithLoadingHelper("Für Seriennummern bitte eine ganze Menge eingeben")
+                return@setOnClickListener
+            }
+            val mengeInt = menge.toInt()
             showSerialDialog(mengeInt) { serials, isCharge ->
-                val value =
-                    if (serials.isEmpty()) {
-                        ""
-                    } else if (isCharge) {
-                        val nr = serials.first().trim()
-                        if (nr.isBlank()) "" else "Charge:$nr"
-                    } else {
-                        serials.joinToString(";") { it.trim() }
-                    }
+                val value = formatSerialNumbers(serials, isCharge)
                 edtDialogSerials.setText(value)
                 edtDialogSerials.setSelection(edtDialogSerials.text.length)
             }
@@ -161,5 +158,14 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         }
 
         dialog.show()
+    }
+
+    private fun formatSerialNumbers(serials: List<String>, isCharge: Boolean): String {
+        if (serials.isEmpty()) return ""
+        if (isCharge) {
+            val nr = serials.first().trim()
+            return if (nr.isBlank()) "" else "Charge:$nr"
+        }
+        return serials.joinToString(";") { it.trim() }
     }
 }
