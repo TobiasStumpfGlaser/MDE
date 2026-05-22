@@ -31,6 +31,7 @@
             android:parentActivityName=".MainActivity" />
         <activity
             android:name=".MaterialBuchungActivity"
+            android:windowSoftInputMode="adjustResize"
             android:parentActivityName=".MainActivity" />
         <activity
             android:name=".ScannerActivity"

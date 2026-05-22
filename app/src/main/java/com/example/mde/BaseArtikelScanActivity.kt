@@ -19,6 +19,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
+import androidx.appcompat.widget.AppCompatButton
 import android.widget.EditText
 import android.widget.Filter
 import android.widget.ImageButton
@@ -135,7 +136,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected lateinit var edtSerials: EditText
     protected lateinit var tvArtikelInfo: TextView
     protected lateinit var btnClear: Button
-    protected lateinit var btnReloadArtikel: ImageButton
+    protected lateinit var btnReloadArtikel: AppCompatButton
 
     protected lateinit var tvErrorMessages: TextView
 
@@ -260,7 +261,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             findViewById(R.id.tvErrorMessages) ?: TextView(this).apply { visibility = View.GONE }
 
         btnClear = findViewById(R.id.btnClear) ?: Button(this).apply { visibility = View.GONE }
-        btnReloadArtikel = findViewById(R.id.btnReloadArtikel) ?: ImageButton(this).apply {
+        btnReloadArtikel = findViewById(R.id.btnReloadArtikel) ?: AppCompatButton(this).apply {
             visibility = View.GONE
         }
         btnScan = findViewById(R.id.btnScan) ?: Button(this).apply { visibility = View.GONE }
