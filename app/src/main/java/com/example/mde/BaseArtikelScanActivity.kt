@@ -916,6 +916,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
         val projekt =
             projektText
+                // Projektlisten können "Nr – Name" (En-Dash) oder "Nr - Name" (Minus) enthalten.
                 ?.split(Regex("\\s[–-]\\s"), limit = 2)
                 ?.firstOrNull()
                 ?.trim()

@@ -147,6 +147,15 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
                     showErrorWithLoadingHelper("Bitte eine Menge eingeben")
                     return@setOnClickListener
                 }
+                if (serials.isNotBlank()) {
+                    val mengeValue = menge.replace(",", ".").toDoubleOrNull()
+                    if (mengeValue == null || !isWholeNumber(mengeValue)) {
+                        showErrorWithLoadingHelper(
+                            "Für Seriennummern bitte eine ganze Menge eingeben"
+                        )
+                        return@setOnClickListener
+                    }
+                }
 
                 val started = doBuchenWithDetails(
                     einlagern = einlagern,
