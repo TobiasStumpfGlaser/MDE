@@ -3,7 +3,11 @@ package com.example.mde
 import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
-import android.widget.*
+import android.view.ViewGroup
+import android.widget.AutoCompleteTextView
+import android.widget.Button
+import android.widget.EditText
+import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 
 class MaterialBuchungActivity : BaseArtikelScanActivity() {
@@ -15,7 +19,6 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
     private lateinit var settings: AppSettings
     private lateinit var username: String
 
-    // LayoutScale wirkt nur, wenn es VOR dem Layout-Inflate gesetzt wird -> attachBaseContext
     override fun attachBaseContext(newBase: Context) {
         val s = AppSettings(newBase)
         val scaledBase = LayoutScaleUtil.applyLayoutScale(newBase, s.layoutScale)
@@ -31,19 +34,16 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
     override fun getLayoutId() = R.layout.activity_material_buchung
 
     override fun onCreate(savedInstanceState: Bundle?) {
-        // hier ist "this" bereits das skalierte Context (wegen attachBaseContext)
         settings = AppSettings(this)
 
-        // Theme muss VOR super.onCreate(), damit es beim Inflate aktiv ist
         when (settings.selectedTheme) {
             "dark" -> setTheme(R.style.Theme_MDE_Dark)
             "colorful" -> setTheme(R.style.Theme_MDE_Colorful)
             else -> setTheme(R.style.Theme_MDE_Light)
         }
 
-        super.onCreate(savedInstanceState) // Base inflatet Layout via getLayoutId()
+        super.onCreate(savedInstanceState)
 
-        // FontScale (sp) NACH dem Inflate anwenden
         FontScaleUtil.applyFontScale(findViewById(android.R.id.content), settings.fontScale)
 
         username = intent.getStringExtra("USERNAME") ?: "?"
@@ -86,11 +86,14 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         val tvDialogActionInfo = dialogView.findViewById<TextView>(R.id.tvDialogActionInfo)
         val etDialogProjekt = dialogView.findViewById<AutoCompleteTextView>(R.id.etDialogProjekt)
         val edtDialogMenge = dialogView.findViewById<EditText>(R.id.edtDialogMenge)
-        val edtDialogSerials = dialogView.findViewById<EditText>(R.id.edtDialogSerials)
+        val edtDialogSerials = dialogView.findViewById<TextView>(R.id.edtDialogSerials)
         val btnDialogSerials = dialogView.findViewById<Button>(R.id.btnDialogSerials)
+        val btnDialogCancel = dialogView.findViewById<Button>(R.id.btnDialogCancel)
+        val btnDialogOk = dialogView.findViewById<Button>(R.id.btnDialogOk)
 
         val actionText = if (einlagern) "Zubuchung" else "Entnahme"
         tvDialogActionInfo.text = "Buchungsart: $actionText"
+        edtDialogSerials.text = ""
 
         if (DataRepository.projektListe.isNotEmpty()) {
             etDialogProjekt.setAdapter(
@@ -102,11 +105,19 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             )
             etDialogProjekt.threshold = 1
             etDialogProjekt.setOnClickListener { etDialogProjekt.showDropDown() }
+            etDialogProjekt.setOnFocusChangeListener { _, hasFocus ->
+                if (hasFocus) etDialogProjekt.showDropDown()
+            }
         }
 
         DataRepository.recentProjektListe.firstOrNull()?.let { recent ->
             etDialogProjekt.setText(recent, false)
         }
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle(if (einlagern) "Zubuchung erfassen" else "Entnahme erfassen")
+            .setView(dialogView)
+            .create()
 
         btnDialogSerials.setOnClickListener {
             val menge = edtDialogMenge.text.toString().trim().replace(",", ".").toDoubleOrNull()
@@ -118,66 +129,58 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
                 showErrorWithLoadingHelper("Für Seriennummern bitte eine ganze Menge eingeben")
                 return@setOnClickListener
             }
+
             val mengeInt = menge.toInt()
             showSerialDialog(mengeInt) { serials, isCharge ->
                 val value = formatSerialNumbers(serials, isCharge)
-                edtDialogSerials.setText(value)
-                edtDialogSerials.setSelection(edtDialogSerials.text.length)
+                edtDialogSerials.text = value
             }
         }
 
-        val dialog = AlertDialog.Builder(this)
-            .setTitle(if (einlagern) "Zubuchung erfassen" else "Entnahme erfassen")
-            .setView(dialogView)
-            .setPositiveButton("OK", null)
-            .setNegativeButton("Abbrechen") { d, _ -> d.dismiss() }
-            .create()
+        btnDialogCancel.setOnClickListener {
+            dialog.dismiss()
+        }
 
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val projekt = etDialogProjekt.text.toString().trim()
-                val menge = edtDialogMenge.text.toString().trim()
-                val serials = edtDialogSerials.text.toString().trim()
+        btnDialogOk.setOnClickListener {
+            val projekt = etDialogProjekt.text.toString().trim()
+            val menge = edtDialogMenge.text.toString().trim()
+            val serials = edtDialogSerials.text.toString().trim()
 
-                if (projekt.isBlank()) {
-                    showErrorWithLoadingHelper("Bitte ein Projekt eingeben")
+            if (projekt.isBlank()) {
+                showErrorWithLoadingHelper("Bitte ein Projekt eingeben")
+                return@setOnClickListener
+            }
+            if (menge.isBlank()) {
+                showErrorWithLoadingHelper("Bitte eine Menge eingeben")
+                return@setOnClickListener
+            }
+            if (serials.isNotBlank()) {
+                val mengeValue = menge.replace(",", ".").toDoubleOrNull()
+                if (mengeValue == null || !isWholeNumber(mengeValue)) {
+                    showErrorWithLoadingHelper("Für Seriennummern bitte eine ganze Menge eingeben")
                     return@setOnClickListener
                 }
-                if (menge.isBlank()) {
-                    showErrorWithLoadingHelper("Bitte eine Menge eingeben")
-                    return@setOnClickListener
-                }
-                if (serials.isNotBlank()) {
-                    val mengeValue = menge.replace(",", ".").toDoubleOrNull()
-                    if (mengeValue == null || !isWholeNumber(mengeValue)) {
-                        showErrorWithLoadingHelper(
-                            "Für Seriennummern bitte eine ganze Menge eingeben"
-                        )
-                        return@setOnClickListener
-                    }
-                }
+            }
 
-                val started = doBuchenWithDetails(
-                    einlagern = einlagern,
-                    projektText = projekt,
-                    mengeText = menge,
-                    serialsText = serials
-                )
-                if (started) {
-                    DataRepository.rememberProjekt(projekt)
-                    dialog.dismiss()
-                }
+            val started = doBuchenWithDetails(
+                einlagern = einlagern,
+                projektText = projekt,
+                mengeText = menge,
+                serialsText = serials
+            )
+            if (started) {
+                DataRepository.rememberProjekt(projekt)
+                dialog.dismiss()
             }
         }
 
         dialog.show()
+        dialog.window?.setLayout(
+            ViewGroup.LayoutParams.MATCH_PARENT,
+            ViewGroup.LayoutParams.MATCH_PARENT
+        )
     }
 
-    /**
-     * Formatiert Seriennummern für die Buchung:
-     * - Charge-Modus: genau ein Eintrag als `Charge:<Wert>`
-     * - Normalmodus: Einträge als `;`-getrennte Liste
-     */
     private fun formatSerialNumbers(serials: List<String>, isCharge: Boolean): String {
         if (serials.isEmpty()) return ""
         if (isCharge) {
