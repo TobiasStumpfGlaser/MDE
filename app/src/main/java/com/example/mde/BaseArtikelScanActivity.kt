@@ -622,12 +622,25 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     return object : Filter() {
                         override fun performFiltering(constraint: CharSequence?): FilterResults {
                             val results = FilterResults()
-                            val c = constraint?.toString()?.trim().orEmpty()
-                            results.values =
-                                if (c.isBlank()) allItems else allItems.filter {
-                                    it.lowercase().contains(c.lowercase())
+                            val rawInput = constraint?.toString()?.trim().orEmpty()
+                            val normalizedInput = rawInput.lowercase()
+                            val queryParts = normalizedInput
+                                .split(Regex("[^a-z0-9]+"))
+                                .filter { it.isNotBlank() }
+
+                            val filtered = if (rawInput.isBlank()) {
+                                allItems
+                            } else {
+                                allItems.filter { item ->
+                                    val normalizedItem = item.lowercase()
+                                    queryParts.isEmpty() || queryParts.all { part ->
+                                        normalizedItem.contains(part)
+                                    }
                                 }
-                            results.count = (results.values as List<*>).size
+                            }
+
+                            results.values = filtered
+                            results.count = filtered.size
                             return results
                         }
 
