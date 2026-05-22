@@ -94,6 +94,10 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
 
         val actionText = if (einlagern) "Zubuchung" else "Entnahme"
         tvDialogActionInfo.text = "Buchungsart: $actionText"
+
+        // Jedes Öffnen beginnt bewusst leer für schnelle, sichere Bedienung.
+        etDialogProjekt.setText("", false)
+        edtDialogMenge.setText("")
         edtDialogSerials.text = ""
 
         if (DataRepository.projektListe.isNotEmpty()) {
@@ -108,10 +112,6 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             etDialogProjekt.setOnFocusChangeListener { _, hasFocus: Boolean ->
                 if (hasFocus) etDialogProjekt.showDropDown()
             }
-        }
-
-        DataRepository.recentProjektListe.firstOrNull()?.let { recent ->
-            etDialogProjekt.setText(recent, false)
         }
 
         val dialog = AlertDialog.Builder(this)
@@ -169,7 +169,6 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
                 serialsText = serials
             )
             if (started) {
-                DataRepository.rememberProjekt(projekt)
                 dialog.dismiss()
             }
         }
