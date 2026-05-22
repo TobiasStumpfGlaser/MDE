@@ -22,7 +22,6 @@ import android.widget.Button
 import androidx.appcompat.widget.AppCompatButton
 import android.widget.EditText
 import android.widget.Filter
-import android.widget.ImageButton
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -171,7 +170,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     private var serialsAreCharge: Boolean = false
 
-    // Sound nur beim Zustandswechsel "hat Treffer" <-> "keine Treffer"
     private var projektNoMatchActive = false
     private var artikelNoMatchActive = false
 
@@ -228,7 +226,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected fun showErrorWithLoadingHelper(message: String) {
         runOnUiThread {
             UiLoadingHelper.hide()
-            UiLoadingHelper.showError(this, message) // sicherer OK Button
+            UiLoadingHelper.showError(this, message)
         }
     }
 
@@ -265,12 +263,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             visibility = View.GONE
         }
         btnScan = findViewById(R.id.btnScan) ?: Button(this).apply { visibility = View.GONE }
-        etProjekt = findViewById(R.id.txtProjekt) ?: AutoCompleteTextView(this).apply {
-            visibility = View.GONE
-        }
-        edtMenge = findViewById(R.id.edtMenge) ?: EditText(this).apply { visibility = View.GONE }
-        edtSerials =
-            findViewById(R.id.edtSerials) ?: EditText(this).apply { visibility = View.GONE }
+        etProjekt = findViewById<AutoCompleteTextView?>(R.id.txtProjekt)
+            ?: AutoCompleteTextView(this).apply { visibility = View.GONE }
+        edtMenge = findViewById<EditText?>(R.id.edtMenge)
+            ?: EditText(this).apply { visibility = View.GONE }
+        edtSerials = findViewById<EditText?>(R.id.edtSerials)
+            ?: EditText(this).apply { visibility = View.GONE }
 
         edtSerials.apply {
             isFocusable = false
@@ -628,7 +626,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                             }
 
                             if (count == 0) {
-                                // nur 1x piepen beim Wechsel -> jetzt "kein Match"
                                 if (!projektNoMatchActive) {
                                     showInlineError("Kein Projekt gefunden!")
                                     projektNoMatchActive = true
@@ -636,7 +633,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                                     setInlineErrorTextOnly("Kein Projekt gefunden!")
                                 }
                             } else {
-                                // sobald Match => Fehler weg + Status zurücksetzen
                                 if (tvErrorMessages.text.toString()
                                         .contains("Projekt", ignoreCase = true)
                                 ) {
@@ -696,7 +692,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 etFilter.setText(barcode)
                 etFilter.setSelection(0)
                 if (matchedArtikel == null) {
-                    // Zustand -> no match (nur 1x piepen beim Wechsel)
                     if (!artikelNoMatchActive) {
                         showInlineError("Kein Artikel gefunden!")
                         artikelNoMatchActive = true
@@ -824,7 +819,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
                 when (matches.size) {
                     0 -> {
-                        // nur 1x piepen beim Wechsel -> jetzt "kein Match"
                         if (!artikelNoMatchActive) {
                             showInlineError("Kein Artikel gefunden!")
                             artikelNoMatchActive = true
@@ -895,14 +889,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         )
     }
 
-    /**
-     * Führt die Buchungsvalidierung und den bestehenden Buchungsfluss mit explizit übergebenen
-     * Detailwerten aus. Gibt `true` zurück, wenn der Buchungsprozess gestartet wurde
-     * (inkl. optionalem Bestätigungsdialog), sonst `false`.
-     *
-     * [validateProjektMatch] sollte nur aktiv sein, wenn die Projekteingabe am Hauptscreen über
-     * den Inline-Match-Status geprüft wird.
-     */
     protected fun doBuchenWithDetails(
         einlagern: Boolean,
         count: Boolean = false,
@@ -916,7 +902,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
         val projekt =
             projektText
-                // Projektlisten können "Nr – Name" (En-Dash) oder "Nr - Name" (Minus) enthalten.
                 ?.split(Regex("\\s[–-]\\s"), limit = 2)
                 ?.firstOrNull()
                 ?.trim()
@@ -930,7 +915,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
 
         if (!count && validateProjektMatch && projektNoMatchActive) {
-            // Inline-Fehler ist bereits gesetzt (und hat nur 1x gepiepst beim Wechsel)
             return false
         }
 
@@ -1006,117 +990,48 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         request = request,
                         endTag = "{/SetBuchung}"
                     )
-                    val cleaned = response.replace("\r", "").trim()
 
                     withContext(Dispatchers.Main) {
-                        if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
-                            UiLoadingHelper.update(
-                                this@BaseArtikelScanActivity,
-                                "Buchung erfolgreich",
-                                UiLoadingHelper.LoadingStatus.SUCCESS
-                            )
-                            delay(2000)
-                            if (AppSettings(this@BaseArtikelScanActivity).clearAfterSuccess) {
+                        UiLoadingHelper.hide()
+                        when (response.trim()) {
+                            "Error$" -> showErrorWithLoadingHelper("Keine Serverantwort")
+                            "OK" -> {
+                                UiLoadingHelper.showSuccess(
+                                    this@BaseArtikelScanActivity,
+                                    "Buchung erfolgreich"
+                                )
+                                if (projekt.isNotBlank()) {
+                                    DataRepository.rememberProjekt(projekt)
+                                }
                                 btnClearClicked()
                             }
-                        } else {
-                            UiLoadingHelper.update(
-                                this@BaseArtikelScanActivity,
-                                "Buchung fehlgeschlagen:\n$response",
-                                UiLoadingHelper.LoadingStatus.ERROR
-                            )
+                            else -> showErrorWithLoadingHelper(response)
                         }
                     }
                     return@launch
-                } catch (_: Exception) {
-                    if (attempts < 3) {
+                } catch (e: Exception) {
+                    if (attempts >= 3) {
                         withContext(Dispatchers.Main) {
-                            UiLoadingHelper.update(
-                                this@BaseArtikelScanActivity,
-                                "Timeout – Wiederhole... ($attempts/3)",
-                                UiLoadingHelper.LoadingStatus.LOADING
-                            )
+                            UiLoadingHelper.hide()
+                            showErrorWithLoadingHelper("Fehler bei der Buchung: ${e.message}")
                         }
-                        delay(1000)
+                    } else {
+                        delay(500)
                     }
                 }
             }
-
-            withContext(Dispatchers.Main) {
-                UiLoadingHelper.update(
-                    this@BaseArtikelScanActivity,
-                    "Kein Server erreichbar nach 3 Versuchen",
-                    UiLoadingHelper.LoadingStatus.ERROR
-                )
-            }
         }
     }
 
-    protected fun showError(msg: String) {
-        showErrorWithLoadingHelper(msg)
-    }
-
-    protected fun parseProjektList(raw: String): List<String> {
-        val list = mutableListOf<String>()
-        raw.lines().forEach {
-            val parts = it.split("|")
-            if (parts.size == 2 && !it.startsWith("{")) list.add("${parts[0]} – ${parts[1]}")
-        }
-        return list
-    }
-
-    protected fun parseArtikelResponse(raw: String): List<Artikel> {
-        val liste = mutableListOf<Artikel>()
-        var parse = false
-        raw.lines().forEach { line ->
-            when {
-                line.contains("{GetArtikel}") -> parse = true
-                line.contains("{/GetArtikel}") -> return@forEach
-                !parse || line.isBlank() -> return@forEach
-                else -> {
-                    val p = line.split("|")
-                    if (p.size < 15) return@forEach
-                    liste.add(
-                        Artikel(
-                            artNr = p[0],
-                            bez = p[1],
-                            lagerorteW1 = p.subList(2, 5),
-                            lagerorteW2 = p.subList(5, 8),
-                            masseinheit = p[8],
-                            bestand = p[9],
-                            empfBestMenge = p[10].toIntOrNull() ?: 0,
-                            bestellTrigger = p[11].toIntOrNull() ?: 0,
-                            mindestbestand = p[12].toIntOrNull() ?: 0,
-                            grossInfo = p[13],
-                            liefBestNr = p[14]
-                        )
-                    )
-                }
-            }
-        }
-        return liste
-    }
-
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        resetTimeout()
-        return super.dispatchTouchEvent(ev)
-    }
-
-    private fun resetTimeout() {
+    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
         handler.removeCallbacks(timeoutRunnable)
         handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
+        return super.dispatchTouchEvent(ev)
     }
 
     override fun onResume() {
         super.onResume()
-        resetTimeout()
-    }
-
-    fun hideKeyboardAndClearFocus() {
-        val view = currentFocus
-        view?.clearFocus()
-        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-        view?.let { imm.hideSoftInputFromWindow(it.windowToken, 0) }
+        handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
     }
 
     override fun onPause() {
@@ -1125,26 +1040,20 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == android.R.id.home) {
-            finish()
-            return true
+        return when (item.itemId) {
+            android.R.id.home -> {
+                finish()
+                true
+            }
+            else -> super.onOptionsItemSelected(item)
         }
-        return super.onOptionsItemSelected(item)
     }
-}
 
-fun SpannableStringBuilder.appendBoldAfterColon(text: String) {
-    val colonIndex = text.indexOf(":")
-    if (colonIndex == -1) {
-        append(text)
-        return
+    protected fun hideKeyboardAndClearFocus() {
+        currentFocus?.let { view ->
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(view.windowToken, 0)
+            view.clearFocus()
+        }
     }
-    val start = length
-    append(text)
-    setSpan(
-        StyleSpan(Typeface.BOLD),
-        start,
-        start + colonIndex + 1,
-        Spanned.SPAN_EXCLUSIVE_EXCLUSIVE
-    )
 }
