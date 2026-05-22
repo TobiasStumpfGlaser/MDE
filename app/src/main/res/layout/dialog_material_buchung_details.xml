@@ -40,7 +40,7 @@
         android:layout_marginBottom="10dp"
         android:background="?attr/editTextBackground"
         android:hint="Seriennummer(n) optional"
-        android:inputType="textVisiblePassword" />
+        android:inputType="text" />
 
     <androidx.appcompat.widget.AppCompatButton
         android:id="@+id/btnDialogSerials"

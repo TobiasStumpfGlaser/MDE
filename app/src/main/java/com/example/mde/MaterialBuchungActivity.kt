@@ -8,6 +8,10 @@ import androidx.appcompat.app.AlertDialog
 
 class MaterialBuchungActivity : BaseArtikelScanActivity() {
 
+    companion object {
+        private const val CHARGE_PREFIX = "Charge:"
+    }
+
     private lateinit var settings: AppSettings
     private lateinit var username: String
 
@@ -93,7 +97,7 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
                 ArrayAdapter(
                     this,
                     android.R.layout.simple_dropdown_item_1line,
-                    DataRepository.projektListe.toMutableList()
+                    DataRepository.projektListe
                 )
             )
             etDialogProjekt.threshold = 1
@@ -169,7 +173,7 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         if (serials.isEmpty()) return ""
         if (isCharge) {
             val nr = serials.first().trim()
-            return if (nr.isBlank()) "" else "Charge:$nr"
+            return if (nr.isBlank()) "" else "$CHARGE_PREFIX$nr"
         }
         return serials.joinToString(";") { it.trim() }
     }
