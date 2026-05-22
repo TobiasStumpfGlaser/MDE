@@ -1,51 +1,88 @@
 <?xml version="1.0" encoding="utf-8"?>
 <LinearLayout xmlns:android="http://schemas.android.com/apk/res/android"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
+    android:layout_height="match_parent"
     android:background="?android:attr/windowBackground"
     android:orientation="vertical"
-    android:padding="20dp">
+    android:padding="24dp">
 
     <TextView
         android:id="@+id/tvDialogActionInfo"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:layout_marginBottom="12dp"
+        android:layout_marginBottom="20dp"
         android:textColor="?android:attr/textColorPrimary"
-        android:textSize="16sp"
+        android:textSize="20sp"
         android:textStyle="bold" />
 
     <AutoCompleteTextView
         android:id="@+id/etDialogProjekt"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
+        android:layout_height="72dp"
+        android:layout_marginBottom="16dp"
         android:background="?attr/editTextBackground"
         android:hint="Projekt"
-        android:inputType="text" />
+        android:inputType="text"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:textSize="18sp" />
 
     <EditText
         android:id="@+id/edtDialogMenge"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
+        android:layout_height="72dp"
+        android:layout_marginBottom="16dp"
         android:background="?attr/editTextBackground"
         android:hint="Menge"
-        android:inputType="numberDecimal" />
+        android:inputType="numberDecimal"
+        android:paddingStart="16dp"
+        android:paddingEnd="16dp"
+        android:textSize="18sp" />
 
-    <EditText
+    <TextView
         android:id="@+id/edtDialogSerials"
         android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:layout_marginBottom="10dp"
+        android:layout_height="0dp"
+        android:layout_weight="1"
         android:background="?attr/editTextBackground"
-        android:hint="Seriennummer(n) optional"
-        android:inputType="text" />
+        android:gravity="top|start"
+        android:hint="Seriennummer(n) werden über 'Seriennummern erfassen' hinzugefügt"
+        android:minHeight="140dp"
+        android:padding="16dp"
+        android:textColor="?android:attr/textColorPrimary"
+        android:textSize="16sp" />
 
-    <androidx.appcompat.widget.AppCompatButton
-        android:id="@+id/btnDialogSerials"
-        android:layout_width="wrap_content"
+    <LinearLayout
+        android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:text="Seriennummern erfassen" />
+        android:layout_marginTop="20dp"
+        android:gravity="end"
+        android:orientation="horizontal">
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnDialogSerials"
+            android:layout_width="0dp"
+            android:layout_height="64dp"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:text="Seriennummern erfassen"
+            android:textStyle="bold" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnDialogCancel"
+            android:layout_width="0dp"
+            android:layout_height="64dp"
+            android:layout_marginEnd="8dp"
+            android:layout_weight="1"
+            android:text="Abbrechen" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnDialogOk"
+            android:layout_width="0dp"
+            android:layout_height="64dp"
+            android:layout_weight="1"
+            android:text="OK"
+            android:textStyle="bold" />
+    </LinearLayout>
 
 </LinearLayout>
