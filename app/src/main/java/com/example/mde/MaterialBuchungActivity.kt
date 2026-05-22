@@ -85,12 +85,16 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         val dialogView =
             LayoutInflater.from(this).inflate(R.layout.dialog_material_buchung_details, null)
 
+        val tvDialogActionInfo = dialogView.findViewById<TextView>(R.id.tvDialogActionInfo)
         val etDialogProjekt = dialogView.findViewById<AutoCompleteTextView>(R.id.etDialogProjekt)
         val edtDialogMenge = dialogView.findViewById<EditText>(R.id.edtDialogMenge)
         val edtDialogSerials = dialogView.findViewById<TextView>(R.id.edtDialogSerials)
         val btnDialogSerials = dialogView.findViewById<Button>(R.id.btnDialogSerials)
         val btnDialogCancel = dialogView.findViewById<Button>(R.id.btnDialogCancel)
         val btnDialogOk = dialogView.findViewById<Button>(R.id.btnDialogOk)
+
+        val actionText = if (einlagern) "Zubuchung" else "Entnahme"
+        tvDialogActionInfo.text = "Buchungsart: $actionText"
 
         etDialogProjekt.setText("", false)
         edtDialogMenge.setText("")
@@ -104,7 +108,11 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             )
             etDialogProjekt.setAdapter(projektAdapter)
             etDialogProjekt.threshold = 1
-            etDialogProjekt.setOnClickListener { etDialogProjekt.showDropDown() }
+            etDialogProjekt.setOnClickListener {
+                etDialogProjekt.showDropDown()
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.showSoftInput(etDialogProjekt, InputMethodManager.SHOW_IMPLICIT)
+            }
             etDialogProjekt.setOnFocusChangeListener { _, hasFocus: Boolean ->
                 if (hasFocus) etDialogProjekt.showDropDown()
             }
@@ -184,8 +192,6 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
 
         etDialogProjekt.post {
             etDialogProjekt.requestFocus()
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showSoftInput(etDialogProjekt, InputMethodManager.SHOW_IMPLICIT)
             etDialogProjekt.showDropDown()
         }
     }
