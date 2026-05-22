@@ -895,6 +895,14 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         )
     }
 
+    /**
+     * Führt die Buchungsvalidierung und den bestehenden Buchungsfluss mit explizit übergebenen
+     * Detailwerten aus. Gibt `true` zurück, wenn der Buchungsprozess gestartet wurde
+     * (inkl. optionalem Bestätigungsdialog), sonst `false`.
+     *
+     * [validateProjektMatch] sollte nur aktiv sein, wenn die Projekteingabe am Hauptscreen über
+     * den Inline-Match-Status geprüft wird.
+     */
     protected fun doBuchenWithDetails(
         einlagern: Boolean,
         count: Boolean = false,

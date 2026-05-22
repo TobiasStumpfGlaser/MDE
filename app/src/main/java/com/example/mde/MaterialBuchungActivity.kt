@@ -160,6 +160,11 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         dialog.show()
     }
 
+    /**
+     * Formatiert Seriennummern für die Buchung:
+     * - Charge-Modus: genau ein Eintrag als `Charge:<Wert>`
+     * - Normalmodus: Einträge als `;`-getrennte Liste
+     */
     private fun formatSerialNumbers(serials: List<String>, isCharge: Boolean): String {
         if (serials.isEmpty()) return ""
         if (isCharge) {
