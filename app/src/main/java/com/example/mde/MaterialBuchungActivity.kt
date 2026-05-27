@@ -3,7 +3,6 @@ package com.example.mde
 import android.content.Context
 import android.os.Bundle
 import android.view.LayoutInflater
-import android.view.MotionEvent
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
@@ -66,45 +65,8 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             openBookingDialogIfArticleValid(einlagern = false)
         }
 
-        etFilter.clearFocus()
-        etFilter.dismissDropDown()
-
-        etFilter.setOnTouchListener { _, event ->
-            if (event.action == MotionEvent.ACTION_UP) {
-                if (etFilter.text.toString().trim().isNotEmpty()) {
-                    btnClearClicked()
-                }
-                openManualArticleInput()
-            }
-            false
-        }
-
-        etFilter.setOnClickListener {
-            if (etFilter.text.toString().trim().isNotEmpty()) {
-                btnClearClicked()
-            }
-            openManualArticleInput()
-        }
-
         val txtHeader = findViewById<TextView>(R.id.txtHeader)
         txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
-    }
-
-    override fun btnClearClicked() {
-        super.btnClearClicked()
-        etFilter.setSelection(0)
-        etFilter.dismissDropDown()
-    }
-
-    private fun openManualArticleInput() {
-        etFilter.post {
-            etFilter.requestFocus()
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showSoftInput(etFilter, InputMethodManager.SHOW_IMPLICIT)
-            adapter.filter.filter("")
-            etFilter.setSelection(0)
-            etFilter.showDropDown()
-        }
     }
 
     private fun openBookingDialogIfArticleValid(einlagern: Boolean) {
