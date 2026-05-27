@@ -12,6 +12,7 @@ import android.text.Spanned
 import android.text.TextWatcher
 import android.text.style.ForegroundColorSpan
 import android.text.style.StyleSpan
+import android.view.KeyEvent
 import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
@@ -173,6 +174,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     private var projektNoMatchActive = false
     private var artikelNoMatchActive = false
+    private val blockedHardwareScanBuffer = StringBuilder()
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val settings = AppSettings(this)
@@ -263,6 +265,17 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         tvArtikelInfo.text = spannable
     }
 
+    private fun isArtikelSelected(): Boolean {
+        return etFilter.text.toString().contains("|")
+    }
+
+    private fun handleBlockedHardwareScan(): Boolean {
+        if (!isArtikelSelected()) return false
+        showInlineError("Artikel bereits gewählt – bitte zuerst zurücksetzen")
+        blockedHardwareScanBuffer.clear()
+        return true
+    }
+
     private fun setArtikelFieldReadOnly(readOnly: Boolean) {
         if (readOnly) {
             etFilter.clearFocus()
@@ -273,8 +286,24 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             etFilter.setOnClickListener {
                 showInlineError("Artikel bereits gewählt – bitte zuerst zurücksetzen")
             }
+            etFilter.setOnKeyListener { _, keyCode, event ->
+                if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
+
+                if (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
+                    return@setOnKeyListener handleBlockedHardwareScan()
+                }
+
+                val unicode = event.unicodeChar
+                if (unicode > 0) {
+                    blockedHardwareScanBuffer.append(unicode.toChar())
+                    return@setOnKeyListener handleBlockedHardwareScan()
+                }
+                false
+            }
         } else {
+            blockedHardwareScanBuffer.clear()
             etFilter.setOnClickListener(null)
+            etFilter.setOnKeyListener(null)
             etFilter.isFocusable = true
             etFilter.isFocusableInTouchMode = true
             etFilter.isCursorVisible = true
@@ -446,7 +475,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
         etSerial.setOnEditorActionListener { _, actionId, event ->
             if (actionId == android.view.inputmethod.EditorInfo.IME_ACTION_DONE ||
-                event?.keyCode == android.view.KeyEvent.KEYCODE_ENTER
+                event?.keyCode == KeyEvent.KEYCODE_ENTER
             ) {
                 val input = etSerial.text.toString().trim()
                 if (input.isNotEmpty()) tryAddSerial(input)
@@ -789,8 +818,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         if (requestCode == 1001 && resultCode == RESULT_OK) {
             val barcode = data?.getStringExtra("barcode")?.trim()
             if (!barcode.isNullOrEmpty()) {
-                val artikelBereitsGewaehlt = etFilter.text.toString().contains("|")
-                if (artikelBereitsGewaehlt) {
+                if (isArtikelSelected()) {
                     showInlineError("Artikel bereits ausgewählt – Scan ignoriert!")
                     return
                 }
