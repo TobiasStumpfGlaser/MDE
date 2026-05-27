@@ -63,8 +63,9 @@
             android:layout_height="56dp"
             android:layout_marginEnd="8dp"
             android:layout_weight="1"
-            android:text="Neu laden"
-            android:textStyle="bold" />
+            android:text="Stammdaten"
+            android:textStyle="bold"
+            android:drawableEnd="@drawable/ic_reload"/>
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnClear"
