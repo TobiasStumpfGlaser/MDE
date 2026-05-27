@@ -13,8 +13,6 @@ import android.widget.ImageButton
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
-import com.datalogic.decode.BarcodeManager
-import com.datalogic.decode.configuration.ScannerProperties
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -74,30 +72,6 @@ class UserAdapter(
     }
 }
 
-object DatalogicWedgeController {
-    /**
-     * Tries to enable the Datalogic Keyboard Wedge.
-     * Returns true if it looks like it worked, false if not supported / failed.
-     *
-     * Safe to call on non-Datalogic devices (won't crash).
-     */
-    fun enableKeyboardWedge(manager: BarcodeManager): Boolean {
-        return try {
-            val cfg = ScannerProperties.edit(manager) ?: return false
-
-            // Some environments return a config object with null sub-sections.
-            val wedge = cfg.keyboardWedge ?: return false
-
-            wedge.enable.set(true)
-
-            val errorCode = cfg.store(manager, true)
-            errorCode == 0
-        } catch (_: Throwable) {
-            false
-        }
-    }
-}
-
 class LoginActivity : AppCompatActivity() {
 
     private lateinit var settings: AppSettings
@@ -114,8 +88,6 @@ class LoginActivity : AppCompatActivity() {
     private var requestRunning = false
     private val ioScope = CoroutineScope(Dispatchers.IO + Job())
 
-    private lateinit var barcodeManager: BarcodeManager
-
     override fun onCreate(savedInstanceState: Bundle?) {
         settings = AppSettings(this)
         when (settings.selectedTheme) {
@@ -126,10 +98,6 @@ class LoginActivity : AppCompatActivity() {
 
         super.onCreate(savedInstanceState)
         TcpLogHelper.clearLogs(this)
-
-        // Create manager and enable keyboard wedge
-        barcodeManager = BarcodeManager()
-        DatalogicWedgeController.enableKeyboardWedge(barcodeManager)
 
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
         setContentView(R.layout.activity_login)
@@ -168,8 +136,6 @@ class LoginActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         ioScope.cancel()
-        // Only needed if you add listeners; safe to omit for wedge-only usage.
-        // barcodeManager.release()
     }
 
     private fun userTextClicked() {
