@@ -177,8 +177,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected abstract val buchungProjektView: AutoCompleteTextView?
     protected abstract val buchungMengeView: EditText?
     protected open val autoLoadArtikelUndProjekte: Boolean = true
-    protected open val keepArticleFocusForScanner: Boolean = false
-    protected open val suppressKeyboardOnStart: Boolean = false
+    protected open val suppressKeyboardOnStart: Boolean = true
     protected open val enableIntentWedgeScanHandling: Boolean = true
 
     private var lastBookingTime = 0L
@@ -235,12 +234,11 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
 
         showEmptyArtikelInfo()
-        etFilter.requestFocus()
-        etFilter.setSelection(0)
 
         if (suppressKeyboardOnStart) {
             etFilter.post {
                 hideSoftKeyboard(etFilter)
+                etFilter.clearFocus()
             }
         }
     }
@@ -293,9 +291,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
         if (isArtikelSelected()) {
             showInlineError("Artikel bereits gewählt – bitte zuerst zurücksetzen")
-            if (keepArticleFocusForScanner) {
-                requestArticleFieldFocus(false)
-            }
             return true
         }
 
@@ -306,9 +301,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         if (matchedArtikel == null) {
             showNoArtikelInfo()
             artikelNoMatchActive = true
-            if (keepArticleFocusForScanner) {
-                requestArticleFieldFocus(false)
-            }
             return true
         }
 
@@ -317,14 +309,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         showArtikelInfo(matchedArtikel)
         setArtikelFieldReadOnly(true)
 
-        if (!keepArticleFocusForScanner) {
-            buchungProjektView?.let { projektView ->
-                projektView.post {
-                    projektView.requestFocus()
-                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                    imm.showSoftInput(projektView, InputMethodManager.SHOW_IMPLICIT)
-                    projektView.showDropDown()
-                }
+        buchungProjektView?.let { projektView ->
+            projektView.post {
+                projektView.requestFocus()
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.showSoftInput(projektView, InputMethodManager.SHOW_IMPLICIT)
+                projektView.showDropDown()
             }
         }
         return true
@@ -402,19 +392,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         imm.hideSoftInputFromWindow(targetView.windowToken, 0)
     }
 
-    private fun requestArticleFieldFocus(showKeyboard: Boolean) {
-        etFilter.post {
-            etFilter.requestFocus()
-            etFilter.setSelection(etFilter.text?.length ?: 0)
-            if (showKeyboard) {
-                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.showSoftInput(etFilter, InputMethodManager.SHOW_IMPLICIT)
-            } else {
-                hideSoftKeyboard(etFilter)
-            }
-        }
-    }
-
     private fun setArtikelFieldReadOnly(readOnly: Boolean) {
         if (readOnly) {
             etFilter.clearFocus()
@@ -424,9 +401,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             etFilter.keyListener = null
             etFilter.setOnClickListener {
                 showInlineError("Artikel bereits gewählt – bitte zuerst zurücksetzen")
-                if (keepArticleFocusForScanner) {
-                    requestArticleFieldFocus(false)
-                }
             }
             etFilter.setOnKeyListener { _, keyCode, event ->
                 if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
@@ -442,22 +416,18 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 }
                 false
             }
-            if (keepArticleFocusForScanner) {
-                requestArticleFieldFocus(false)
-            }
         } else {
             blockedHardwareScanBuffer.clear()
             etFilter.setOnClickListener {
-                requestArticleFieldFocus(true)
+                etFilter.requestFocus()
+                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                imm.showSoftInput(etFilter, InputMethodManager.SHOW_IMPLICIT)
             }
             etFilter.setOnKeyListener(null)
             etFilter.isFocusable = true
             etFilter.isFocusableInTouchMode = true
             etFilter.isCursorVisible = true
             etFilter.keyListener = etFilterKeyListener
-            if (keepArticleFocusForScanner) {
-                requestArticleFieldFocus(false)
-            }
         }
     }
 
@@ -733,11 +703,9 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         buchungProjektView?.text?.clear()
         buchungMengeView?.text?.clear()
 
-        if (keepArticleFocusForScanner) {
-            requestArticleFieldFocus(false)
-        } else {
-            etFilter.requestFocus()
-            etFilter.setSelection(0)
+        etFilter.clearFocus()
+        if (suppressKeyboardOnStart) {
+            hideSoftKeyboard(etFilter)
         }
     }
 
@@ -957,15 +925,11 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             DataRepository.rememberProjekt(projekt)
             setupProjektAdapter()
 
-            if (keepArticleFocusForScanner) {
-                requestArticleFieldFocus(false)
-            } else {
-                buchungMengeView?.let { mengeView ->
-                    mengeView.post {
-                        mengeView.requestFocus()
-                        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                        imm.showSoftInput(mengeView, InputMethodManager.SHOW_IMPLICIT)
-                    }
+            buchungMengeView?.let { mengeView ->
+                mengeView.post {
+                    mengeView.requestFocus()
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.showSoftInput(mengeView, InputMethodManager.SHOW_IMPLICIT)
                 }
             }
         }
@@ -1045,14 +1009,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             etFilter.setSelection(0)
             textWatcherEnabled = true
             setArtikelFieldReadOnly(true)
-            if (!keepArticleFocusForScanner) {
-                buchungProjektView?.let { projektView ->
-                    projektView.post {
-                        projektView.requestFocus()
-                        val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                        imm.showSoftInput(projektView, InputMethodManager.SHOW_IMPLICIT)
-                        projektView.showDropDown()
-                    }
+            buchungProjektView?.let { projektView ->
+                projektView.post {
+                    projektView.requestFocus()
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.showSoftInput(projektView, InputMethodManager.SHOW_IMPLICIT)
+                    projektView.showDropDown()
                 }
             }
         }
@@ -1093,15 +1055,13 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         etFilter.setSelection(0)
                         textWatcherEnabled = true
                         setArtikelFieldReadOnly(true)
-                        if (!keepArticleFocusForScanner) {
-                            buchungProjektView?.let { projektView ->
-                                projektView.post {
-                                    projektView.requestFocus()
-                                    val imm =
-                                        getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                                    imm.showSoftInput(projektView, InputMethodManager.SHOW_IMPLICIT)
-                                    projektView.showDropDown()
-                                }
+                        buchungProjektView?.let { projektView ->
+                            projektView.post {
+                                projektView.requestFocus()
+                                val imm =
+                                    getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                                imm.showSoftInput(projektView, InputMethodManager.SHOW_IMPLICIT)
+                                projektView.showDropDown()
                             }
                         }
                     }
