@@ -318,33 +318,17 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         etDetailFilter.setOnTouchListener { v, event ->
             v.onTouchEvent(event)
             if (event.action == MotionEvent.ACTION_UP) {
-                if (shouldClearDetailFilterOnInteraction()) {
-                    clearDetailFilterField()
+                if (etDetailFilter.text.toString().trim().isNotEmpty()) {
+                    ignoreDetailFilterChanges = true
+                    etDetailFilter.setText("")
+                    etDetailFilter.setSelection(0)
+                    ignoreDetailFilterChanges = false
                 }
                 etDetailFilter.requestFocus()
                 showKeyboard(etDetailFilter)
             }
             true
         }
-
-        etDetailFilter.setOnClickListener {
-            if (shouldClearDetailFilterOnInteraction()) {
-                clearDetailFilterField()
-            }
-            etDetailFilter.requestFocus()
-            showKeyboard(etDetailFilter)
-        }
-    }
-
-    private fun shouldClearDetailFilterOnInteraction(): Boolean {
-        return etDetailFilter.text.toString().trim().isNotEmpty()
-    }
-
-    private fun clearDetailFilterField() {
-        ignoreDetailFilterChanges = true
-        etDetailFilter.setText("")
-        etDetailFilter.setSelection(0)
-        ignoreDetailFilterChanges = false
     }
 
     private fun showKeyboard(view: View) {
@@ -543,27 +527,24 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         })
     }
 
-    private inner class ListOverviewAdapter(private var items: List<ListItem>) :
-        RecyclerView.Adapter<ListOverviewAdapter.ListViewHolder>() {
+    inner class ListOverviewAdapter(private var items: List<ListItem>) :
+        RecyclerView.Adapter<ListOverviewAdapter.ListOverviewViewHolder>() {
 
-        fun updateList(newItems: List<ListItem>) {
-            items = newItems
-            notifyDataSetChanged()
+        inner class ListOverviewViewHolder(view: View) : RecyclerView.ViewHolder(view) {
+            val tv: TextView = view.findViewById(android.R.id.text1)
         }
 
-        inner class ListViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            val tvItem: TextView = itemView.findViewById(android.R.id.text1)
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ListOverviewViewHolder {
+            val view = LayoutInflater.from(parent.context)
+                .inflate(android.R.layout.simple_list_item_1, parent, false)
+            return ListOverviewViewHolder(view)
         }
 
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ListViewHolder =
-            ListViewHolder(
-                LayoutInflater.from(parent.context)
-                    .inflate(android.R.layout.simple_list_item_1, parent, false)
-            )
+        override fun getItemCount(): Int = items.size
 
-        override fun onBindViewHolder(holder: ListViewHolder, position: Int) {
+        override fun onBindViewHolder(holder: ListOverviewViewHolder, position: Int) {
             val item = items[position]
-            holder.tvItem.text = "${item.nummer} | ${item.projektNr} | ${item.projektName}"
+            holder.tv.text = "${item.nummer} | ${item.projektNr} | ${item.projektName}"
             holder.itemView.setOnClickListener {
                 currentProjektNr = item.projektNr
                 etListFilter.setText(item.nummer)
@@ -574,18 +555,14 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             }
         }
 
-        override fun getItemCount(): Int = items.size
-    }
-
-    private inner class ListDetailsAdapter(private var items: List<ListDetail>) :
-        RecyclerView.Adapter<ListDetailsAdapter.DetailViewHolder>() {
-
-        fun updateList(newItems: List<ListDetail>) {
+        fun updateList(newItems: List<ListItem>) {
             items = newItems
             notifyDataSetChanged()
         }
+    }
 
-        fun getItems(): List<ListDetail> = items
+    inner class ListDetailsAdapter(private var items: List<ListDetail>) :
+        RecyclerView.Adapter<ListDetailsAdapter.DetailViewHolder>() {
 
         inner class DetailViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
             val tvItem: TextView = itemView.findViewById(android.R.id.text1)
@@ -599,12 +576,12 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
         override fun onBindViewHolder(holder: DetailViewHolder, position: Int) {
             val item = items[position]
-            val info = SpannableStringBuilder().apply {
-                appendBoldAfterColon("Pos: ${item.pos}")
-                append("\n")
+            val sb = SpannableStringBuilder().apply {
                 appendBoldAfterColon("Artikel: ${item.artNr}")
                 append("\n")
                 appendBoldAfterColon("Menge: ${item.menge}")
+                append("\n")
+                appendBoldAfterColon("Pos: ${item.pos}")
                 if (item.info.isNotBlank()) {
                     append("\n")
                     appendBoldAfterColon("Info: ${item.info}")
@@ -622,7 +599,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     appendBoldAfterColon("Groß-Info: ${item.grossInfo}")
                 }
             }
-            holder.tvItem.text = info
+            holder.tvItem.text = sb
             holder.itemView.setOnClickListener {
                 detailDialogOpenOrPending = true
                 showItemDialog(item)
@@ -630,6 +607,13 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         }
 
         override fun getItemCount(): Int = items.size
+
+        fun updateList(newItems: List<ListDetail>) {
+            items = newItems
+            notifyDataSetChanged()
+        }
+
+        fun getItems(): List<ListDetail> = items
     }
 
     private fun showItemDialog(item: ListDetail) {
