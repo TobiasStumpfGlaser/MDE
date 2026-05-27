@@ -179,6 +179,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected open val autoLoadArtikelUndProjekte: Boolean = true
     protected open val suppressKeyboardOnStart: Boolean = true
     protected open val enableIntentWedgeScanHandling: Boolean = true
+    protected open val allowArtikelOverrideByScan: Boolean = false
 
     private var lastBookingTime = 0L
     private val bookingCooldown = 2000L
@@ -187,7 +188,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     private var projektNoMatchActive = false
     private var artikelNoMatchActive = false
-    private val blockedHardwareScanBuffer = StringBuilder()
 
     private val scanReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -290,8 +290,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         if (cleanedBarcode.isBlank()) return false
 
         if (isArtikelSelected()) {
-            showInlineError("Artikel bereits gewählt – bitte zuerst zurücksetzen")
-            return true
+            if (allowArtikelOverrideByScan) {
+                btnClearClicked()
+            } else {
+                showInlineError("Artikel bereits gewählt – bitte zuerst zurücksetzen")
+                return true
+            }
         }
 
         val matchedArtikel = artikelListe.find { it.artNr.equals(cleanedBarcode, ignoreCase = true) }
@@ -307,7 +311,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         clearInlineError()
         artikelNoMatchActive = false
         showArtikelInfo(matchedArtikel)
-        setArtikelFieldReadOnly(true)
 
         buchungProjektView?.let { projektView ->
             projektView.post {
@@ -376,59 +379,13 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         tvArtikelInfo.text = spannable
     }
 
-    private fun isArtikelSelected(): Boolean {
+    protected fun isArtikelSelected(): Boolean {
         return etFilter.text.toString().contains("|")
-    }
-
-    private fun handleBlockedHardwareScan(): Boolean {
-        if (!isArtikelSelected()) return false
-        showInlineError("Artikel bereits gewählt – bitte zuerst zurücksetzen")
-        blockedHardwareScanBuffer.clear()
-        return true
     }
 
     private fun hideSoftKeyboard(targetView: View) {
         val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
         imm.hideSoftInputFromWindow(targetView.windowToken, 0)
-    }
-
-    private fun setArtikelFieldReadOnly(readOnly: Boolean) {
-        if (readOnly) {
-            etFilter.clearFocus()
-            etFilter.isFocusable = false
-            etFilter.isFocusableInTouchMode = false
-            etFilter.isCursorVisible = false
-            etFilter.keyListener = null
-            etFilter.setOnClickListener {
-                showInlineError("Artikel bereits gewählt – bitte zuerst zurücksetzen")
-            }
-            etFilter.setOnKeyListener { _, keyCode, event ->
-                if (event.action != KeyEvent.ACTION_DOWN) return@setOnKeyListener false
-
-                if (keyCode == KeyEvent.KEYCODE_ENTER || keyCode == KeyEvent.KEYCODE_NUMPAD_ENTER) {
-                    return@setOnKeyListener handleBlockedHardwareScan()
-                }
-
-                val unicode = event.unicodeChar
-                if (unicode > 0) {
-                    blockedHardwareScanBuffer.append(unicode.toChar())
-                    return@setOnKeyListener handleBlockedHardwareScan()
-                }
-                false
-            }
-        } else {
-            blockedHardwareScanBuffer.clear()
-            etFilter.setOnClickListener {
-                etFilter.requestFocus()
-                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                imm.showSoftInput(etFilter, InputMethodManager.SHOW_IMPLICIT)
-            }
-            etFilter.setOnKeyListener(null)
-            etFilter.isFocusable = true
-            etFilter.isFocusableInTouchMode = true
-            etFilter.isCursorVisible = true
-            etFilter.keyListener = etFilterKeyListener
-        }
     }
 
     private fun setupViews() {
@@ -501,7 +458,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
 
         etFilterKeyListener = etFilter.keyListener
-        setArtikelFieldReadOnly(false)
 
         btnClear.setOnClickListener { btnClearClicked() }
         btnReloadArtikel.setOnClickListener {
@@ -697,7 +653,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         serialsAreCharge = false
 
         etFilter.text.clear()
-        setArtikelFieldReadOnly(false)
         textWatcherEnabled = true
 
         buchungProjektView?.text?.clear()
@@ -1008,7 +963,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             etFilter.setText(text)
             etFilter.setSelection(0)
             textWatcherEnabled = true
-            setArtikelFieldReadOnly(true)
             buchungProjektView?.let { projektView ->
                 projektView.post {
                     projektView.requestFocus()
@@ -1028,7 +982,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 if (input.isEmpty()) {
                     artikelNoMatchActive = false
                     showEmptyArtikelInfo()
-                    setArtikelFieldReadOnly(false)
                     return
                 }
 
@@ -1054,7 +1007,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         etFilter.setText(text)
                         etFilter.setSelection(0)
                         textWatcherEnabled = true
-                        setArtikelFieldReadOnly(true)
                         buchungProjektView?.let { projektView ->
                             projektView.post {
                                 projektView.requestFocus()
@@ -1079,180 +1031,176 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         })
     }
 
+    private fun hideKeyboardAndClearFocus() {
+        currentFocus?.let { view ->
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(view.windowToken, 0)
+            view.clearFocus()
+        }
+    }
+
     fun doBuchen(einlagern: Boolean, count: Boolean = false) {
+        val current = System.currentTimeMillis()
+        if (current - lastBookingTime < bookingCooldown) return
+        lastBookingTime = current
+
+        val artikel = etFilter.text.toString().split("|").firstOrNull()?.trim().orEmpty()
+        val projektText = buchungProjektView?.text?.toString()?.trim().orEmpty()
+        val mengeText = buchungMengeView?.text?.toString()?.trim().orEmpty()
+        val serialsText = edtSerials.text.toString().trim()
+
         doBuchenWithDetails(
             einlagern = einlagern,
             count = count,
-            projektText = buchungProjektView?.text?.toString()?.trim(),
-            mengeText = buchungMengeView?.text?.toString()?.trim(),
-            serialsText = edtSerials.text?.toString()?.trim(),
-            validateProjektMatch = true
+            artikelText = artikel,
+            projektText = projektText,
+            mengeText = mengeText,
+            serialsText = serialsText
         )
     }
 
     protected fun doBuchenWithDetails(
         einlagern: Boolean,
         count: Boolean = false,
-        projektText: String?,
-        mengeText: String?,
-        serialsText: String?,
-        validateProjektMatch: Boolean = false
+        artikelText: String? = null,
+        projektText: String? = null,
+        mengeText: String? = null,
+        serialsText: String? = null
     ): Boolean {
-        val artikelText = etFilter.text.toString().trim()
-        val artikel = artikelText.split("|")[0].trim()
+        val artikel = artikelText?.trim().orEmpty()
+        val projekt = projektText?.trim().orEmpty()
+        val menge = mengeText?.trim().orEmpty()
+        val serialsRaw = serialsText?.trim().orEmpty()
+        val username = intent.getStringExtra("USERNAME") ?: "?"
+        val settings = AppSettings(this)
+        val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
 
-        val projekt =
-            projektText
-                ?.split(Regex("\\s[–-]\\s"), limit = 2)
-                ?.firstOrNull()
-                ?.trim()
-                .orEmpty()
-
-        val mengeStr = mengeText?.trim()
-
-        if (artikel.isBlank() || mengeStr.isNullOrBlank() || (!count && projekt.isBlank())) {
-            showErrorWithLoadingHelper("Bitte alle Felder ausfüllen")
+        if (artikel.isBlank() || artikel == "Kein Artikel") {
+            showErrorWithLoadingHelper("Bitte zuerst einen Artikel auswählen")
+            return false
+        }
+        if (projekt.isBlank() && !count) {
+            showErrorWithLoadingHelper("Bitte ein Projekt eingeben")
+            return false
+        }
+        if (menge.isBlank()) {
+            showErrorWithLoadingHelper("Bitte eine Menge eingeben")
             return false
         }
 
-        if (!count && validateProjektMatch && projektNoMatchActive) {
-            return false
+        val sign = when {
+            count -> 1
+            einlagern -> 1
+            else -> -1
         }
 
-        val menge = mengeStr.replace(",", ".").toDoubleOrNull()
-        if (menge == null || (!count && menge == 0.0)) {
+        val mengeSigned = menge.toDoubleOrNull()?.times(sign)
+        if (mengeSigned == null) {
             showErrorWithLoadingHelper("Ungültige Menge")
             return false
         }
 
-        val serverMenge = if (count) {
-            "=${mengeStr.replace(".", ",")}"
-        } else if (einlagern) {
-            "+${mengeStr.replace(".", ",")}"
+        val mengeForRequest = if (mengeSigned % 1.0 == 0.0) {
+            mengeSigned.toInt().toString()
         } else {
-            "-${mengeStr.replace(".", ",")}"
+            mengeSigned.toString().replace('.', ',')
         }
-        val buttonText =
-            if (count) "Zählstand setzen" else if (einlagern) "Zubuchen" else "Entnehmen"
 
-        if (AppSettings(this@BaseArtikelScanActivity).confirmBook) {
-            AlertDialog.Builder(this)
-                .setTitle("Buchung bestätigen")
-                .setMessage(
-                    "Artikel: $artikel\nProjekt: $projekt\nMenge: $menge\nSeriennummer(n): ${
-                        serialsText?.trim().orEmpty()
-                    }"
-                )
-                .setPositiveButton(buttonText) { _, _ ->
-                    sendBuchung(artikel, projekt, serverMenge, serialsText?.trim().orEmpty())
+        val serialsString = when {
+            serialsRaw.isBlank() -> ""
+            serialsRaw.startsWith("Charge:", ignoreCase = true) -> {
+                val chargeNr = serialsRaw.substringAfter(":").trim()
+                if (chargeNr.isBlank()) {
+                    showErrorWithLoadingHelper("Chargennummer fehlt")
+                    return false
                 }
-                .setNegativeButton("Abbrechen", null)
-                .show()
-        } else {
-            sendBuchung(artikel, projekt, serverMenge, serialsText?.trim().orEmpty())
+                "Charge:$chargeNr"
+            }
+            else -> {
+                val mengeAbsInt = kotlin.math.abs(mengeSigned).toInt()
+                val mengeIsInteger = mengeSigned % 1.0 == 0.0
+                val serialList = serialsRaw.split(";").map { it.trim() }.filter { it.isNotBlank() }
+                if (!mengeIsInteger) {
+                    showErrorWithLoadingHelper("Seriennummern sind nur bei ganzen Mengen möglich")
+                    return false
+                }
+                if (serialList.size != mengeAbsInt) {
+                    showErrorWithLoadingHelper("Anzahl Seriennummern muss der Menge entsprechen")
+                    return false
+                }
+                serialList.joinToString(";")
+            }
         }
-        return true
-    }
 
-    private fun sendBuchung(artikel: String, projekt: String, menge: String, serials: String) {
-        val now = System.currentTimeMillis()
-        if (now - lastBookingTime < bookingCooldown) return
-        lastBookingTime = now
+        val request = buildString {
+            append("{SetBuchung}")
+            append(artikel)
+            append("||")
+            append(mengeForRequest)
+            append("|")
+            append(projekt)
+            append("|")
+            append(settings.werkNummer)
+            append("|")
+            append(username)
+            append("|")
+            append(now)
+            append("|")
+            if (serialsString.isNotEmpty()) append(serialsString)
+            append("|{/SetBuchung}")
+        }
+
+        val loadingMessage = when {
+            count -> "Zählstand wird gebucht..."
+            einlagern -> "Einlagern läuft..."
+            else -> "Auslagern läuft..."
+        }
+
+        UiLoadingHelper.show(
+            activity = this,
+            message = loadingMessage,
+            status = UiLoadingHelper.LoadingStatus.LOADING,
+            onCancel = null
+        )
 
         CoroutineScope(Dispatchers.IO).launch {
-            withContext(Dispatchers.Main) {
-                UiLoadingHelper.show(
-                    this@BaseArtikelScanActivity,
-                    "Buchung läuft…",
-                    UiLoadingHelper.LoadingStatus.LOADING
+            try {
+                val response = TcpClient.sendCommand(
+                    context = this@BaseArtikelScanActivity,
+                    settings = settings,
+                    command = "SetBuchung",
+                    request = request,
+                    endTag = "{/SetBuchung}"
                 )
-            }
+                val cleaned = response.replace("\r", "").trim()
 
-            val nowStr =
-                java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
-            val username = intent.getStringExtra("USERNAME") ?: "?"
-            val request = buildString {
-                append("{SetBuchung}")
-                append("$artikel||$menge|||$projekt|${AppSettings(this@BaseArtikelScanActivity).werkNummer}|$username|$nowStr|")
-                if (serials.isNotEmpty()) {
-                    append(serials)
+                withContext(Dispatchers.Main) {
+                    if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
+                        UiLoadingHelper.update(
+                            activity = this@BaseArtikelScanActivity,
+                            message = "Buchung erfolgreich",
+                            status = UiLoadingHelper.LoadingStatus.SUCCESS
+                        )
+                        btnClearClicked()
+                    } else {
+                        UiLoadingHelper.update(
+                            activity = this@BaseArtikelScanActivity,
+                            message = "Buchung fehlgeschlagen:\n$response",
+                            status = UiLoadingHelper.LoadingStatus.ERROR
+                        )
+                    }
                 }
-                append("|{/SetBuchung}")
-            }
-
-            var attempts = 0
-            while (attempts < 3) {
-                attempts++
-                try {
-                    val response = TcpClient.sendCommand(
-                        context = this@BaseArtikelScanActivity,
-                        settings = AppSettings(this@BaseArtikelScanActivity),
-                        command = "SetBuchung",
-                        request = request,
-                        endTag = "{/SetBuchung}"
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    UiLoadingHelper.update(
+                        activity = this@BaseArtikelScanActivity,
+                        message = "Fehler:\n${e.message}",
+                        status = UiLoadingHelper.LoadingStatus.ERROR
                     )
-                    val cleaned = response.replace("\r", "").trim()
-
-                    withContext(Dispatchers.Main) {
-                        if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
-                            UiLoadingHelper.update(
-                                this@BaseArtikelScanActivity,
-                                "Buchung erfolgreich",
-                                UiLoadingHelper.LoadingStatus.SUCCESS
-                            )
-                            if (AppSettings(this@BaseArtikelScanActivity).clearAfterSuccess) {
-                                btnClearClicked()
-                            }
-                        } else {
-                            UiLoadingHelper.update(
-                                this@BaseArtikelScanActivity,
-                                "Buchung fehlgeschlagen:\n$response",
-                                UiLoadingHelper.LoadingStatus.ERROR
-                            )
-                        }
-                    }
-                    return@launch
-                } catch (_: Exception) {
-                    if (attempts < 3) {
-                        withContext(Dispatchers.Main) {
-                            UiLoadingHelper.update(
-                                this@BaseArtikelScanActivity,
-                                "Timeout – Wiederhole... ($attempts/3)",
-                                UiLoadingHelper.LoadingStatus.LOADING
-                            )
-                        }
-                        delay(1000)
-                    }
                 }
             }
-
-            withContext(Dispatchers.Main) {
-                UiLoadingHelper.update(
-                    this@BaseArtikelScanActivity,
-                    "Kein Server erreichbar nach 3 Versuchen",
-                    UiLoadingHelper.LoadingStatus.ERROR
-                )
-            }
         }
-    }
-
-    protected fun showError(msg: String) {
-        showErrorWithLoadingHelper(msg)
-    }
-
-    protected fun hideKeyboardAndClearFocus() {
-        val current = currentFocus
-        if (current != null) {
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(current.windowToken, 0)
-            current.clearFocus()
-        }
-    }
-
-    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
-        handler.removeCallbacks(timeoutRunnable)
-        handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
-        return super.dispatchTouchEvent(ev)
+        return true
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -1263,5 +1211,11 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             }
             else -> super.onOptionsItemSelected(item)
         }
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        handler.removeCallbacks(timeoutRunnable)
+        handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
+        return super.dispatchTouchEvent(ev)
     }
 }
