@@ -69,9 +69,12 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             openBookingDialogIfArticleValid(einlagern = false)
         }
 
+        etFilter.clearFocus()
+        etFilter.dismissDropDown()
+
         etFilter.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_UP) {
-                if (shouldClearArticleFieldOnInteraction()) {
+                if (shouldClearArticleFieldOnManualInteraction()) {
                     btnClearClicked()
                     etFilter.setSelection(0)
                 }
@@ -81,25 +84,20 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         }
 
         etFilter.setOnClickListener {
-            if (shouldClearArticleFieldOnInteraction()) {
+            if (shouldClearArticleFieldOnManualInteraction()) {
                 btnClearClicked()
                 etFilter.setSelection(0)
             }
             showArticleSuggestions()
         }
 
-        etFilter.setOnFocusChangeListener { _, hasFocus ->
-            if (hasFocus && !hasValidSelectedArticle()) {
-                showArticleSuggestions()
-            }
+        etFilter.setOnFocusChangeListener { _, _ ->
+            // Fokus allein soll nichts öffnen; nur expliziter Klick/Tap.
         }
 
         etFilter.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
-                if (hasValidSelectedArticle()) return
-                if (s.isNullOrEmpty()) {
-                    showArticleSuggestions()
-                }
+                // Kein Auto-Dropdown bei Start/Leerzustand; Handeingabe ist nur Fallback.
             }
 
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -113,7 +111,7 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
     override fun onBarcodeScanned(barcode: String) {
         val cleanedBarcode = barcode.trim()
         if (cleanedBarcode.isBlank()) return
-        if (hasValidSelectedArticle()) {
+        if (hasAnyArticleInput()) {
             btnClearClicked()
         }
         etFilter.setText(cleanedBarcode)
@@ -128,6 +126,7 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         etFilter.isCursorVisible = true
         etFilter.keyListener = etFilterKeyListener
         etFilter.setSelection(0)
+        etFilter.dismissDropDown()
     }
 
     private fun showArticleSuggestions() {
@@ -146,8 +145,12 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         }
     }
 
-    private fun shouldClearArticleFieldOnInteraction(): Boolean {
+    private fun shouldClearArticleFieldOnManualInteraction(): Boolean {
         return hasValidSelectedArticle() || etFilter.text.toString().trim().isNotEmpty()
+    }
+
+    private fun hasAnyArticleInput(): Boolean {
+        return etFilter.text.toString().trim().isNotEmpty()
     }
 
     private fun hasValidSelectedArticle(): Boolean {
