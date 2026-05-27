@@ -72,6 +72,13 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             etFilter.requestFocus()
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(etFilter, InputMethodManager.SHOW_IMPLICIT)
+            etFilter.post { etFilter.showDropDown() }
+        }
+
+        etFilter.setOnFocusChangeListener { _, hasFocus ->
+            if (hasFocus) {
+                etFilter.post { etFilter.showDropDown() }
+            }
         }
 
         val txtHeader = findViewById<TextView>(R.id.txtHeader)
@@ -79,18 +86,14 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
     }
 
     override fun onBarcodeScanned(barcode: String) {
-        if (barcode.isBlank()) return
+        val cleanedBarcode = barcode.trim()
+        if (cleanedBarcode.isBlank()) return
         if (hasValidSelectedArticle()) {
-            clearSelectedArticleForScanOverride()
+            btnClearClicked()
         }
-        handleArtikelBarcodeScan(barcode)
-    }
-
-    private fun clearSelectedArticleForScanOverride() {
-        clearInlineError()
-        showEmptyArtikelInfo()
-        etFilter.text.clear()
-        textWatcherEnabled = true
+        etFilter.setText(cleanedBarcode)
+        etFilter.setSelection(0)
+        handleArtikelBarcodeScan(cleanedBarcode)
     }
 
     private fun hasValidSelectedArticle(): Boolean {
