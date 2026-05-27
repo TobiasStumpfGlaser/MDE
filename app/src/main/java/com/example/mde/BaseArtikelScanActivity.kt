@@ -263,6 +263,25 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         tvArtikelInfo.text = spannable
     }
 
+    private fun setArtikelFieldReadOnly(readOnly: Boolean) {
+        if (readOnly) {
+            etFilter.clearFocus()
+            etFilter.isFocusable = false
+            etFilter.isFocusableInTouchMode = false
+            etFilter.isCursorVisible = false
+            etFilter.keyListener = null
+            etFilter.setOnClickListener {
+                showInlineError("Artikel bereits gewählt – bitte zuerst zurücksetzen")
+            }
+        } else {
+            etFilter.setOnClickListener(null)
+            etFilter.isFocusable = true
+            etFilter.isFocusableInTouchMode = true
+            etFilter.isCursorVisible = true
+            etFilter.keyListener = etFilterKeyListener
+        }
+    }
+
     private fun setupViews() {
         etFilter = findViewById(R.id.etBarcode) ?: AutoCompleteTextView(this).apply {
             visibility = View.GONE
@@ -333,6 +352,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
 
         etFilterKeyListener = etFilter.keyListener
+        setArtikelFieldReadOnly(false)
 
         btnClear.setOnClickListener { btnClearClicked() }
         btnReloadArtikel.setOnClickListener {
@@ -487,9 +507,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         serialsAreCharge = false
 
         etFilter.text.clear()
-        etFilter.isFocusable = true
-        etFilter.isFocusableInTouchMode = true
-        etFilter.keyListener = etFilterKeyListener
+        setArtikelFieldReadOnly(false)
         textWatcherEnabled = true
 
         buchungProjektView?.text?.clear()
@@ -747,10 +765,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     artikelNoMatchActive = false
 
                     showArtikelInfo(matchedArtikel)
-                    etFilter.clearFocus()
-                    etFilter.isFocusable = false
-                    etFilter.isFocusableInTouchMode = false
-                    etFilter.keyListener = null
+                    setArtikelFieldReadOnly(true)
                     buchungProjektView?.let { projektView ->
                         projektView.post {
                             projektView.requestFocus()
@@ -827,6 +842,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             etFilter.setText(text)
             etFilter.setSelection(0)
             textWatcherEnabled = true
+            setArtikelFieldReadOnly(true)
             buchungProjektView?.let { projektView ->
                 projektView.post {
                     projektView.requestFocus()
@@ -846,6 +862,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 if (input.isEmpty()) {
                     artikelNoMatchActive = false
                     showEmptyArtikelInfo()
+                    setArtikelFieldReadOnly(false)
                     return
                 }
 
@@ -871,14 +888,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         etFilter.setText(text)
                         etFilter.setSelection(0)
                         textWatcherEnabled = true
-                        etFilter.post {
-                            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                            imm.hideSoftInputFromWindow(etFilter.windowToken, 0)
-                            etFilter.clearFocus()
-                            etFilter.isFocusable = false
-                            etFilter.isFocusableInTouchMode = false
-                            etFilter.keyListener = null
-                        }
+                        setArtikelFieldReadOnly(true)
                         buchungProjektView?.let { projektView ->
                             projektView.post {
                                 projektView.requestFocus()
