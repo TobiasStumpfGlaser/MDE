@@ -162,7 +162,9 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             etDialogProjekt.setOnFocusChangeListener { _, hasFocus: Boolean ->
                 if (hasFocus) etDialogProjekt.showDropDown()
             }
-            etDialogProjekt.setOnItemClickListener { _, _, _, _ ->
+            etDialogProjekt.setOnItemClickListener { _, _, position, _ ->
+                val projekt = etDialogProjekt.adapter.getItem(position).toString()
+                DataRepository.rememberProjekt(projekt)
                 edtDialogMenge.post {
                     edtDialogMenge.requestFocus()
                     val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
@@ -218,6 +220,8 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
                     return@setOnClickListener
                 }
             }
+
+            DataRepository.rememberProjekt(projekt)
 
             val started = doBuchenWithDetails(
                 einlagern = einlagern,
