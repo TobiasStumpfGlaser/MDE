@@ -24,6 +24,8 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
     private lateinit var username: String
     private var bookingDialogOpen = false
 
+    override val allowArtikelOverrideByScan: Boolean = true
+
     override fun attachBaseContext(newBase: Context) {
         val s = AppSettings(newBase)
         val scaledBase = LayoutScaleUtil.applyLayoutScale(newBase, s.layoutScale)
@@ -93,11 +95,6 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
     override fun onBarcodeScanned(barcode: String) {
         val cleanedBarcode = barcode.trim()
         if (cleanedBarcode.isBlank()) return
-        if (etFilter.text.toString().trim().isNotEmpty()) {
-            btnClearClicked()
-        }
-        etFilter.setText(cleanedBarcode)
-        etFilter.setSelection(0)
         handleArtikelBarcodeScan(cleanedBarcode)
     }
 
