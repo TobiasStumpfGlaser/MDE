@@ -730,6 +730,12 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         if (requestCode == 1001 && resultCode == RESULT_OK) {
             val barcode = data?.getStringExtra("barcode")?.trim()
             if (!barcode.isNullOrEmpty()) {
+                val artikelBereitsGewaehlt = etFilter.text.toString().contains("|")
+                if (artikelBereitsGewaehlt) {
+                    showInlineError("Artikel bereits ausgewählt – Scan ignoriert!")
+                    return
+                }
+
                 val matchedArtikel = artikelListe.find { it.artNr == barcode }
                 etFilter.setText(barcode)
                 etFilter.setSelection(0)
@@ -998,121 +1004,61 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 append("|{/SetBuchung}")
             }
 
-            var attempts = 0
-            while (attempts < 3) {
-                attempts++
-                try {
-                    val response = TcpClient.sendCommand(
-                        context = this@BaseArtikelScanActivity,
-                        settings = AppSettings(this@BaseArtikelScanActivity),
-                        command = "SetBuchung",
-                        request = request,
-                        endTag = "{/SetBuchung}"
-                    )
-                    val cleaned = response.replace("\r", "").trim()
-
-                    withContext(Dispatchers.Main) {
-                        if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
-                            UiLoadingHelper.update(
-                                this@BaseArtikelScanActivity,
-                                "Buchung erfolgreich",
-                                UiLoadingHelper.LoadingStatus.SUCCESS
-                            )
-                            if (AppSettings(this@BaseArtikelScanActivity).clearAfterSuccess) {
-                                btnClearClicked()
-                            }
-                        } else {
-                            UiLoadingHelper.update(
-                                this@BaseArtikelScanActivity,
-                                "Buchung fehlgeschlagen:\n$response",
-                                UiLoadingHelper.LoadingStatus.ERROR
-                            )
-                        }
-                    }
-                    return@launch
-                } catch (_: Exception) {
-                    if (attempts < 3) {
-                        withContext(Dispatchers.Main) {
-                            UiLoadingHelper.update(
-                                this@BaseArtikelScanActivity,
-                                "Timeout – Wiederhole... ($attempts/3)",
-                                UiLoadingHelper.LoadingStatus.LOADING
-                            )
-                        }
-                        delay(1000)
-                    }
-                }
-            }
-
-            withContext(Dispatchers.Main) {
-                UiLoadingHelper.update(
-                    this@BaseArtikelScanActivity,
-                    "Kein Server erreichbar nach 3 Versuchen",
-                    UiLoadingHelper.LoadingStatus.ERROR
+            try {
+                val settings = AppSettings(this@BaseArtikelScanActivity)
+                val response = TcpClient.sendCommand(
+                    context = this@BaseArtikelScanActivity,
+                    settings = settings,
+                    command = "SetBuchung",
+                    request = request,
+                    endTag = "{/SetBuchung}"
                 )
-            }
-        }
-    }
-
-    protected fun showError(msg: String) {
-        showErrorWithLoadingHelper(msg)
-    }
-
-    protected fun parseProjektList(raw: String): List<String> {
-        val list = mutableListOf<String>()
-        raw.lines().forEach {
-            val parts = it.split("|")
-            if (parts.size == 2 && !it.startsWith("{")) list.add("${parts[0]} – ${parts[1]}")
-        }
-        return list
-    }
-
-    protected fun parseArtikelResponse(raw: String): List<Artikel> {
-        val liste = mutableListOf<Artikel>()
-        var parse = false
-        raw.lines().forEach { line ->
-            when {
-                line.contains("{GetArtikel}") -> parse = true
-                line.contains("{/GetArtikel}") -> return@forEach
-                !parse || line.isBlank() -> return@forEach
-                else -> {
-                    val p = line.split("|")
-                    if (p.size < 15) return@forEach
-                    liste.add(
-                        Artikel(
-                            artNr = p[0],
-                            bez = p[1],
-                            lagerorteW1 = p.subList(2, 5),
-                            lagerorteW2 = p.subList(5, 8),
-                            masseinheit = p[8],
-                            bestand = p[9],
-                            empfBestMenge = p[10].toIntOrNull() ?: 0,
-                            bestellTrigger = p[11].toIntOrNull() ?: 0,
-                            mindestbestand = p[12].toIntOrNull() ?: 0,
-                            grossInfo = p[13],
-                            liefBestNr = p[14]
-                        )
+                withContext(Dispatchers.Main) {
+                    UiLoadingHelper.update(
+                        this@BaseArtikelScanActivity,
+                        "Buchung erfolgreich",
+                        UiLoadingHelper.LoadingStatus.SUCCESS
+                    )
+                    if (settings.clearAfterSuccess) {
+                        btnClearClicked()
+                    }
+                }
+            } catch (e: Exception) {
+                withContext(Dispatchers.Main) {
+                    UiLoadingHelper.update(
+                        this@BaseArtikelScanActivity,
+                        "Fehler bei Buchung:\n${e.message}",
+                        UiLoadingHelper.LoadingStatus.ERROR
                     )
                 }
             }
         }
-        return liste
     }
 
-    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
-        handler.removeCallbacks(timeoutRunnable)
-        handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
-        return super.dispatchTouchEvent(ev)
+    protected fun hideKeyboardAndClearFocus() {
+        val current = currentFocus
+        if (current != null) {
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.hideSoftInputFromWindow(current.windowToken, 0)
+            current.clearFocus()
+        }
     }
 
     override fun onResume() {
         super.onResume()
+        handler.removeCallbacks(timeoutRunnable)
         handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
     }
 
     override fun onPause() {
         super.onPause()
         handler.removeCallbacks(timeoutRunnable)
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent?): Boolean {
+        handler.removeCallbacks(timeoutRunnable)
+        handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
+        return super.dispatchTouchEvent(ev)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
@@ -1122,14 +1068,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 true
             }
             else -> super.onOptionsItemSelected(item)
-        }
-    }
-
-    protected fun hideKeyboardAndClearFocus() {
-        currentFocus?.let { view ->
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.hideSoftInputFromWindow(view.windowToken, 0)
-            view.clearFocus()
         }
     }
 }
