@@ -5,6 +5,8 @@ import android.os.Bundle
 import android.text.Editable
 import android.text.TextWatcher
 import android.view.LayoutInflater
+import android.view.MotionEvent
+import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
@@ -67,19 +69,26 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             openBookingDialogIfArticleValid(einlagern = false)
         }
 
+        etFilter.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                if (hasValidSelectedArticle()) {
+                    btnClearClicked()
+                }
+                showArticleSuggestions()
+            }
+            false
+        }
+
         etFilter.setOnClickListener {
             if (hasValidSelectedArticle()) {
                 btnClearClicked()
             }
-            etFilter.requestFocus()
-            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-            imm.showSoftInput(etFilter, InputMethodManager.SHOW_IMPLICIT)
-            etFilter.post { if (!hasValidSelectedArticle()) etFilter.showDropDown() }
+            showArticleSuggestions()
         }
 
         etFilter.setOnFocusChangeListener { _, hasFocus ->
             if (hasFocus && !hasValidSelectedArticle()) {
-                etFilter.post { etFilter.showDropDown() }
+                showArticleSuggestions()
             }
         }
 
@@ -87,7 +96,7 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             override fun afterTextChanged(s: Editable?) {
                 if (hasValidSelectedArticle()) return
                 if (s.isNullOrEmpty()) {
-                    etFilter.post { etFilter.showDropDown() }
+                    showArticleSuggestions()
                 }
             }
 
@@ -108,6 +117,29 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         etFilter.setText(cleanedBarcode)
         etFilter.setSelection(0)
         handleArtikelBarcodeScan(cleanedBarcode)
+    }
+
+    override fun btnClearClicked() {
+        super.btnClearClicked()
+        etFilter.isFocusable = true
+        etFilter.isFocusableInTouchMode = true
+        etFilter.isCursorVisible = true
+        etFilter.keyListener = etFilterKeyListener
+    }
+
+    private fun showArticleSuggestions() {
+        if (hasValidSelectedArticle()) return
+        etFilter.post {
+            etFilter.isFocusable = true
+            etFilter.isFocusableInTouchMode = true
+            etFilter.isCursorVisible = true
+            etFilter.keyListener = etFilterKeyListener
+            etFilter.requestFocus()
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(etFilter, InputMethodManager.SHOW_IMPLICIT)
+            adapter.filter.filter("")
+            etFilter.showDropDown()
+        }
     }
 
     private fun hasValidSelectedArticle(): Boolean {
