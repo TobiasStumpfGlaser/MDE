@@ -1,8 +1,11 @@
 package com.example.mde
 
+import android.content.BroadcastReceiver
 import android.content.Context
 import android.content.Intent
+import android.content.IntentFilter
 import android.graphics.Typeface
+import android.os.Build
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
@@ -40,6 +43,12 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.Locale
+
+object DatalogicIntentWedge {
+    const val ACTION = "com.datalogic.decodewedge.decode_action"
+    const val CATEGORY = "com.datalogic.decodewedge.decode_category"
+    const val EXTRA_BARCODE = "com.datalogic.decode.intentwedge.barcode_string"
+}
 
 class ArtikelAdapter(context: Context, artikelListe: List<Artikel>) :
     ArrayAdapter<Artikel>(
@@ -169,6 +178,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected open val autoLoadArtikelUndProjekte: Boolean = true
     protected open val keepArticleFocusForScanner: Boolean = false
     protected open val suppressKeyboardOnStart: Boolean = false
+    protected open val enableIntentWedgeScanHandling: Boolean = true
 
     private var lastBookingTime = 0L
     private val bookingCooldown = 2000L
@@ -178,6 +188,18 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     private var projektNoMatchActive = false
     private var artikelNoMatchActive = false
     private val blockedHardwareScanBuffer = StringBuilder()
+
+    private val scanReceiver = object : BroadcastReceiver() {
+        override fun onReceive(context: Context?, intent: Intent?) {
+            if (!enableIntentWedgeScanHandling) return
+            if (intent?.action != DatalogicIntentWedge.ACTION) return
+            val barcode = intent.getStringExtra(DatalogicIntentWedge.EXTRA_BARCODE)?.trim().orEmpty()
+            if (barcode.isBlank()) return
+            runOnUiThread {
+                onBarcodeScanned(barcode)
+            }
+        }
+    }
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val settings = AppSettings(this)
@@ -220,6 +242,91 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 hideSoftKeyboard(etFilter)
             }
         }
+    }
+
+    override fun onResume() {
+        super.onResume()
+        if (enableIntentWedgeScanHandling) {
+            registerIntentWedgeReceiver()
+        }
+        handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
+    }
+
+    override fun onPause() {
+        super.onPause()
+        if (enableIntentWedgeScanHandling) {
+            unregisterReceiverSafely()
+        }
+        handler.removeCallbacks(timeoutRunnable)
+    }
+
+    private fun registerIntentWedgeReceiver() {
+        val filter = IntentFilter(DatalogicIntentWedge.ACTION).apply {
+            addCategory(DatalogicIntentWedge.CATEGORY)
+        }
+        try {
+            if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                registerReceiver(scanReceiver, filter, RECEIVER_EXPORTED)
+            } else {
+                @Suppress("DEPRECATION")
+                registerReceiver(scanReceiver, filter)
+            }
+        } catch (_: IllegalArgumentException) {
+        }
+    }
+
+    private fun unregisterReceiverSafely() {
+        try {
+            unregisterReceiver(scanReceiver)
+        } catch (_: IllegalArgumentException) {
+        }
+    }
+
+    protected open fun onBarcodeScanned(barcode: String) {
+        handleArtikelBarcodeScan(barcode)
+    }
+
+    protected fun handleArtikelBarcodeScan(barcode: String): Boolean {
+        val cleanedBarcode = barcode.trim()
+        if (cleanedBarcode.isBlank()) return false
+
+        if (isArtikelSelected()) {
+            showInlineError("Artikel bereits gewählt – bitte zuerst zurücksetzen")
+            if (keepArticleFocusForScanner) {
+                requestArticleFieldFocus(false)
+            }
+            return true
+        }
+
+        val matchedArtikel = artikelListe.find { it.artNr.equals(cleanedBarcode, ignoreCase = true) }
+        etFilter.setText(cleanedBarcode)
+        etFilter.setSelection(0)
+
+        if (matchedArtikel == null) {
+            showNoArtikelInfo()
+            artikelNoMatchActive = true
+            if (keepArticleFocusForScanner) {
+                requestArticleFieldFocus(false)
+            }
+            return true
+        }
+
+        clearInlineError()
+        artikelNoMatchActive = false
+        showArtikelInfo(matchedArtikel)
+        setArtikelFieldReadOnly(true)
+
+        if (!keepArticleFocusForScanner) {
+            buchungProjektView?.let { projektView ->
+                projektView.post {
+                    projektView.requestFocus()
+                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+                    imm.showSoftInput(projektView, InputMethodManager.SHOW_IMPLICIT)
+                    projektView.showDropDown()
+                }
+            }
+        }
+        return true
     }
 
     private fun setupToolbar() {
@@ -868,40 +975,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         if (requestCode == 1001 && resultCode == RESULT_OK) {
             val barcode = data?.getStringExtra("barcode")?.trim()
             if (!barcode.isNullOrEmpty()) {
-                if (isArtikelSelected()) {
-                    showInlineError("Artikel bereits ausgewählt – Scan ignoriert!")
-                    if (keepArticleFocusForScanner) {
-                        requestArticleFieldFocus(false)
-                    }
-                    return
-                }
-
-                val matchedArtikel = artikelListe.find { it.artNr == barcode }
-                etFilter.setText(barcode)
-                etFilter.setSelection(0)
-                if (matchedArtikel == null) {
-                    showNoArtikelInfo()
-                    artikelNoMatchActive = true
-                    if (keepArticleFocusForScanner) {
-                        requestArticleFieldFocus(false)
-                    }
-                } else {
-                    clearInlineError()
-                    artikelNoMatchActive = false
-
-                    showArtikelInfo(matchedArtikel)
-                    setArtikelFieldReadOnly(true)
-                    if (!keepArticleFocusForScanner) {
-                        buchungProjektView?.let { projektView ->
-                            projektView.post {
-                                projektView.requestFocus()
-                                val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                                imm.showSoftInput(projektView, InputMethodManager.SHOW_IMPLICIT)
-                                projektView.showDropDown()
-                            }
-                        }
-                    }
-                }
+                onBarcodeScanned(barcode)
             }
         }
     }
@@ -1218,16 +1292,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         handler.removeCallbacks(timeoutRunnable)
         handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
         return super.dispatchTouchEvent(ev)
-    }
-
-    override fun onResume() {
-        super.onResume()
-        handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
-    }
-
-    override fun onPause() {
-        super.onPause()
-        handler.removeCallbacks(timeoutRunnable)
     }
 
     override fun onOptionsItemSelected(item: MenuItem): Boolean {
