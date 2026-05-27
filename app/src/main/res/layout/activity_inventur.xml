@@ -101,21 +101,6 @@
 
             <View
                 android:layout_width="match_parent"
-                android:layout_height="24dp" />
-
-            <TextView
-                android:id="@+id/tvArtikelInfo"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:background="?attr/editTextBackground"
-                android:minHeight="120dp"
-                android:padding="16dp"
-                android:text="Kein Artikel gewählt"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="22sp" />
-
-            <View
-                android:layout_width="match_parent"
                 android:layout_height="16dp" />
 
             <EditText
@@ -131,6 +116,17 @@
             <View
                 android:layout_width="match_parent"
                 android:layout_height="16dp" />
+
+            <TextView
+                android:id="@+id/tvArtikelInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:background="?attr/editTextBackground"
+                android:minHeight="120dp"
+                android:padding="16dp"
+                android:text="Kein Artikel gewählt"
+                android:textColor="?android:attr/textColorPrimary"
+                android:textSize="22sp" />
 
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnScan"
