@@ -62,15 +62,15 @@
             android:layout_width="0dp"
             android:layout_height="56dp"
             android:layout_weight="1"
-            android:text="Stammdaten"
-            android:drawableEnd="@drawable/ic_reload"/>
+            android:drawableEnd="@drawable/ic_reload"
+            android:text="Stammdaten" />
 
         <androidx.appcompat.widget.AppCompatButton
             android:id="@+id/btnClear"
             android:layout_width="0dp"
             android:layout_height="56dp"
             android:layout_weight="1"
-            android:text="Zurücksetzen"/>
+            android:text="Zurücksetzen" />
     </LinearLayout>
 
     <ScrollView
@@ -89,12 +89,12 @@
             android:orientation="vertical"
             android:padding="10dp">
 
-            <AutoCompleteTextView
+            <com.example.mde.AlwaysFilterAutoCompleteTextView
                 android:id="@+id/etBarcode"
                 android:layout_width="match_parent"
                 android:layout_height="72dp"
                 android:background="?attr/editTextBackground"
-                android:completionThreshold="1"
+                android:completionThreshold="0"
                 android:hint="Artikel suchen / scannen"
                 android:inputType="textVisiblePassword"
                 android:textAlignment="viewStart"
