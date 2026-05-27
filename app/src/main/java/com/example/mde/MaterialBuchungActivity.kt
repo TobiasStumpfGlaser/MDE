@@ -67,7 +67,7 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
 
         etFilter.setOnClickListener {
             if (hasValidSelectedArticle()) {
-                clearSelectedArticleForManualInput()
+                btnClearClicked()
             }
             etFilter.requestFocus()
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
@@ -91,14 +91,6 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         showEmptyArtikelInfo()
         etFilter.text.clear()
         textWatcherEnabled = true
-    }
-
-    private fun clearSelectedArticleForManualInput() {
-        clearSelectedArticleForScanOverride()
-        etFilter.isFocusable = true
-        etFilter.isFocusableInTouchMode = true
-        etFilter.isCursorVisible = true
-        etFilter.keyListener = etFilterKeyListener
     }
 
     private fun hasValidSelectedArticle(): Boolean {
