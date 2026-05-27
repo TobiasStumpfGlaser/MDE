@@ -38,8 +38,9 @@ class InventurActivity : BaseArtikelScanActivity() {
 
         etFilter.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_UP) {
-                if (hasValidSelectedArticle()) {
+                if (shouldClearArticleFieldOnInteraction()) {
                     btnClearClicked()
+                    etFilter.setSelection(0)
                 }
                 showArticleSuggestions()
             }
@@ -47,8 +48,9 @@ class InventurActivity : BaseArtikelScanActivity() {
         }
 
         etFilter.setOnClickListener {
-            if (hasValidSelectedArticle()) {
+            if (shouldClearArticleFieldOnInteraction()) {
                 btnClearClicked()
+                etFilter.setSelection(0)
             }
             showArticleSuggestions()
         }
@@ -95,6 +97,7 @@ class InventurActivity : BaseArtikelScanActivity() {
         etFilter.isFocusableInTouchMode = true
         etFilter.isCursorVisible = true
         etFilter.keyListener = etFilterKeyListener
+        etFilter.setSelection(0)
     }
 
     private fun showArticleSuggestions() {
@@ -108,8 +111,13 @@ class InventurActivity : BaseArtikelScanActivity() {
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(etFilter, InputMethodManager.SHOW_IMPLICIT)
             adapter.filter.filter("")
+            etFilter.setSelection(0)
             etFilter.showDropDown()
         }
+    }
+
+    private fun shouldClearArticleFieldOnInteraction(): Boolean {
+        return hasValidSelectedArticle() || etFilter.text.toString().trim().isNotEmpty()
     }
 
     private fun hasValidSelectedArticle(): Boolean {
@@ -130,8 +138,19 @@ class InventurActivity : BaseArtikelScanActivity() {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
         }
 
-        val countValue = dialogMenge.text.toString().trim()
-        edtMenge.setText(countValue)
-        doBuchen(true, count = true)
+        AlertDialog.Builder(this)
+            .setTitle("Ist-Zählung setzen")
+            .setView(dialogMenge)
+            .setPositiveButton("OK") { _, _ ->
+                val countValue = dialogMenge.text.toString().trim()
+                edtMenge.setText(countValue)
+                doBuchen(true, count = true)
+            }
+            .setNegativeButton("Abbrechen", null)
+            .show()
+            .window?.setLayout(
+                ViewGroup.LayoutParams.MATCH_PARENT,
+                ViewGroup.LayoutParams.WRAP_CONTENT
+            )
     }
 }
