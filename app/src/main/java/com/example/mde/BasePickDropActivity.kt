@@ -318,6 +318,12 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         etDetailFilter.setOnTouchListener { v, event ->
             v.onTouchEvent(event)
             if (event.action == MotionEvent.ACTION_UP) {
+                if (etDetailFilter.text.toString().trim().isNotEmpty()) {
+                    ignoreDetailFilterChanges = true
+                    etDetailFilter.setText("")
+                    etDetailFilter.setSelection(0)
+                    ignoreDetailFilterChanges = false
+                }
                 etDetailFilter.requestFocus()
                 showKeyboard(etDetailFilter)
             }
