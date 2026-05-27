@@ -24,8 +24,6 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
     private lateinit var username: String
     private var bookingDialogOpen = false
 
-    override val allowArtikelOverrideByScan: Boolean = true
-
     override fun attachBaseContext(newBase: Context) {
         val s = AppSettings(newBase)
         val scaledBase = LayoutScaleUtil.applyLayoutScale(newBase, s.layoutScale)
@@ -92,12 +90,6 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
     }
 
-    override fun onBarcodeScanned(barcode: String) {
-        val cleanedBarcode = barcode.trim()
-        if (cleanedBarcode.isBlank()) return
-        handleArtikelBarcodeScan(cleanedBarcode)
-    }
-
     override fun btnClearClicked() {
         super.btnClearClicked()
         etFilter.setSelection(0)
@@ -115,30 +107,10 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         }
     }
 
-    private fun hasValidSelectedArticle(): Boolean {
-        val artikel = etFilter.text.toString().trim().split("|").firstOrNull()?.trim().orEmpty()
-        if (artikel.isBlank()) return false
-        return DataRepository.artikelListe.any { it.artNr.equals(artikel, ignoreCase = true) }
-    }
-
-    private fun normalizeProjektFilter(value: String): String {
-        return value.lowercase().replace(Regex("[^a-z0-9]+"), "")
-    }
-
-    private fun sortProjekteWithRecents(projekte: List<String>): List<String> {
-        val recent = DataRepository.recentProjektListe
-        return projekte.sortedWith(
-            compareBy<String> {
-                val idx = recent.indexOf(it)
-                if (idx >= 0) idx else Int.MAX_VALUE
-            }.thenBy { it.lowercase() }
-        )
-    }
-
     private fun openBookingDialogIfArticleValid(einlagern: Boolean) {
         if (bookingDialogOpen) return
 
-        if (!hasValidSelectedArticle()) {
+        if (!hasSelectedArtikel()) {
             showErrorWithLoadingHelper("Bitte zuerst einen gültigen Artikel auswählen")
             return
         }
@@ -303,6 +275,20 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             etDialogProjekt.requestFocus()
             etDialogProjekt.showDropDown()
         }
+    }
+
+    private fun normalizeProjektFilter(value: String): String {
+        return value.lowercase().replace(Regex("[^a-z0-9]+"), "")
+    }
+
+    private fun sortProjekteWithRecents(projekte: List<String>): List<String> {
+        val recent = DataRepository.recentProjektListe
+        return projekte.sortedWith(
+            compareBy<String> {
+                val idx = recent.indexOf(it)
+                if (idx >= 0) idx else Int.MAX_VALUE
+            }.thenBy { it.lowercase() }
+        )
     }
 
     private fun formatSerialNumbers(serials: List<String>, isCharge: Boolean): String {
