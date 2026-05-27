@@ -71,8 +71,9 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
 
         etFilter.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_UP) {
-                if (hasValidSelectedArticle()) {
+                if (shouldClearArticleFieldOnInteraction()) {
                     btnClearClicked()
+                    etFilter.setSelection(0)
                 }
                 showArticleSuggestions()
             }
@@ -80,8 +81,9 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         }
 
         etFilter.setOnClickListener {
-            if (hasValidSelectedArticle()) {
+            if (shouldClearArticleFieldOnInteraction()) {
                 btnClearClicked()
+                etFilter.setSelection(0)
             }
             showArticleSuggestions()
         }
@@ -125,6 +127,7 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         etFilter.isFocusableInTouchMode = true
         etFilter.isCursorVisible = true
         etFilter.keyListener = etFilterKeyListener
+        etFilter.setSelection(0)
     }
 
     private fun showArticleSuggestions() {
@@ -138,8 +141,13 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(etFilter, InputMethodManager.SHOW_IMPLICIT)
             adapter.filter.filter("")
+            etFilter.setSelection(0)
             etFilter.showDropDown()
         }
+    }
+
+    private fun shouldClearArticleFieldOnInteraction(): Boolean {
+        return hasValidSelectedArticle() || etFilter.text.toString().trim().isNotEmpty()
     }
 
     private fun hasValidSelectedArticle(): Boolean {
