@@ -21,6 +21,7 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
 
     private lateinit var settings: AppSettings
     private lateinit var username: String
+    private var bookingDialogOpen = false
 
     override fun attachBaseContext(newBase: Context) {
         val s = AppSettings(newBase)
@@ -89,6 +90,8 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
     }
 
     private fun openBookingDialogIfArticleValid(einlagern: Boolean) {
+        if (bookingDialogOpen) return
+
         if (!hasValidSelectedArticle()) {
             showErrorWithLoadingHelper("Bitte zuerst einen gültigen Artikel auswählen")
             return
@@ -97,6 +100,9 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
     }
 
     private fun showBookingDetailsDialog(einlagern: Boolean) {
+        if (bookingDialogOpen) return
+        bookingDialogOpen = true
+
         val dialogView =
             LayoutInflater.from(this).inflate(R.layout.dialog_material_buchung_details, null)
 
@@ -177,6 +183,13 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             .setTitle(if (einlagern) "Zubuchung erfassen" else "Entnahme erfassen")
             .setView(dialogView)
             .create()
+
+        dialog.setOnDismissListener {
+            bookingDialogOpen = false
+        }
+        dialog.setOnCancelListener {
+            bookingDialogOpen = false
+        }
 
         btnDialogSerials.setOnClickListener {
             val menge = edtDialogMenge.text.toString().trim().replace(",", ".").toDoubleOrNull()
