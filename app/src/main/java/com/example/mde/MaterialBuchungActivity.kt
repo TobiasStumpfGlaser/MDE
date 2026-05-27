@@ -65,8 +65,40 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             openBookingDialogIfArticleValid(einlagern = false)
         }
 
+        etFilter.setOnClickListener {
+            if (hasValidSelectedArticle()) {
+                clearSelectedArticleForManualInput()
+            }
+            etFilter.requestFocus()
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(etFilter, InputMethodManager.SHOW_IMPLICIT)
+        }
+
         val txtHeader = findViewById<TextView>(R.id.txtHeader)
         txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
+    }
+
+    override fun onBarcodeScanned(barcode: String) {
+        if (barcode.isBlank()) return
+        if (hasValidSelectedArticle()) {
+            clearSelectedArticleForScanOverride()
+        }
+        handleArtikelBarcodeScan(barcode)
+    }
+
+    private fun clearSelectedArticleForScanOverride() {
+        clearInlineError()
+        showEmptyArtikelInfo()
+        etFilter.text.clear()
+        textWatcherEnabled = true
+    }
+
+    private fun clearSelectedArticleForManualInput() {
+        clearSelectedArticleForScanOverride()
+        etFilter.isFocusable = true
+        etFilter.isFocusableInTouchMode = true
+        etFilter.isCursorVisible = true
+        etFilter.keyListener = etFilterKeyListener
     }
 
     private fun hasValidSelectedArticle(): Boolean {
