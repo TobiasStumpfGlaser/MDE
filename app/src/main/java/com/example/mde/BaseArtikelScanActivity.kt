@@ -25,10 +25,9 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
-import android.widget.ImageButton
-import androidx.appcompat.widget.AppCompatButton
 import android.widget.EditText
 import android.widget.Filter
+import android.widget.ImageButton
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -149,7 +148,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected lateinit var tvArtikelInfo: TextView
     protected lateinit var btnClear: Button
     protected lateinit var btnReloadArtikel: View
-
     protected lateinit var tvErrorMessages: TextView
 
     protected var artikelListe: List<Artikel>
@@ -179,13 +177,11 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected open val autoLoadArtikelUndProjekte: Boolean = true
     protected open val suppressKeyboardOnStart: Boolean = true
     protected open val enableIntentWedgeScanHandling: Boolean = true
-    protected open val allowArtikelOverrideByScan: Boolean = false
 
     private var lastBookingTime = 0L
     private val bookingCooldown = 2000L
 
     private var serialsAreCharge: Boolean = false
-
     private var projektNoMatchActive = false
     private var artikelNoMatchActive = false
 
@@ -289,15 +285,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         val cleanedBarcode = barcode.trim()
         if (cleanedBarcode.isBlank()) return false
 
-        if (isArtikelSelected()) {
-            if (allowArtikelOverrideByScan) {
-                btnClearClicked()
-            } else {
-                showInlineError("Artikel bereits gewählt – bitte zuerst zurücksetzen")
-                return true
-            }
-        }
-
         val matchedArtikel = artikelListe.find { it.artNr.equals(cleanedBarcode, ignoreCase = true) }
         etFilter.setText(cleanedBarcode)
         etFilter.setSelection(0)
@@ -308,9 +295,19 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             return true
         }
 
+        applySelectedArtikel(matchedArtikel)
+        return true
+    }
+
+    protected fun applySelectedArtikel(artikel: Artikel) {
         clearInlineError()
         artikelNoMatchActive = false
-        showArtikelInfo(matchedArtikel)
+        showArtikelInfo(artikel)
+
+        textWatcherEnabled = false
+        etFilter.setText("${artikel.artNr} | ${artikel.bez}")
+        etFilter.setSelection(0)
+        textWatcherEnabled = true
 
         buchungProjektView?.let { projektView ->
             projektView.post {
@@ -320,7 +317,16 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 projektView.showDropDown()
             }
         }
-        return true
+    }
+
+    protected fun getSelectedArtikelNr(): String {
+        return etFilter.text.toString().trim().split("|").firstOrNull()?.trim().orEmpty()
+    }
+
+    protected fun hasSelectedArtikel(): Boolean {
+        val artikelNr = getSelectedArtikelNr()
+        if (artikelNr.isBlank()) return false
+        return artikelListe.any { it.artNr.equals(artikelNr, ignoreCase = true) }
     }
 
     private fun setupToolbar() {
@@ -377,10 +383,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         spannable.setSpan(StyleSpan(Typeface.BOLD), 0, message.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         spannable.setSpan(ForegroundColorSpan(errorColor), 0, message.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)
         tvArtikelInfo.text = spannable
-    }
-
-    protected fun isArtikelSelected(): Boolean {
-        return etFilter.text.toString().contains("|")
     }
 
     private fun hideSoftKeyboard(targetView: View) {
@@ -953,24 +955,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
         etFilter.setOnItemClickListener { _, _, position, _ ->
             val artikel = adapter.getItem(position) ?: return@setOnItemClickListener
-
-            clearInlineError()
-            artikelNoMatchActive = false
-
-            showArtikelInfo(artikel)
-            val text = "${artikel.artNr} | ${artikel.bez}"
-            textWatcherEnabled = false
-            etFilter.setText(text)
-            etFilter.setSelection(0)
-            textWatcherEnabled = true
-            buchungProjektView?.let { projektView ->
-                projektView.post {
-                    projektView.requestFocus()
-                    val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                    imm.showSoftInput(projektView, InputMethodManager.SHOW_IMPLICIT)
-                    projektView.showDropDown()
-                }
-            }
+            applySelectedArtikel(artikel)
         }
 
         etFilter.addTextChangedListener(object : TextWatcher {
@@ -997,25 +982,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     }
 
                     1 -> {
-                        clearInlineError()
-                        artikelNoMatchActive = false
-
-                        val artikel = matches.first()
-                        showArtikelInfo(artikel)
-                        val text = "${artikel.artNr} | ${artikel.bez}"
-                        textWatcherEnabled = false
-                        etFilter.setText(text)
-                        etFilter.setSelection(0)
-                        textWatcherEnabled = true
-                        buchungProjektView?.let { projektView ->
-                            projektView.post {
-                                projektView.requestFocus()
-                                val imm =
-                                    getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
-                                imm.showSoftInput(projektView, InputMethodManager.SHOW_IMPLICIT)
-                                projektView.showDropDown()
-                            }
-                        }
+                        applySelectedArtikel(matches.first())
                     }
 
                     else -> {
@@ -1044,7 +1011,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         if (current - lastBookingTime < bookingCooldown) return
         lastBookingTime = current
 
-        val artikel = etFilter.text.toString().split("|").firstOrNull()?.trim().orEmpty()
+        val artikel = getSelectedArtikelNr()
         val projektText = buchungProjektView?.text?.toString()?.trim().orEmpty()
         val mengeText = buchungMengeView?.text?.toString()?.trim().orEmpty()
         val serialsText = edtSerials.text.toString().trim()
@@ -1075,7 +1042,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         val settings = AppSettings(this)
         val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
 
-        if (artikel.isBlank() || artikel == "Kein Artikel") {
+        if (artikel.isBlank() || !hasSelectedArtikel()) {
             showErrorWithLoadingHelper("Bitte zuerst einen Artikel auswählen")
             return false
         }
