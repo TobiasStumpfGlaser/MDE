@@ -78,6 +78,16 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         return value.lowercase().replace(Regex("[^a-z0-9]+"), "")
     }
 
+    private fun sortProjekteWithRecents(projekte: List<String>): List<String> {
+        val recent = DataRepository.recentProjektListe
+        return projekte.sortedWith(
+            compareBy<String> {
+                val idx = recent.indexOf(it)
+                if (idx >= 0) idx else Int.MAX_VALUE
+            }.thenBy { it.lowercase() }
+        )
+    }
+
     private fun openBookingDialogIfArticleValid(einlagern: Boolean) {
         if (!hasValidSelectedArticle()) {
             showErrorWithLoadingHelper("Bitte zuerst einen gültigen Artikel auswählen")
@@ -102,12 +112,13 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         edtDialogSerials.text = ""
 
         if (DataRepository.projektListe.isNotEmpty()) {
+            val sortedProjects = sortProjekteWithRecents(DataRepository.projektListe)
             val projektAdapter = object : ArrayAdapter<String>(
                 this,
                 android.R.layout.simple_dropdown_item_1line,
-                DataRepository.projektListe.toMutableList()
+                sortedProjects.toMutableList()
             ) {
-                private val allProjects = DataRepository.projektListe.toMutableList()
+                private val allProjects = sortedProjects.toMutableList()
 
                 override fun getFilter(): Filter {
                     return object : Filter() {
