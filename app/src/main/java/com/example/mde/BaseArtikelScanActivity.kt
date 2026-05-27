@@ -177,6 +177,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected open val autoLoadArtikelUndProjekte: Boolean = true
     protected open val suppressKeyboardOnStart: Boolean = true
     protected open val enableIntentWedgeScanHandling: Boolean = true
+    protected open val enableManualArticleInput: Boolean = true
+    protected open val clearArticleOnManualInteraction: Boolean = true
 
     private var lastBookingTime = 0L
     private val bookingCooldown = 2000L
@@ -217,6 +219,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         setupTimeout()
         setupViews()
         setupDropdown()
+        setupArticleFieldInteraction()
 
         if (autoLoadArtikelUndProjekte) {
             if (DataRepository.shouldReload()) {
@@ -234,6 +237,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         if (suppressKeyboardOnStart) {
             etFilter.post {
                 hideSoftKeyboard(etFilter)
+                etFilter.dismissDropDown()
                 etFilter.clearFocus()
             }
         }
@@ -327,6 +331,39 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         val artikelNr = getSelectedArtikelNr()
         if (artikelNr.isBlank()) return false
         return artikelListe.any { it.artNr.equals(artikelNr, ignoreCase = true) }
+    }
+
+    protected open fun onArticleFieldClicked() {
+        if (!enableManualArticleInput) return
+        if (clearArticleOnManualInteraction && etFilter.text.toString().trim().isNotEmpty()) {
+            btnClearClicked()
+        }
+        openManualArticleInput()
+    }
+
+    protected fun openManualArticleInput() {
+        if (!enableManualArticleInput) return
+        etFilter.post {
+            etFilter.requestFocus()
+            val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
+            imm.showSoftInput(etFilter, InputMethodManager.SHOW_IMPLICIT)
+            adapter.filter.filter("")
+            etFilter.setSelection(0)
+            etFilter.showDropDown()
+        }
+    }
+
+    private fun setupArticleFieldInteraction() {
+        etFilter.setOnTouchListener { _, event ->
+            if (event.action == MotionEvent.ACTION_UP) {
+                onArticleFieldClicked()
+            }
+            false
+        }
+
+        etFilter.setOnClickListener {
+            onArticleFieldClicked()
+        }
     }
 
     private fun setupToolbar() {
@@ -655,6 +692,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         serialsAreCharge = false
 
         etFilter.text.clear()
+        etFilter.dismissDropDown()
         textWatcherEnabled = true
 
         buchungProjektView?.text?.clear()
@@ -777,7 +815,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         return value.lowercase().replace(Regex("[^a-z0-9]+"), "")
     }
 
-    private fun setupProjektAdapter() {
+    protected fun setupProjektAdapter() {
         val sortedProjekte = sortProjekteWithRecents(projektListe)
         val projektView = etProjekt
 
@@ -1034,7 +1072,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         mengeText: String? = null,
         serialsText: String? = null
     ): Boolean {
-        val artikel = artikelText?.trim().orEmpty()
+        val artikel = artikelText?.trim().takeUnless { it.isNullOrBlank() } ?: getSelectedArtikelNr()
         val projekt = projektText?.trim().orEmpty()
         val menge = mengeText?.trim().orEmpty()
         val serialsRaw = serialsText?.trim().orEmpty()
