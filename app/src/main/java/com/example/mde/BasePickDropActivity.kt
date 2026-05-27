@@ -253,6 +253,63 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         loadList()
     }
 
+    override fun onBarcodeScanned(barcode: String) {
+        val cleanedBarcode = barcode.trim()
+        if (cleanedBarcode.isBlank()) return
+
+        if (detailsView.visibility == View.VISIBLE && detailsOriginal.isNotEmpty()) {
+            routeBarcodeToDetailFilter(cleanedBarcode)
+            return
+        }
+
+        routeBarcodeToListFilter(cleanedBarcode)
+    }
+
+    private fun routeBarcodeToDetailFilter(barcode: String) {
+        if (detailDialogOpenOrPending) return
+        etDetailFilter.post {
+            etDetailFilter.requestFocus()
+            hideKeyboard(etDetailFilter)
+            ignoreDetailFilterChanges = true
+            etDetailFilter.setText(barcode)
+            etDetailFilter.setSelection(etDetailFilter.text.length)
+            ignoreDetailFilterChanges = false
+            processDetailBarcode(barcode)
+        }
+    }
+
+    private fun processDetailBarcode(barcode: String) {
+        val input = barcode.trim()
+        if (!isFullArtNr(input)) return
+        if (detailDialogOpenOrPending) return
+
+        val matches = detailsOriginal.filter { isArtNrExactMatch(input, it.artNr) }
+        if (matches.isEmpty()) return
+
+        val itemToOpen = matches.minByOrNull { it.pos.toIntOrNull() ?: Int.MAX_VALUE } ?: return
+
+        val nowMs = SystemClock.elapsedRealtime()
+        if (nowMs - lastAutoOpenAtMs < autoOpenCooldownMs) return
+        lastAutoOpenAtMs = nowMs
+
+        detailDialogOpenOrPending = true
+
+        ignoreDetailFilterChanges = true
+        etDetailFilter.setText("")
+        ignoreDetailFilterChanges = false
+
+        showItemDialog(itemToOpen)
+    }
+
+    private fun routeBarcodeToListFilter(barcode: String) {
+        etListFilter.post {
+            etListFilter.requestFocus()
+            hideKeyboard(etListFilter)
+            etListFilter.setText(barcode)
+            etListFilter.setSelection(etListFilter.text.length)
+        }
+    }
+
     private fun setupDetailFilterKeyboardBehavior() {
         etDetailFilter.showSoftInputOnFocus = false
         etDetailFilter.isFocusable = true
@@ -456,28 +513,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         etDetailFilter.addTextChangedListener(object : TextWatcher {
             override fun afterTextChanged(s: Editable?) {
                 if (ignoreDetailFilterChanges) return
-
-                val input = s.toString().trim()
-                if (!isFullArtNr(input)) return
-                if (detailDialogOpenOrPending) return
-
-                val matches = detailsOriginal.filter { isArtNrExactMatch(input, it.artNr) }
-                if (matches.isEmpty()) return
-
-                val itemToOpen = matches.minByOrNull { it.pos.toIntOrNull() ?: Int.MAX_VALUE }
-                    ?: return
-
-                val nowMs = SystemClock.elapsedRealtime()
-                if (nowMs - lastAutoOpenAtMs < autoOpenCooldownMs) return
-                lastAutoOpenAtMs = nowMs
-
-                detailDialogOpenOrPending = true
-
-                ignoreDetailFilterChanges = true
-                etDetailFilter.setText("")
-                ignoreDetailFilterChanges = false
-
-                showItemDialog(itemToOpen)
+                processDetailBarcode(s?.toString().orEmpty())
             }
 
             override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
@@ -1004,121 +1040,14 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     }
 
     private fun fillDetailsWithArtikelData() {
-        val byArtNr = DataRepository.artikelListe.associateBy { it.artNr }
-
-        detailsListe.forEach { detail ->
-            val artikel = byArtNr[detail.artNr]
-            if (artikel != null) {
-                detail.lagerOrtW1 =
-                    artikel.lagerorteW1.filter { it.isNotBlank() }.joinToString(", ")
-                detail.lagerOrtW2 =
-                    artikel.lagerorteW2.filter { it.isNotBlank() }.joinToString(", ")
-                detail.grossInfo = artikel.grossInfo
-            }
+        val map = artikelListe.associateBy { it.artNr }
+        detailsListe.forEach { d ->
+            val a = map[d.artNr] ?: return@forEach
+            d.lagerOrtW1 = a.lagerorteW1.filter { it.isNotBlank() }.joinToString(", ")
+            d.lagerOrtW2 = a.lagerorteW2.filter { it.isNotBlank() }.joinToString(", ")
+            d.grossInfo = a.grossInfo
         }
-
+        detailsOriginal = detailsListe.map { it.copy() }
         applyCurrentSortAndShow()
-    }
-
-    inner class ListDetailsAdapter(private var items: List<ListDetail>) :
-        RecyclerView.Adapter<ListDetailsAdapter.DetailViewHolder>() {
-
-        fun getItems(): List<ListDetail> = items
-
-        inner class DetailViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            val tvItem: TextView = itemView.findViewById(android.R.id.text1)
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-            DetailViewHolder(
-                LayoutInflater.from(parent.context)
-                    .inflate(android.R.layout.simple_list_item_1, parent, false)
-            )
-
-        override fun onBindViewHolder(holder: DetailViewHolder, position: Int) {
-            val item = items[position]
-            val builder = SpannableStringBuilder()
-
-            val lagerOrt = when (settings.werkNummer) {
-                "10" -> item.lagerOrtW1
-                "20" -> item.lagerOrtW2
-                else -> item.lagerOrtW1
-            }
-
-            builder.appendBoldAfterColon("LagerOrt: $lagerOrt")
-            builder.append("\n")
-            builder.appendBoldAfterColon("Groß-Info: ${item.grossInfo}")
-            builder.append("\n")
-            builder.appendBoldAfterColon("Artikelnummer: ${item.artNr}")
-            builder.append("\n")
-            builder.appendBoldAfterColon("$actionLabel: ${item.menge}")
-            builder.append("\n")
-            builder.appendBoldAfterColon("Bezeichnung: ${item.info}")
-
-            holder.tvItem.text = builder
-            val oddColor = getThemeColor(R.attr.tableRowOddColor)
-            val evenColor = getThemeColor(R.attr.tableRowEvenColor)
-            holder.itemView.setBackgroundColor(if (position % 2 == 0) oddColor else evenColor)
-            holder.tvItem.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
-            holder.itemView.setOnClickListener {
-                if (!detailDialogOpenOrPending) {
-                    detailDialogOpenOrPending = true
-                    showItemDialog(item)
-                }
-            }
-        }
-
-        override fun getItemCount() = items.size
-
-        fun updateList(newItems: List<ListDetail>) {
-            items = newItems
-            notifyDataSetChanged()
-        }
-    }
-
-    inner class ListOverviewAdapter(private var items: List<ListItem>) :
-        RecyclerView.Adapter<ListOverviewAdapter.OverviewViewHolder>() {
-
-        inner class OverviewViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
-            val tvItem: TextView = itemView.findViewById(android.R.id.text1)
-        }
-
-        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int) =
-            OverviewViewHolder(
-                LayoutInflater.from(parent.context)
-                    .inflate(android.R.layout.simple_list_item_1, parent, false)
-            )
-
-        override fun onBindViewHolder(holder: OverviewViewHolder, position: Int) {
-            val item = items[position]
-            val builder = SpannableStringBuilder()
-            builder.appendBoldAfterColon("Nummer: ${item.nummer}")
-            builder.append("\n")
-            builder.appendBoldAfterColon("Projekt-Nr: ${item.projektNr}")
-            builder.append("\n")
-            builder.appendBoldAfterColon("Projekt-Name: ${item.projektName}")
-            holder.tvItem.text = builder
-            val oddColor = getThemeColor(R.attr.tableRowOddColor)
-            val evenColor = getThemeColor(R.attr.tableRowEvenColor)
-            holder.itemView.setBackgroundColor(if (position % 2 == 0) oddColor else evenColor)
-            holder.tvItem.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
-            holder.itemView.setOnClickListener {
-                CoroutineScope(Dispatchers.Main).launch {
-                    currentProjektNr = item.projektNr
-                    etListFilter.setText(item.nummer)
-                    etProjectNumber.setText(currentProjektNr)
-                    etListFilter.setSelection(etListFilter.text.length)
-                    listView.visibility = View.GONE
-                    loadDetails(item.nummer)
-                }
-            }
-        }
-
-        override fun getItemCount() = items.size
-
-        fun updateList(newItems: List<ListItem>) {
-            items = newItems
-            notifyDataSetChanged()
-        }
     }
 }
