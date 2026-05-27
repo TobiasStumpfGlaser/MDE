@@ -543,6 +543,95 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         })
     }
 
+    private inner class ListOverviewAdapter(private var items: List<ListItem>) :
+        RecyclerView.Adapter<ListOverviewAdapter.ListViewHolder>() {
+
+        fun updateList(newItems: List<ListItem>) {
+            items = newItems
+            notifyDataSetChanged()
+        }
+
+        inner class ListViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+            val tvItem: TextView = itemView.findViewById(android.R.id.text1)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): ListViewHolder =
+            ListViewHolder(
+                LayoutInflater.from(parent.context)
+                    .inflate(android.R.layout.simple_list_item_1, parent, false)
+            )
+
+        override fun onBindViewHolder(holder: ListViewHolder, position: Int) {
+            val item = items[position]
+            holder.tvItem.text = "${item.nummer} | ${item.projektNr} | ${item.projektName}"
+            holder.itemView.setOnClickListener {
+                currentProjektNr = item.projektNr
+                etListFilter.setText(item.nummer)
+                etProjectNumber.setText(currentProjektNr)
+                etListFilter.setSelection(0)
+                listView.visibility = View.GONE
+                loadDetails(item.nummer)
+            }
+        }
+
+        override fun getItemCount(): Int = items.size
+    }
+
+    private inner class ListDetailsAdapter(private var items: List<ListDetail>) :
+        RecyclerView.Adapter<ListDetailsAdapter.DetailViewHolder>() {
+
+        fun updateList(newItems: List<ListDetail>) {
+            items = newItems
+            notifyDataSetChanged()
+        }
+
+        fun getItems(): List<ListDetail> = items
+
+        inner class DetailViewHolder(itemView: View) : RecyclerView.ViewHolder(itemView) {
+            val tvItem: TextView = itemView.findViewById(android.R.id.text1)
+        }
+
+        override fun onCreateViewHolder(parent: ViewGroup, viewType: Int): DetailViewHolder =
+            DetailViewHolder(
+                LayoutInflater.from(parent.context)
+                    .inflate(android.R.layout.simple_list_item_1, parent, false)
+            )
+
+        override fun onBindViewHolder(holder: DetailViewHolder, position: Int) {
+            val item = items[position]
+            val info = SpannableStringBuilder().apply {
+                appendBoldAfterColon("Pos: ${item.pos}")
+                append("\n")
+                appendBoldAfterColon("Artikel: ${item.artNr}")
+                append("\n")
+                appendBoldAfterColon("Menge: ${item.menge}")
+                if (item.info.isNotBlank()) {
+                    append("\n")
+                    appendBoldAfterColon("Info: ${item.info}")
+                }
+                if (item.lagerOrtW1.isNotBlank()) {
+                    append("\n")
+                    appendBoldAfterColon("Lagerort W1: ${item.lagerOrtW1}")
+                }
+                if (item.lagerOrtW2.isNotBlank()) {
+                    append("\n")
+                    appendBoldAfterColon("Lagerort W2: ${item.lagerOrtW2}")
+                }
+                if (item.grossInfo.isNotBlank()) {
+                    append("\n")
+                    appendBoldAfterColon("Groß-Info: ${item.grossInfo}")
+                }
+            }
+            holder.tvItem.text = info
+            holder.itemView.setOnClickListener {
+                detailDialogOpenOrPending = true
+                showItemDialog(item)
+            }
+        }
+
+        override fun getItemCount(): Int = items.size
+    }
+
     private fun showItemDialog(item: ListDetail) {
         val dialogAnchor = captureScrollAnchor()
 
@@ -1029,5 +1118,49 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                         detailsOriginal = details.toMutableList()
 
                         detailsAdapter.updateList(detailsListe)
-
                         etDetailFilter.visibility = View.VISIBLE
+                        detailsView.visibility = if (details.isEmpty()) View.GONE else View.VISIBLE
+
+                        focusDetailFilterWithoutKeyboard()
+                        etDetailFilter.setSelection(etDetailFilter.text.length)
+
+                        UiLoadingHelper.hide()
+                        fillDetailsWithArtikelData()
+                    }
+                    success = true
+                } catch (e: Exception) {
+                    lastError = e.message ?: "Unbekannter Fehler"
+                    delay(500)
+                }
+            }
+
+            if (!isActive) return@launch
+
+            withContext(Dispatchers.Main) {
+                if (!success) {
+                    UiLoadingHelper.update(
+                        activity = this@BasePickDropActivity,
+                        message = "Fehler nach 3 Versuchen:\n$lastError",
+                        status = UiLoadingHelper.LoadingStatus.ERROR
+                    )
+                }
+            }
+        }
+    }
+
+    private fun fillDetailsWithArtikelData() {
+        val byArtNr = DataRepository.artikelListe.associateBy { artikel -> artikel.artNr }
+
+        detailsListe.forEach { detail ->
+            val artikel = byArtNr[detail.artNr]
+            if (artikel != null) {
+                detail.lagerOrtW1 = artikel.lagerorteW1.filter { it.isNotBlank() }.joinToString(", ")
+                detail.lagerOrtW2 = artikel.lagerorteW2.filter { it.isNotBlank() }.joinToString(", ")
+                detail.grossInfo = artikel.grossInfo
+            }
+        }
+
+        detailsOriginal = detailsListe.map { detail -> detail.copy() }
+        applyCurrentSortAndShow()
+    }
+}
