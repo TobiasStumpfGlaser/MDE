@@ -1,18 +1,15 @@
 <?xml version="1.0" encoding="utf-8"?>
-<androidx.constraintlayout.widget.ConstraintLayout
-    xmlns:android="http://schemas.android.com/apk/res/android"
+<androidx.constraintlayout.widget.ConstraintLayout xmlns:android="http://schemas.android.com/apk/res/android"
     xmlns:app="http://schemas.android.com/apk/res-auto"
     android:layout_width="match_parent"
     android:layout_height="match_parent"
-    android:fitsSystemWindows="true"
-    android:background="?android:attr/windowBackground">
+    android:background="?android:attr/windowBackground"
+    android:fitsSystemWindows="true">
 
-    <!-- Toolbar -->
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="0dp"
         android:background="?attr/colorPrimary"
         android:elevation="4dp"
         android:minHeight="?attr/actionBarSize"
@@ -24,143 +21,158 @@
         <LinearLayout
             android:layout_width="wrap_content"
             android:layout_height="match_parent"
-            android:orientation="horizontal"
-            android:gravity="center_vertical">
+            android:gravity="center_vertical"
+            android:orientation="horizontal">
 
             <ImageView
-                android:layout_width="50dp"
-                android:layout_height="50dp"
-                android:src="@drawable/ic_launcher_foreground"
+                android:layout_width="40dp"
+                android:layout_height="40dp"
+                android:layout_marginStart="12dp"
+                android:layout_marginEnd="12dp"
                 android:scaleType="fitCenter"
-                android:layout_marginStart="8dp"
-                android:layout_marginEnd="8dp" />
-
-            <!-- Abstand -->
-            <View
-                android:layout_width="8dp"
-                android:layout_height="match_parent" />
+                android:src="@drawable/ic_launcher_foreground" />
 
             <TextView
                 android:id="@+id/txtHeader"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="BW MDE"
-                android:textColor="?android:attr/textColorPrimary"
-                android:textSize="25sp"
+                android:textColor="@android:color/white"
+                android:textSize="22sp"
                 android:textStyle="bold" />
         </LinearLayout>
     </androidx.appcompat.widget.Toolbar>
 
-    <!-- ScrollContainer -->
+    <LinearLayout
+        android:id="@+id/topActions"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:orientation="horizontal"
+        android:paddingStart="10dp"
+        android:paddingTop="16dp"
+        android:paddingEnd="10dp"
+        android:paddingBottom="8dp"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent"
+        app:layout_constraintTop_toBottomOf="@id/toolbar">
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnReloadArtikel"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:drawableEnd="@drawable/ic_reload"
+            android:text="Stammdaten" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnClear"
+            android:layout_width="0dp"
+            android:layout_height="56dp"
+            android:layout_weight="1"
+            android:text="Zurücksetzen" />
+    </LinearLayout>
+
     <ScrollView
         android:id="@+id/scrollContainer"
         android:layout_width="0dp"
         android:layout_height="0dp"
-        app:layout_constraintTop_toBottomOf="@id/toolbar"
-        app:layout_constraintBottom_toBottomOf="parent"
+        android:fillViewport="true"
+        app:layout_constraintBottom_toTopOf="@id/bottomActionBar"
+        app:layout_constraintEnd_toEndOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintEnd_toEndOf="parent">
+        app:layout_constraintTop_toBottomOf="@id/topActions">
 
         <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
-            android:padding="24dp">
+            android:padding="10dp">
 
-            <LinearLayout
+            <com.example.mde.AlwaysFilterAutoCompleteTextView
+                android:id="@+id/etBarcode"
                 android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:gravity="center_vertical"
-                android:orientation="horizontal">
+                android:layout_height="72dp"
+                android:background="?attr/editTextBackground"
+                android:completionThreshold="0"
+                android:hint="Artikel suchen / scannen"
+                android:inputType="textVisiblePassword"
+                android:textAlignment="viewStart"
+                android:textSize="22sp" />
 
-                <!-- Artikel -->
-                <AutoCompleteTextView
-                    android:id="@+id/etBarcode"
-                    android:layout_width="0dp"
-                    android:layout_height="match_parent"
-                    android:layout_weight="1"
-                    android:background="?attr/editTextBackground"
-                    android:completionThreshold="1"
-                    android:hint="Artikel suchen"
-                    android:inputType="textVisiblePassword"
-                    android:textAlignment="viewStart"
-                    android:paddingTop="0dp"
-                    android:paddingBottom="0dp" />
-
-                <!-- Abstand -->
-                <View
-                    android:layout_width="8dp"
-                    android:layout_height="match_parent" />
-
-                <!-- Reload Button -->
-                <ImageButton
-                    android:id="@+id/btnReloadArtikel"
-                    android:layout_width="70dp"
-                    android:layout_height="match_parent"
-                    android:scaleType="centerCrop"
-                    android:background="?attr/selectableItemBackgroundBorderless"
-                    android:contentDescription="Neu laden"
-                    android:layout_marginBottom="3dp"
-                    android:src="@drawable/baseline_refresh_24" />
-            </LinearLayout>
-
-            <!-- Projekt -->
-
-            <LinearLayout
+            <View
                 android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:orientation="horizontal"
-                android:weightSum="2"
-                android:layout_marginTop="16dp"
-                android:layout_marginBottom="16dp">
+                android:layout_height="24dp" />
 
-                <!-- Menge -->
-                <EditText
-                    android:id="@+id/edtMenge"
-                    android:layout_width="match_parent"
-                    android:layout_height="70dp"
-                    android:layout_weight="1"
-                    android:background="?attr/editTextBackground"
-                    android:hint="Menge"
-                    android:inputType="numberDecimal"
-                    android:textAlignment="viewStart" />
-
-                <View
-                    android:layout_width="16dp"
-                    android:layout_height="match_parent" />
-
-                <!-- Clear -->
-                <androidx.appcompat.widget.AppCompatButton
-                    android:id="@+id/btnClear"
-                    android:layout_width="match_parent"
-                    android:layout_weight="1"
-                    android:layout_height="70dp"
-                    android:text="Zurücksetzen" />
-            </LinearLayout>
-
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnCount"
-                android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:text="Zählung Senden" />
-
-            <!-- Artikel Info (BaseActivity ID: tvArtikelInfo) -->
             <TextView
                 android:id="@+id/tvArtikelInfo"
                 android:layout_width="match_parent"
                 android:layout_height="wrap_content"
+                android:background="?attr/editTextBackground"
+                android:minHeight="120dp"
+                android:padding="16dp"
+                android:text="Kein Artikel gewählt"
                 android:textColor="?android:attr/textColorPrimary"
-                android:textSize="20sp" />
+                android:textSize="22sp" />
 
-            <!-- Scan Button (BaseActivity ID: btnScan) -->
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp" />
+
+            <EditText
+                android:id="@+id/edtMenge"
+                android:layout_width="match_parent"
+                android:layout_height="70dp"
+                android:background="?attr/editTextBackground"
+                android:hint="Ist-Zählstand"
+                android:inputType="numberDecimal"
+                android:textAlignment="viewStart"
+                android:textSize="22sp" />
+
+            <View
+                android:layout_width="match_parent"
+                android:layout_height="16dp" />
+
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnScan"
                 android:layout_width="match_parent"
                 android:layout_height="70dp"
-                android:visibility="gone"
-                android:text="Scan" />
+                android:text="Scan"
+                android:visibility="gone" />
 
         </LinearLayout>
     </ScrollView>
+
+    <LinearLayout
+        android:id="@+id/bottomActionBar"
+        android:layout_width="0dp"
+        android:layout_height="wrap_content"
+        android:background="?android:attr/windowBackground"
+        android:elevation="8dp"
+        android:orientation="vertical"
+        android:padding="10dp"
+        app:layout_constraintBottom_toBottomOf="parent"
+        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintStart_toStartOf="parent">
+
+        <TextView
+            android:id="@+id/tvErrorMessages"
+            android:layout_width="match_parent"
+            android:layout_height="wrap_content"
+            android:padding="10dp"
+            android:textColor="?android:attr/colorError"
+            android:textSize="16sp"
+            android:textStyle="bold"
+            android:visibility="gone" />
+
+        <androidx.appcompat.widget.AppCompatButton
+            android:id="@+id/btnCount"
+            android:layout_width="match_parent"
+            android:layout_height="68dp"
+            android:backgroundTint="@android:color/holo_blue_dark"
+            android:text="Ist-Zählstand setzen"
+            android:textColor="@android:color/white"
+            android:textSize="16sp"
+            android:textStyle="bold" />
+    </LinearLayout>
 
 </androidx.constraintlayout.widget.ConstraintLayout>
