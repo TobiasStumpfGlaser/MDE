@@ -180,8 +180,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     protected open val enableManualArticleInput: Boolean = true
     protected open val clearArticleOnManualInteraction: Boolean = true
 
-    private var lastBookingTime = 0L
-    private val bookingCooldown = 2000L
+    protected var lastBookingTime = 0L
+    protected val bookingCooldown = 2000L
 
     private var serialsAreCharge: Boolean = false
     private var projektNoMatchActive = false
@@ -1093,22 +1093,16 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             return false
         }
 
-        val sign = when {
-            count -> 1
-            einlagern -> 1
-            else -> -1
+        val serverMenge = when {
+            count -> "=${menge.replace(".", ",")}"
+            einlagern -> "+${menge.replace(".", ",")}"
+            else -> "-${menge.replace(".", ",")}"
         }
 
-        val mengeSigned = menge.toDoubleOrNull()?.times(sign)
-        if (mengeSigned == null) {
+        val mengeValue = menge.replace(",", ".").toDoubleOrNull()
+        if (mengeValue == null || (!count && mengeValue == 0.0)) {
             showErrorWithLoadingHelper("Ungültige Menge")
             return false
-        }
-
-        val mengeForRequest = if (mengeSigned % 1.0 == 0.0) {
-            mengeSigned.toInt().toString()
-        } else {
-            mengeSigned.toString().replace('.', ',')
         }
 
         val serialsString = when {
@@ -1122,8 +1116,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 "Charge:$chargeNr"
             }
             else -> {
-                val mengeAbsInt = kotlin.math.abs(mengeSigned).toInt()
-                val mengeIsInteger = mengeSigned % 1.0 == 0.0
+                val mengeAbsInt = kotlin.math.abs(mengeValue).toInt()
+                val mengeIsInteger = mengeValue % 1.0 == 0.0
                 val serialList = serialsRaw.split(";").map { it.trim() }.filter { it.isNotBlank() }
                 if (!mengeIsInteger) {
                     showErrorWithLoadingHelper("Seriennummern sind nur bei ganzen Mengen möglich")
@@ -1139,69 +1133,63 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
         val request = buildString {
             append("{SetBuchung}")
-            append(artikel)
-            append("||")
-            append(mengeForRequest)
-            append("|")
-            append(projekt)
-            append("|")
-            append(settings.werkNummer)
-            append("|")
-            append(username)
-            append("|")
-            append(now)
-            append("|")
-            if (serialsString.isNotEmpty()) append(serialsString)
+            append("$artikel||$serverMenge|||$projekt|${settings.werkNummer}|$username|$now|")
+            if (serialsString.isNotEmpty()) {
+                append(serialsString)
+            }
             append("|{/SetBuchung}")
-        }
-
-        val loadingMessage = when {
-            count -> "Zählstand wird gebucht..."
-            einlagern -> "Einlagern läuft..."
-            else -> "Auslagern läuft..."
         }
 
         UiLoadingHelper.show(
             activity = this,
-            message = loadingMessage,
+            message = "Buchung läuft…",
             status = UiLoadingHelper.LoadingStatus.LOADING,
             onCancel = null
         )
 
         CoroutineScope(Dispatchers.IO).launch {
-            try {
-                val response = TcpClient.sendCommand(
-                    context = this@BaseArtikelScanActivity,
-                    settings = settings,
-                    command = "SetBuchung",
-                    request = request,
-                    endTag = "{/SetBuchung}"
-                )
-                val cleaned = response.replace("\r", "").trim()
-
-                withContext(Dispatchers.Main) {
-                    if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
-                        UiLoadingHelper.update(
-                            activity = this@BaseArtikelScanActivity,
-                            message = "Buchung erfolgreich",
-                            status = UiLoadingHelper.LoadingStatus.SUCCESS
-                        )
-                        btnClearClicked()
-                    } else {
-                        UiLoadingHelper.update(
-                            activity = this@BaseArtikelScanActivity,
-                            message = "Buchung fehlgeschlagen:\n$response",
-                            status = UiLoadingHelper.LoadingStatus.ERROR
-                        )
-                    }
-                }
-            } catch (e: Exception) {
-                withContext(Dispatchers.Main) {
-                    UiLoadingHelper.update(
-                        activity = this@BaseArtikelScanActivity,
-                        message = "Fehler:\n${e.message}",
-                        status = UiLoadingHelper.LoadingStatus.ERROR
+            var attempts = 0
+            while (attempts < 3) {
+                attempts++
+                try {
+                    val response = TcpClient.sendCommand(
+                        context = this@BaseArtikelScanActivity,
+                        settings = settings,
+                        command = "SetBuchung",
+                        request = request,
+                        endTag = "{/SetBuchung}"
                     )
+                    val cleaned = response.replace("\r", "").trim()
+
+                    withContext(Dispatchers.Main) {
+                        if (cleaned == "{SetBuchung}\nok\n{/SetBuchung}") {
+                            UiLoadingHelper.update(
+                                activity = this@BaseArtikelScanActivity,
+                                message = "Buchung erfolgreich",
+                                status = UiLoadingHelper.LoadingStatus.SUCCESS
+                            )
+                            if (AppSettings(this@BaseArtikelScanActivity).clearAfterSuccess) {
+                                btnClearClicked()
+                            }
+                        } else {
+                            UiLoadingHelper.update(
+                                activity = this@BaseArtikelScanActivity,
+                                message = "Buchung fehlgeschlagen:\n$response",
+                                status = UiLoadingHelper.LoadingStatus.ERROR
+                            )
+                        }
+                    }
+                    return@launch
+                } catch (_: Exception) {
+                    if (attempts >= 3) {
+                        withContext(Dispatchers.Main) {
+                            UiLoadingHelper.update(
+                                activity = this@BaseArtikelScanActivity,
+                                message = "Buchung fehlgeschlagen",
+                                status = UiLoadingHelper.LoadingStatus.ERROR
+                            )
+                        }
+                    }
                 }
             }
         }
