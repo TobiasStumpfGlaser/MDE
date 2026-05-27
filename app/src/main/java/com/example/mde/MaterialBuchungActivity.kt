@@ -2,11 +2,8 @@ package com.example.mde
 
 import android.content.Context
 import android.os.Bundle
-import android.text.Editable
-import android.text.TextWatcher
 import android.view.LayoutInflater
 import android.view.MotionEvent
-import android.view.View
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
@@ -74,35 +71,20 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
 
         etFilter.setOnTouchListener { _, event ->
             if (event.action == MotionEvent.ACTION_UP) {
-                if (shouldClearArticleFieldOnManualInteraction()) {
+                if (etFilter.text.toString().trim().isNotEmpty()) {
                     btnClearClicked()
-                    etFilter.setSelection(0)
                 }
-                showArticleSuggestions()
+                openManualArticleInput()
             }
             false
         }
 
         etFilter.setOnClickListener {
-            if (shouldClearArticleFieldOnManualInteraction()) {
+            if (etFilter.text.toString().trim().isNotEmpty()) {
                 btnClearClicked()
-                etFilter.setSelection(0)
             }
-            showArticleSuggestions()
+            openManualArticleInput()
         }
-
-        etFilter.setOnFocusChangeListener { _, _ ->
-            // Fokus allein soll nichts öffnen; nur expliziter Klick/Tap.
-        }
-
-        etFilter.addTextChangedListener(object : TextWatcher {
-            override fun afterTextChanged(s: Editable?) {
-                // Kein Auto-Dropdown bei Start/Leerzustand; Handeingabe ist nur Fallback.
-            }
-
-            override fun beforeTextChanged(s: CharSequence?, start: Int, count: Int, after: Int) {}
-            override fun onTextChanged(s: CharSequence?, start: Int, before: Int, count: Int) {}
-        })
 
         val txtHeader = findViewById<TextView>(R.id.txtHeader)
         txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
@@ -111,7 +93,7 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
     override fun onBarcodeScanned(barcode: String) {
         val cleanedBarcode = barcode.trim()
         if (cleanedBarcode.isBlank()) return
-        if (hasAnyArticleInput()) {
+        if (etFilter.text.toString().trim().isNotEmpty()) {
             btnClearClicked()
         }
         etFilter.setText(cleanedBarcode)
@@ -121,21 +103,12 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
 
     override fun btnClearClicked() {
         super.btnClearClicked()
-        etFilter.isFocusable = true
-        etFilter.isFocusableInTouchMode = true
-        etFilter.isCursorVisible = true
-        etFilter.keyListener = etFilterKeyListener
         etFilter.setSelection(0)
         etFilter.dismissDropDown()
     }
 
-    private fun showArticleSuggestions() {
-        if (hasValidSelectedArticle()) return
+    private fun openManualArticleInput() {
         etFilter.post {
-            etFilter.isFocusable = true
-            etFilter.isFocusableInTouchMode = true
-            etFilter.isCursorVisible = true
-            etFilter.keyListener = etFilterKeyListener
             etFilter.requestFocus()
             val imm = getSystemService(INPUT_METHOD_SERVICE) as InputMethodManager
             imm.showSoftInput(etFilter, InputMethodManager.SHOW_IMPLICIT)
@@ -143,14 +116,6 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
             etFilter.setSelection(0)
             etFilter.showDropDown()
         }
-    }
-
-    private fun shouldClearArticleFieldOnManualInteraction(): Boolean {
-        return hasValidSelectedArticle() || etFilter.text.toString().trim().isNotEmpty()
-    }
-
-    private fun hasAnyArticleInput(): Boolean {
-        return etFilter.text.toString().trim().isNotEmpty()
     }
 
     private fun hasValidSelectedArticle(): Boolean {
