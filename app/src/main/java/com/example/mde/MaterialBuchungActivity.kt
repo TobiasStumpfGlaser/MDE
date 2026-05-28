@@ -79,6 +79,11 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         showBookingDetailsDialog(einlagern)
     }
 
+    /**
+     * Öffnet den Buchungsdetail-Dialog für Material-Einlagerung oder -Auslagerung.
+     *
+     * @param einlagern `true` für Einlagerung, `false` für Auslagerung.
+     */
     private fun showBookingDetailsDialog(einlagern: Boolean) {
         if (bookingDialogOpen) return
         bookingDialogOpen = true
@@ -239,10 +244,25 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         }
     }
 
+    /**
+     * Normalisiert einen Projekt-Filterwert für den Vergleich:
+     * Alles klein schreiben und Nicht-Alphanumerik-Zeichen entfernen.
+     *
+     * @param value Rohwert aus dem Eingabefeld.
+     * @return Normalisierter String ohne Sonderzeichen.
+     */
     private fun normalizeProjektFilter(value: String): String {
         return value.lowercase().replace(Regex("[^a-z0-9]+"), "")
     }
 
+    /**
+     * Sortiert die Projektliste so, dass zuletzt verwendete Projekte oben stehen.
+     * Projekte, die nicht in [DataRepository.recentProjektListe] enthalten sind,
+     * werden alphabetisch angehängt.
+     *
+     * @param projekte Vollständige Projektliste.
+     * @return Sortierte Liste mit kürzlich verwendeten Projekten zuerst.
+     */
     private fun sortProjekteWithRecents(projekte: List<String>): List<String> {
         val recent = DataRepository.recentProjektListe
         return projekte.sortedWith(
@@ -253,6 +273,17 @@ class MaterialBuchungActivity : BaseArtikelScanActivity() {
         )
     }
 
+    /**
+     * Formatiert eine Liste von Seriennummern für den Server-Request.
+     *
+     * - Leere Liste → leerer String.
+     * - Chargenmodus → `"Charge:<Nummer>"`.
+     * - Seriennummern → semikolonseparierte Liste.
+     *
+     * @param serials Liste der eingegebenen Seriennummern/Chargennummern.
+     * @param isCharge `true`, wenn es sich um eine Chargennummer handelt.
+     * @return Formatierter String für den Server.
+     */
     private fun formatSerialNumbers(serials: List<String>, isCharge: Boolean): String {
         if (serials.isEmpty()) return ""
         if (isCharge) {

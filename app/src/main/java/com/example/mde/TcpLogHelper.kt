@@ -6,25 +6,58 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 
+/**
+ * Schreibt TCP-Request- und Response-Daten in Textdateien auf dem externen Speicher.
+ *
+ * Jeder Befehl erhält eine eigene Logdatei unter `<external>/tcp_logs/<command>.txt`.
+ * Die Logs werden beim App-Start über [clearLogs] geleert.
+ */
 object TcpLogHelper {
+
     private val dateFormat =
         SimpleDateFormat("yyyy-MM-dd HH:mm:ss.SSS", Locale.getDefault())
 
-    private fun getLogFile(context: Context, command: String): File {
-        val dir = File(
-            context.getExternalFilesDir(null),
-            "tcp_logs"
-        )
-        //val dir = File(context.filesDir, "tcp_logs")
+    /**
+     * Gibt das Verzeichnis für TCP-Logs zurück und legt es an, falls es nicht existiert.
+     *
+     * @param context Android-Kontext für den Zugriff auf den externen Speicher.
+     * @return [File] des Log-Verzeichnisses.
+     */
+    private fun getLogDir(context: Context): File {
+        val dir = File(context.getExternalFilesDir(null), "tcp_logs")
         if (!dir.exists()) dir.mkdirs()
-
-        return File(dir, "${command}.txt")
+        return dir
     }
 
+    /**
+     * Gibt die Log-Datei für den angegebenen Befehl zurück.
+     *
+     * @param context Android-Kontext.
+     * @param command Name des TCP-Befehls (wird als Dateiname verwendet).
+     * @return [File] der zugehörigen Log-Datei.
+     */
+    private fun getLogFile(context: Context, command: String): File {
+        return File(getLogDir(context), "$command.txt")
+    }
+
+    /**
+     * Schreibt eine REQUEST-Zeile in die Log-Datei des angegebenen Befehls.
+     *
+     * @param context Android-Kontext.
+     * @param command Name des TCP-Befehls.
+     * @param text Inhalt der Anfrage.
+     */
     fun logRequest(context: Context, command: String, text: String) {
         write(context, command, "REQUEST", text)
     }
 
+    /**
+     * Schreibt eine RESPONSE-Zeile in die Log-Datei des angegebenen Befehls.
+     *
+     * @param context Android-Kontext.
+     * @param command Name des TCP-Befehls.
+     * @param text Inhalt der Antwort.
+     */
     fun logResponse(context: Context, command: String, text: String) {
         write(context, command, "RESPONSE", text)
     }
@@ -48,13 +81,7 @@ object TcpLogHelper {
         }
     }
 
-    private fun getLogDir(context: Context): File {
-        val dir = File(context.getExternalFilesDir(null), "tcp_logs")
-        if (!dir.exists()) dir.mkdirs()
-        return dir
-    }
-
-    /** Löscht alle TCP-Logs beim App-Start */
+    /** Löscht alle TCP-Logs beim App-Start. */
     fun clearLogs(context: Context) {
         try {
             val dir = getLogDir(context)

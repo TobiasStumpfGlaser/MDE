@@ -10,8 +10,14 @@ import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.EditText
 import android.widget.TextView
-import androidx.appcompat.app.AlertDialog
 
+/**
+ * Inventur-Activity.
+ *
+ * Ermöglicht das Scannen und manuelle Auswählen eines Artikels sowie die anschließende
+ * Mengenzählung per [doBuchen]. Erbt die Artikel-Lade- und Scanner-Logik von
+ * [BaseArtikelScanActivity].
+ */
 class InventurActivity : BaseArtikelScanActivity() {
     private lateinit var settings: AppSettings
     private lateinit var username: String
@@ -132,14 +138,6 @@ class InventurActivity : BaseArtikelScanActivity() {
             return
         }
 
-        val mengeText = edtMenge.text.toString().trim()
-        val dialogMenge = EditText(this).apply {
-            setText(mengeText)
-            inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
-        }
-
-        val countValue = dialogMenge.text.toString().trim()
-        edtMenge.setText(countValue)
         doBuchen(true, count = true)
         btnClearClicked()
     }

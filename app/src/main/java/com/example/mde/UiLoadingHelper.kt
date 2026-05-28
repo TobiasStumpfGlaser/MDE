@@ -242,6 +242,16 @@ object UiLoadingHelper {
         loadingDialog?.show()
     }
 
+    /**
+     * Aktualisiert den laufenden Dialog mit neuem Text und Status.
+     *
+     * Tauscht das Icon aus, passt die Button-Sichtbarkeit an und
+     * startet bei [LoadingStatus.SUCCESS] den Auto-Hide-Timer.
+     *
+     * @param activity Activity-Kontext (für Sound und View-Erstellung).
+     * @param message Neuer Nachrichtentext.
+     * @param status Neuer Status ([LoadingStatus.LOADING], [LoadingStatus.SUCCESS] oder [LoadingStatus.ERROR]).
+     */
     fun update(
         activity: Activity,
         message: String,
@@ -323,12 +333,20 @@ object UiLoadingHelper {
         }
     }
 
+    /** Schließt den aktuellen Dialog und bricht den Auto-Hide-Timer ab. */
     fun hide() {
         autoHideJob?.cancel()
         loadingDialog?.dismiss()
         loadingDialog = null
     }
 
+    /**
+     * Spielt den Fehler-Sound ab.
+     *
+     * Die Ressource `R.raw.error` wird einmalig abgespielt und danach freigegeben.
+     *
+     * @param context Kontext für den Zugriff auf die Raw-Ressource.
+     */
     fun playErrorSound(context: Context) {
         val mp = MediaPlayer.create(context, R.raw.error)
         mp.start()
