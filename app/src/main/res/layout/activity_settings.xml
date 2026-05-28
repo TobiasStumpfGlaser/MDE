@@ -202,13 +202,6 @@
                 android:text="Zurücksetzen nach Buchung OK"
                 android:textColor="?android:attr/textColorPrimary"/>
 
-            <CheckBox
-                android:id="@+id/cbConfirmBook"
-                android:layout_width="match_parent"
-                android:layout_height="wrap_content"
-                android:text="Bestätigungsdialog anzeigen"
-                android:textColor="?android:attr/textColorPrimary"/>
-
             <!-- Schriftgröße -->
             <TextView
                 android:layout_width="match_parent"

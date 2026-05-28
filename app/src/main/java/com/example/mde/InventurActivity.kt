@@ -138,19 +138,9 @@ class InventurActivity : BaseArtikelScanActivity() {
             inputType = android.text.InputType.TYPE_CLASS_NUMBER or android.text.InputType.TYPE_NUMBER_FLAG_DECIMAL
         }
 
-        AlertDialog.Builder(this)
-            .setTitle("Ist-Zählung setzen")
-            .setView(dialogMenge)
-            .setPositiveButton("OK") { _, _ ->
-                val countValue = dialogMenge.text.toString().trim()
-                edtMenge.setText(countValue)
-                doBuchen(true, count = true)
-            }
-            .setNegativeButton("Abbrechen", null)
-            .show()
-            .window?.setLayout(
-                ViewGroup.LayoutParams.MATCH_PARENT,
-                ViewGroup.LayoutParams.WRAP_CONTENT
-            )
+        val countValue = dialogMenge.text.toString().trim()
+        edtMenge.setText(countValue)
+        doBuchen(true, count = true)
+        btnClearClicked()
     }
 }

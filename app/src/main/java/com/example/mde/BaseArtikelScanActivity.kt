@@ -415,6 +415,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     protected fun showNoArtikelInfo(message: String = "Kein Artikel") {
+        UiLoadingHelper.playErrorSound(this)
         val errorColor = getThemeColor(android.R.attr.colorError)
         val spannable = SpannableStringBuilder(message)
         spannable.setSpan(StyleSpan(Typeface.BOLD), 0, message.length, Spanned.SPAN_EXCLUSIVE_EXCLUSIVE)

@@ -35,10 +35,6 @@ class AppSettings(context: Context) {
         get() = prefs.getBoolean("clearAfterSuccess", false)
         set(value) = prefs.edit().putBoolean("clearAfterSuccess", value).apply()
 
-    var confirmBook: Boolean
-        get() = prefs.getBoolean("confirmBook", false)
-        set(value) = prefs.edit().putBoolean("confirmBook", value).apply()
-
     var selectedTheme: String
         get() = prefs.getString("selected_theme", "light") ?: "light"
         set(value) = prefs.edit().putString("selected_theme", value).apply()
