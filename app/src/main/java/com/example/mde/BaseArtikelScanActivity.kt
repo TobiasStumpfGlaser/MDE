@@ -187,7 +187,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     private var serialsAreCharge: Boolean = false
     private var projektNoMatchActive = false
     private var artikelNoMatchActive = false
-    private var serialDialogScanHandler: ((String) -> Unit)? = null
+    protected var serialDialogScanHandler: ((String) -> Unit)? = null
 
     private val scanReceiver = object : BroadcastReceiver() {
         override fun onReceive(context: Context?, intent: Intent?) {
@@ -281,6 +281,14 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             unregisterReceiver(scanReceiver)
         } catch (_: IllegalArgumentException) {
         }
+    }
+
+    protected fun tryHandleWithActiveDialogHandler(barcode: String): Boolean {
+        val handler = serialDialogScanHandler
+        return if (handler != null) {
+            runOnUiThread { handler(barcode) }
+            true
+        } else false
     }
 
     protected open fun onBarcodeScanned(barcode: String) {

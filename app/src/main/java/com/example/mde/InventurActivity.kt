@@ -89,6 +89,7 @@ class InventurActivity : BaseArtikelScanActivity() {
     override fun onBarcodeScanned(barcode: String) {
         val cleanedBarcode = barcode.trim()
         if (cleanedBarcode.isBlank()) return
+        if (tryHandleWithActiveDialogHandler(cleanedBarcode)) return
         if (hasValidSelectedArticle()) {
             btnClearClicked()
         }

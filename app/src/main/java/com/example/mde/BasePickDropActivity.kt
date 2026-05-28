@@ -264,6 +264,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     override fun onBarcodeScanned(barcode: String) {
         val cleanedBarcode = barcode.trim()
         if (cleanedBarcode.isBlank()) return
+        if (tryHandleWithActiveDialogHandler(cleanedBarcode)) return
 
         if (detailsView.visibility == View.VISIBLE && detailsOriginal.isNotEmpty()) {
             routeBarcodeToDetailFilter(cleanedBarcode)
@@ -818,7 +819,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             setSelection(0)
         }
 
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle("Artikel ersetzen")
             .setMessage("Aktuell: ${item.artNr}\nBitte neue Artikelnummer eingeben.")
             .setView(et)
@@ -839,7 +840,18 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 onArticleChanged()
             }
             .setNegativeButton("Abbrechen", null)
-            .show()
+            .create()
+
+        serialDialogScanHandler = { scannedBarcode ->
+            et.setText(scannedBarcode)
+            et.setSelection(et.text.length)
+        }
+
+        dialog.setOnDismissListener {
+            serialDialogScanHandler = null
+        }
+
+        dialog.show()
     }
 
     /**
