@@ -253,6 +253,14 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         loadList()
     }
 
+    /**
+     * Verarbeitet einen gescannten Barcode.
+     *
+     * Ist die Detailansicht aktiv, wird nach dem Barcode in den geladenen Positionen
+     * gefiltert. Andernfalls wird die Listenübersicht nach der Nummer gefiltert.
+     *
+     * @param barcode Gelesener Barcode-String (bereits getrimmt durch den Aufrufer).
+     */
     override fun onBarcodeScanned(barcode: String) {
         val cleanedBarcode = barcode.trim()
         if (cleanedBarcode.isBlank()) return
@@ -521,6 +529,14 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         })
     }
 
+    /**
+     * Öffnet den Buchungsdialog für eine einzelne Listenposition.
+     *
+     * Zeigt Positions-Details an und bietet Buttons für die Bestätigung oder den Abbruch.
+     * Nach erfolgreicher Buchung wird die Position aus der Liste entfernt.
+     *
+     * @param item Die zu buchende [ListDetail]-Position.
+     */
     private fun showItemDialog(item: ListDetail) {
         val dialogAnchor = captureScrollAnchor()
 
@@ -826,6 +842,12 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             .show()
     }
 
+    /**
+     * Lädt die Listenübersicht asynchron vom Server.
+     *
+     * Zeigt während des Ladens einen Ladeindikator an und befüllt
+     * anschließend den [listAdapter] mit den geparsten [ListItem]-Objekten.
+     */
     private fun loadList() {
         loadListJob?.cancel()
         val loadJob = Job()
@@ -915,6 +937,14 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         etListFilter.setSelection(0)
     }
 
+    /**
+     * Lädt die Detailpositionen für eine bestimmte Listennummer asynchron vom Server.
+     *
+     * Bricht einen laufenden Ladevorgang ab, zeigt einen Ladeindikator und befüllt
+     * nach dem Laden den [detailsAdapter]. Die Detailansicht wird eingeblendet.
+     *
+     * @param nummer Listennummer, für die die Details geladen werden sollen.
+     */
     fun loadDetails(nummer: String) {
         loadDetailsJob?.cancel()
         val loadJob = Job()

@@ -1,5 +1,11 @@
 package com.example.mde
 
+/**
+ * Drop-Listen-Activity.
+ *
+ * Zeigt offene Droplisten an und ermöglicht das Abarbeiten der enthaltenen Positionen.
+ * Erbt die gesamte Listen- und Buchungslogik von [BasePickDropActivity].
+ */
 class DropListActivity : BasePickDropActivity() {
 
     override val overviewCommand     = "GetDropOverview"

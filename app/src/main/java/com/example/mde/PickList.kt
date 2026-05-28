@@ -1,5 +1,11 @@
 package com.example.mde
 
+/**
+ * Pick-Listen-Activity.
+ *
+ * Zeigt offene Picklisten an und ermöglicht das Kommissionieren der enthaltenen Positionen.
+ * Erbt die gesamte Listen- und Buchungslogik von [BasePickDropActivity].
+ */
 class PickListActivity : BasePickDropActivity() {
 
     override val overviewCommand     = "GetPickOverview"

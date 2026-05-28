@@ -29,21 +29,44 @@ import com.google.mlkit.vision.common.InputImage
 import java.util.concurrent.ExecutorService
 import java.util.concurrent.Executors
 
+/**
+ * Scanner-Activity für Barcode-Erfassung.
+ *
+ * Unterstützt sowohl die Kamera-basierte ML-Kit-Erkennung als auch den
+ * HID-Barcode-Scanner des Datalogic-Geräts über einen unsichtbaren [EditText].
+ * Nach erfolgreichem Scan wird der Barcode per [RESULT_OK] an die rufende Activity
+ * zurückgegeben.
+ */
 class ScannerActivity : AppCompatActivity() {
+
+    companion object {
+        /** Request-Code für die Kamera-Berechtigung. */
+        private const val CAMERA_PERMISSION_REQUEST = 100
+    }
+
+    // ── Views ────────────────────────────────────────────────────────────────
 
     private lateinit var previewView: PreviewView
     private lateinit var btnCancel: Button
-    private lateinit var hiddenScanInput: EditText  // unsichtbarer EditText für Datalogic
+
+    /** Unsichtbarer EditText für HID-Barcode-Eingaben des Datalogic-Scanners. */
+    private lateinit var hiddenScanInput: EditText
+
+    // ── Kamera & Scanner-Zustand ──────────────────────────────────────────────
 
     private lateinit var cameraExecutor: ExecutorService
     private var currentBarcodeText: String? = null
     private var barcodeConfirmed = false
+
+    // ── Inaktivitäts-Timer ───────────────────────────────────────────────────
 
     private lateinit var handler: Handler
     private lateinit var timeoutRunnable: Runnable
     private var timeoutMillis = 0L
 
     private val barcodeBuffer = StringBuilder()
+
+    // ── Lifecycle ────────────────────────────────────────────────────────────
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val settings = AppSettings(this)
@@ -66,30 +89,30 @@ class ScannerActivity : AppCompatActivity() {
         btnCancel = findViewById(R.id.btnCancel)
         hiddenScanInput = findViewById(R.id.hiddenScanInput)
 
-        timeoutMillis = AppSettings(this).logoutTimeSec * 1000L
+        timeoutMillis = settings.logoutTimeSec * 1000L
         handler = Handler(Looper.getMainLooper())
         timeoutRunnable = Runnable {
             startActivity(Intent(this, LoginActivity::class.java))
-            overridePendingTransition(0,0)
+            overridePendingTransition(0, 0)
             finish()
         }
 
         cameraExecutor = Executors.newSingleThreadExecutor()
 
-        // Kamera Permission prüfen
+        // Kamera-Berechtigung prüfen
         if (ContextCompat.checkSelfPermission(this, Manifest.permission.CAMERA)
             != PackageManager.PERMISSION_GRANTED
         ) {
             ActivityCompat.requestPermissions(
                 this,
                 arrayOf(Manifest.permission.CAMERA),
-                100
+                CAMERA_PERMISSION_REQUEST
             )
         } else {
             startCamera()
         }
 
-        // Hardware Scanner aktivieren
+        // Hardware-Scanner aktivieren
         setupDatalogicScanInput()
 
         btnCancel.setOnClickListener { finish() }
@@ -98,6 +121,30 @@ class ScannerActivity : AppCompatActivity() {
         txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
     }
 
+    override fun onResume() {
+        super.onResume()
+        resetTimeout()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        handler.removeCallbacks(timeoutRunnable)
+    }
+
+    override fun onDestroy() {
+        super.onDestroy()
+        cameraExecutor.shutdown()
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        if (item.itemId == android.R.id.home) {
+            finish()
+            return true
+        }
+        return super.onOptionsItemSelected(item)
+    }
+
+    /** Verarbeitet das Ergebnis der Kamera-Berechtigungsanfrage. */
     override fun onRequestPermissionsResult(
         requestCode: Int,
         permissions: Array<out String>,
@@ -105,7 +152,7 @@ class ScannerActivity : AppCompatActivity() {
     ) {
         super.onRequestPermissionsResult(requestCode, permissions, grantResults)
 
-        if (requestCode == 100 &&
+        if (requestCode == CAMERA_PERMISSION_REQUEST &&
             grantResults.isNotEmpty() &&
             grantResults[0] == PackageManager.PERMISSION_GRANTED
         ) {
@@ -113,9 +160,13 @@ class ScannerActivity : AppCompatActivity() {
         }
     }
 
-    // =========================
-    // Datalogic Scan-Taste
-    // =========================
+    // ── Datalogic HID-Scanner ─────────────────────────────────────────────────
+
+    /**
+     * Richtet den unsichtbaren [EditText] für HID-Barcode-Eingaben ein.
+     * Zeichen werden im [barcodeBuffer] gesammelt; ein Enter-Zeichen signalisiert
+     * das Ende des Barcodes.
+     */
     private fun setupDatalogicScanInput() {
         // Fokus auf unsichtbaren EditText setzen
         hiddenScanInput.requestFocus()
@@ -142,9 +193,9 @@ class ScannerActivity : AppCompatActivity() {
         }
     }
 
-    // =========================
-    // Kamera-Scan
-    // =========================
+    // ── Kamera-Scan ───────────────────────────────────────────────────────────
+
+    /** Initialisiert die CameraX-Preview und den ML-Kit-Barcode-Analyzer. */
     private fun startCamera() {
         val cameraProviderFuture = ProcessCameraProvider.getInstance(this)
         cameraProviderFuture.addListener({
@@ -201,9 +252,12 @@ class ScannerActivity : AppCompatActivity() {
         }, ContextCompat.getMainExecutor(this))
     }
 
-    // =========================
-    // Barcode bestätigen
-    // =========================
+    // ── Barcode-Bestätigung ───────────────────────────────────────────────────
+
+    /**
+     * Zeigt einen Bestätigungsdialog an, nachdem ein Barcode erkannt wurde.
+     * Bei Bestätigung wird der Barcode als [RESULT_OK]-Ergebnis zurückgegeben.
+     */
     private fun showConfirmDialog(barcodeText: String) {
         AlertDialog.Builder(this)
             .setTitle("Barcode erkannt")
@@ -222,21 +276,20 @@ class ScannerActivity : AppCompatActivity() {
             .show()
     }
 
+    // ── Inaktivitäts-Timer ───────────────────────────────────────────────────
+
+    /** Setzt den Logout-Timer bei jeder Berührung zurück. */
     override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
         resetTimeout()
         return super.dispatchTouchEvent(ev)
     }
 
+    /**
+     * Entfernt ausstehende Timeout-Callbacks und plant einen neuen
+     * Logout-Runnable nach [timeoutMillis] Millisekunden.
+     */
     private fun resetTimeout() {
         handler.removeCallbacks(timeoutRunnable)
         handler.postDelayed(timeoutRunnable, timeoutMillis)
-    }
-
-    override fun onResume() { super.onResume(); resetTimeout() }
-    override fun onPause() { super.onPause(); handler.removeCallbacks(timeoutRunnable) }
-    override fun onDestroy() { super.onDestroy(); cameraExecutor.shutdown() }
-    override fun onOptionsItemSelected(item: MenuItem): Boolean {
-        if (item.itemId == android.R.id.home) { finish(); return true }
-        return super.onOptionsItemSelected(item)
     }
 }

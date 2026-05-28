@@ -36,7 +36,6 @@ import com.example.mde.model.Artikel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
-import kotlinx.coroutines.Runnable
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
@@ -104,6 +103,9 @@ class ArtikelAdapter(context: Context, artikelListe: List<Artikel>) :
 }
 
 object DataRepository {
+    /** Maximales Alter der gecachten Daten, bevor ein Reload erzwungen wird. */
+    private const val RELOAD_INTERVAL_MS = 60 * 60 * 1000L // 1 Stunde
+
     var artikelListe: List<Artikel> = emptyList()
     var projektListe: List<String> = emptyList()
     var recentProjektListe: MutableList<String> = mutableListOf()
@@ -113,10 +115,9 @@ object DataRepository {
     var lastLoadTime: Long = 0
 
     fun shouldReload(): Boolean {
-        val time = 60 * 60 * 1000
         return artikelListe.isEmpty() ||
                 projektListe.isEmpty() ||
-                System.currentTimeMillis() - lastLoadTime > time
+                System.currentTimeMillis() - lastLoadTime > RELOAD_INTERVAL_MS
     }
 
     fun clear() {

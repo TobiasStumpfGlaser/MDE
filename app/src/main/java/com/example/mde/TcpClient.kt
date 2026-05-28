@@ -9,6 +9,13 @@ import java.net.SocketTimeoutException
 
 object TcpClient {
 
+    /**
+     * Baut eine TCP-Verbindung zum in [settings] konfigurierten Server auf.
+     *
+     * @param settings App-Einstellungen mit IP, Port und Timeout-Werten.
+     * @return Verbundener [Socket] mit gesetztem `soTimeout`.
+     * @throws java.net.SocketTimeoutException wenn der Verbindungsaufbau das Timeout überschreitet.
+     */
     @Synchronized
     private fun createConnection(settings: AppSettings): Socket {
         val socket = Socket()
@@ -52,10 +59,9 @@ object TcpClient {
                 continue
             }
 
-            // End-Tag -> ab hier normal weiter
+            // End-Tag -> ab hier normal weiter; Reset ermöglicht mehrere aufeinanderfolgende Blöcke
             if (trimmed == endTag.trim()) {
                 out.add(line)
-                // optional: reset, falls mehrere Blöcke vorkommen sollten
                 started = false
                 removedHeader = false
                 continue
@@ -73,6 +79,22 @@ object TcpClient {
         return out.joinToString("\n")
     }
 
+    /**
+     * Sendet einen TCP-Befehl an den Server und liest die Antwort bis zum [endTag].
+     *
+     * - Loggt Request und Response über [TcpLogHelper].
+     * - Entfernt bei Nicht-Buchungs-Befehlen automatisch die erste Kopfzeile (Tabellenkopf).
+     * - Verbindung und Writer werden im `finally`-Block sicher geschlossen.
+     *
+     * @param context Android-Kontext für das Logging.
+     * @param settings App-Einstellungen mit Server-Adresse und Timeouts.
+     * @param command Name des Befehls (z. B. `"GetArtikel"`), wird für das Log verwendet.
+     * @param request Der vollständige Request-String, der an den Server gesendet wird.
+     * @param endTag Abschluss-Tag des Server-Response (z. B. `"{/GetArtikel}"`).
+     * @return Serverantwort als String; bei Nicht-Buchungs-Befehlen ohne Tabellenkopfzeile.
+     * @throws java.net.SocketTimeoutException wenn keine Antwort innerhalb des Timeouts eintrifft.
+     * @throws Exception bei sonstigen Verbindungsfehlern.
+     */
     @Synchronized
     fun sendCommand(
         context: Context,

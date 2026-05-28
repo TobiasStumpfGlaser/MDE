@@ -33,6 +33,13 @@ object FontScaleUtil {
         }
     }
 
+    /**
+     * Konvertiert einen Pixel-Wert in Skalierungsunabhängige Pixel (sp).
+     *
+     * @param view View, dessen Display-Metriken für die Umrechnung verwendet werden.
+     * @param px Wert in Pixeln.
+     * @return Äquivalenter Wert in sp.
+     */
     private fun pxToSp(view: View, px: Float): Float {
         return px / view.resources.displayMetrics.scaledDensity
     }
