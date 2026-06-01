@@ -13,8 +13,8 @@ android {
         applicationId = "com.example.mde"
         minSdk = 24
         targetSdk = 36
-        versionCode = 76
-        versionName = "5.2"
+        versionCode = 77
+        versionName = "5.3"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
