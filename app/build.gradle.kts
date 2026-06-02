@@ -116,8 +116,16 @@ tasks.register<JacocoReport>("jacocoTestReport") {
         "**/*Adapter*.*",
         "**/*Adapter\$*.*",
 
-        // Netzwerk (nicht mockbar ohne Codeänderungen)
+        // Netzwerk (nicht ohne echten Server testbar)
         "**/TcpClient*.*",
+
+        // Logging (Dateisystem-Wrapper, keine Geschäftslogik)
+        "**/TcpLogHelper*.*",
+
+        // Android-View-Subklassen (benötigen Android-Laufzeit)
+        "**/FontScaleUtil*.*",
+        "**/LayoutScaleUtil*.*",
+        "**/AlwaysFilterAutoCompleteTextView*.*",
 
         // UI-Dialog-Helfer (benötigt Activity)
         "**/UiLoadingHelper*.*",
@@ -134,7 +142,7 @@ tasks.register<JacocoReport>("jacocoTestReport") {
         "**/DropList*.*"
     )
 
-    // Neuer AGP-Pfad für Kotlin-Klassen (built_in_kotlinc statt tmp/kotlin-classes)
+    // AGP 8.x Kotlin-Klassenpfad
     val kotlinDebugTree = fileTree(
         layout.buildDirectory.dir("intermediates/built_in_kotlinc/debug/compileDebugKotlin/classes")
     ) {
