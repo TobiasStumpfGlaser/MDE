@@ -154,6 +154,18 @@ class BuchungsHelperTest {
     fun formatMengeForServer_negativeDecimal_returnsGermanComma() {
         assertEquals("-1,5", formatMengeForServer(BigDecimal("-1.5")))
     }
+
+    // parseMengeOrNull — onlySpaces nach trim wird blank → null
+    @Test
+    fun parseMengeOrNull_onlyNbsp_returnsNull() {
+        assertNull(parseMengeOrNull("\u00A0\u00A0"))
+    }
+
+    // parseMengeOrNull — Kombination Komma+Punkt → ungültig → null
+    @Test
+    fun parseMengeOrNull_commaAndDot_returnsNull() {
+        assertNull(parseMengeOrNull("1.234,5"))
+    }
 }
 
 class ServerResponseParserTest {
@@ -247,12 +259,19 @@ class ServerResponseParserTest {
         assertEquals("002.0002", result[1].artNr)
     }
 
-    /** Zeile ohne schließenden Tag → alle Zeilen nach {GetArtikel} werden geparst */
+    /** Kein schließender Tag → alle Zeilen nach {GetArtikel} werden geparst */
     @Test
     fun parseArtikelResponse_noClosingTag_parsesAllLines() {
         val raw = "{GetArtikel}\n123.4567|Artikel A|W1A|W1B|W1C|W2A|W2B|W2C|ST|10|5|2|1|Grossinfo|LiefBest"
         val result = parseArtikelResponse(raw)
         assertEquals(1, result.size)
+    }
+
+    /** Exakt 14 Felder → size < 15 → übersprungen */
+    @Test
+    fun parseArtikelResponse_exactly14Fields_skipped() {
+        val raw = "{GetArtikel}\n123.4567|Artikel A|W1A|W1B|W1C|W2A|W2B|W2C|ST|10|5|2|1|Grossinfo\n{/GetArtikel}"
+        assertTrue(parseArtikelResponse(raw).isEmpty())
     }
 
     @Test
@@ -291,7 +310,7 @@ class ServerResponseParserTest {
         assertEquals(listOf("P100 – Projekt Eins"), parseProjektList(raw))
     }
 
-    /** Zeile mit mehr als einem Pipe → parts.size > 2 → wird ignoriert (branch: size != 2) */
+    /** Zeile mit mehr als einem Pipe → parts.size > 2 → wird ignoriert */
     @Test
     fun parseProjektList_lineWithMultiplePipes_ignored() {
         val raw = """
@@ -302,11 +321,18 @@ class ServerResponseParserTest {
         assertEquals(listOf("P100 – Projekt Eins"), parseProjektList(raw))
     }
 
-    /** Leere Zeile in der Liste → keine Pipe → wird ignoriert */
+    /** Leere Zeile → kein Pipe → wird ignoriert */
     @Test
     fun parseProjektList_emptyLineInList_ignored() {
         val raw = "P100|Projekt Eins\n\nP200|Projekt Zwei"
         assertEquals(listOf("P100 – Projekt Eins", "P200 – Projekt Zwei"), parseProjektList(raw))
+    }
+
+    /** Zeile beginnt mit { und hat genau einen Pipe → trotzdem ignoriert */
+    @Test
+    fun parseProjektList_braceLineWithPipe_ignored() {
+        val raw = "{Tag}|Inhalt\nP100|Projekt Eins"
+        assertEquals(listOf("P100 – Projekt Eins"), parseProjektList(raw))
     }
 }
 
@@ -315,55 +341,45 @@ class DataRepositoryTest {
     @Before
     fun setUp() {
         DataRepository.recentProjektListe.clear()
+        DataRepository.artikelListe = emptyList()
+        DataRepository.projektListe = emptyList()
+        DataRepository.lastLoadTime = 0
     }
 
     @Test
     fun rememberProjekt_addsToFront() {
         DataRepository.recentProjektListe.addAll(listOf("P2", "P3"))
-
         DataRepository.rememberProjekt("P1")
-
         assertEquals(listOf("P1", "P2", "P3"), DataRepository.recentProjektListe)
     }
 
     @Test
     fun rememberProjekt_duplicateMovedToFront_notDuplicated() {
         DataRepository.recentProjektListe.addAll(listOf("P2", "P1", "P3"))
-
         DataRepository.rememberProjekt("P1")
-
         assertEquals(listOf("P1", "P2", "P3"), DataRepository.recentProjektListe)
     }
 
     @Test
     fun rememberProjekt_blankIgnored() {
         DataRepository.recentProjektListe.addAll(listOf("P1", "P2"))
-
         DataRepository.rememberProjekt("   ")
-
         assertEquals(listOf("P1", "P2"), DataRepository.recentProjektListe)
     }
 
     @Test
-    fun rememberProjekt_maxEntriesRespected() {
-        (1..10).forEach { idx -> DataRepository.rememberProjekt("P$idx", maxEntries = 8) }
-
-        assertEquals(8, DataRepository.recentProjektListe.size)
-        assertEquals("P10", DataRepository.recentProjektListe.first())
-        assertEquals("P3", DataRepository.recentProjektListe.last())
-    }
-
-    @Test
-    fun rememberProjekt_emptyString_ignored() {
+    fun rememberProjekt_emptyStringIgnored() {
         DataRepository.recentProjektListe.addAll(listOf("P1"))
         DataRepository.rememberProjekt("")
         assertEquals(listOf("P1"), DataRepository.recentProjektListe)
     }
 
     @Test
-    fun rememberProjekt_listStartsEmpty_addsCorrectly() {
-        DataRepository.rememberProjekt("P1")
-        assertEquals(listOf("P1"), DataRepository.recentProjektListe)
+    fun rememberProjekt_maxEntriesRespected() {
+        (1..10).forEach { idx -> DataRepository.rememberProjekt("P$idx", maxEntries = 8) }
+        assertEquals(8, DataRepository.recentProjektListe.size)
+        assertEquals("P10", DataRepository.recentProjektListe.first())
+        assertEquals("P3", DataRepository.recentProjektListe.last())
     }
 
     @Test
@@ -373,21 +389,30 @@ class DataRepositoryTest {
     }
 
     @Test
+    fun rememberProjekt_listStartsEmpty_addsCorrectly() {
+        DataRepository.rememberProjekt("P1")
+        assertEquals(listOf("P1"), DataRepository.recentProjektListe)
+    }
+
+    @Test
     fun shouldReload_emptyLists_returnsTrue() {
-        DataRepository.artikelListe = emptyList()
-        DataRepository.projektListe = emptyList()
+        assertTrue(DataRepository.shouldReload())
+    }
+
+    @Test
+    fun shouldReload_oldTimestamp_returnsTrue() {
+        DataRepository.artikelListe = listOf()
+        DataRepository.lastLoadTime = System.currentTimeMillis() - (2 * 60 * 60 * 1000L)
         assertTrue(DataRepository.shouldReload())
     }
 
     @Test
     fun isLoaded_emptyLists_returnsFalse() {
-        DataRepository.artikelListe = emptyList()
-        DataRepository.projektListe = emptyList()
         assertFalse(DataRepository.isLoaded())
     }
 
     @Test
-    fun clear_resetsList() {
+    fun clear_resetsAllData() {
         DataRepository.recentProjektListe.addAll(listOf("P1", "P2"))
         DataRepository.clear()
         assertTrue(DataRepository.recentProjektListe.isEmpty())
