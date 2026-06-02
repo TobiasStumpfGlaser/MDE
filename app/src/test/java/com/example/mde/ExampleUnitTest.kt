@@ -5,6 +5,7 @@ import java.math.BigDecimal
 
 import org.junit.Assert.*
 import org.junit.Before
+import com.example.mde.model.Artikel
 
 /**
  * Example local unit test, which will execute on the development machine (host).
@@ -418,5 +419,62 @@ class DataRepositoryTest {
         assertTrue(DataRepository.recentProjektListe.isEmpty())
         assertTrue(DataRepository.artikelListe.isEmpty())
         assertTrue(DataRepository.projektListe.isEmpty())
+    }
+
+    @Test
+    fun shouldReload_dataLoadedAndFresh_returnsFalse() {
+        DataRepository.artikelListe = listOf(Artikel("123.4567", "Test", emptyList(), emptyList(), "ST", "10", 0, 0, 0, "", ""))
+        DataRepository.projektListe = listOf("P1 – Projekt 1")
+        DataRepository.lastLoadTime = System.currentTimeMillis()
+        assertFalse(DataRepository.shouldReload())
+    }
+
+    @Test
+    fun shouldReload_artikelLoadedProjektEmpty_returnsTrue() {
+        DataRepository.artikelListe = listOf(Artikel("123.4567", "Test", emptyList(), emptyList(), "ST", "10", 0, 0, 0, "", ""))
+        DataRepository.projektListe = emptyList()
+        DataRepository.lastLoadTime = System.currentTimeMillis()
+        assertTrue(DataRepository.shouldReload())
+    }
+
+    @Test
+    fun shouldReload_bothLoadedButStale_returnsTrue() {
+        DataRepository.artikelListe = listOf(Artikel("123.4567", "Test", emptyList(), emptyList(), "ST", "10", 0, 0, 0, "", ""))
+        DataRepository.projektListe = listOf("P1 – Projekt 1")
+        DataRepository.lastLoadTime = System.currentTimeMillis() - (2 * 60 * 60 * 1000L)
+        assertTrue(DataRepository.shouldReload())
+    }
+
+    @Test
+    fun isLoaded_bothListsNonEmpty_returnsTrue() {
+        DataRepository.artikelListe = listOf(Artikel("123.4567", "Test", emptyList(), emptyList(), "ST", "10", 0, 0, 0, "", ""))
+        DataRepository.projektListe = listOf("P1 – Projekt 1")
+        assertTrue(DataRepository.isLoaded())
+    }
+
+    @Test
+    fun isLoaded_artikelEmptyProjektNonEmpty_returnsFalse() {
+        DataRepository.artikelListe = emptyList()
+        DataRepository.projektListe = listOf("P1 – Projekt 1")
+        assertFalse(DataRepository.isLoaded())
+    }
+
+    @Test
+    fun rememberProjekt_customMaxEntries3_limitsTo3() {
+        DataRepository.rememberProjekt("P1", maxEntries = 3)
+        DataRepository.rememberProjekt("P2", maxEntries = 3)
+        DataRepository.rememberProjekt("P3", maxEntries = 3)
+        DataRepository.rememberProjekt("P4", maxEntries = 3)
+        assertEquals(3, DataRepository.recentProjektListe.size)
+        assertEquals("P4", DataRepository.recentProjektListe[0])
+        assertFalse(DataRepository.recentProjektListe.contains("P1"))
+    }
+
+    @Test
+    fun rememberProjekt_singleEntry_maxEntries1_limitsTo1() {
+        DataRepository.rememberProjekt("P1", maxEntries = 1)
+        DataRepository.rememberProjekt("P2", maxEntries = 1)
+        assertEquals(1, DataRepository.recentProjektListe.size)
+        assertEquals("P2", DataRepository.recentProjektListe[0])
     }
 }

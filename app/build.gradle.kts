@@ -119,14 +119,6 @@ tasks.register<JacocoReport>("jacocoTestReport") {
         // Netzwerk (nicht ohne echten Server testbar)
         "**/TcpClient*.*",
 
-        // Logging (Dateisystem-Wrapper, keine Geschäftslogik)
-        "**/TcpLogHelper*.*",
-
-        // Android-View-Subklassen (benötigen Android-Laufzeit)
-        "**/FontScaleUtil*.*",
-        "**/LayoutScaleUtil*.*",
-        "**/AlwaysFilterAutoCompleteTextView*.*",
-
         // UI-Dialog-Helfer (benötigt Activity)
         "**/UiLoadingHelper*.*",
 
