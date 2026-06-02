@@ -151,7 +151,12 @@ tasks.register<JacocoReport>("jacocoTestReport") {
 
     sourceDirectories.setFrom(files("src/main/java"))
     classDirectories.setFrom(files(kotlinDebugTree))
+
+    // Alle .exec-Dateien einsammeln (AGP-generiert + Robolectric-generiert)
     executionData.setFrom(fileTree(layout.buildDirectory) {
-        include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
+        include(
+            "outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec",
+            "tmp/jacoco/testDebugUnitTest.exec"
+        )
     })
 }
