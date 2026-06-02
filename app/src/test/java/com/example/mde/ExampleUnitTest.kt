@@ -134,6 +134,26 @@ class BuchungsHelperTest {
     fun isIntegerValue_zero_returnsTrue() {
         assertTrue(isIntegerValue(BigDecimal("0")))
     }
+
+    @Test
+    fun isIntegerValue_negativeWhole_returnsTrue() {
+        assertTrue(isIntegerValue(BigDecimal("-3")))
+    }
+
+    @Test
+    fun isIntegerValue_negativeDecimal_returnsFalse() {
+        assertFalse(isIntegerValue(BigDecimal("-3.5")))
+    }
+
+    @Test
+    fun formatMengeForServer_zero_returnsZero() {
+        assertEquals("0", formatMengeForServer(BigDecimal("0")))
+    }
+
+    @Test
+    fun formatMengeForServer_negativeDecimal_returnsGermanComma() {
+        assertEquals("-1,5", formatMengeForServer(BigDecimal("-1.5")))
+    }
 }
 
 class ServerResponseParserTest {
@@ -193,6 +213,48 @@ class ServerResponseParserTest {
         assertEquals("123.4567", result[0].artNr)
     }
 
+    /** Leerzeile innerhalb des {GetArtikel}-Blocks wird übersprungen (branch: isBlank) */
+    @Test
+    fun parseArtikelResponse_blankLineInsideBlock_skipped() {
+        val raw = "{GetArtikel}\n\n123.4567|Artikel A|W1A|W1B|W1C|W2A|W2B|W2C|ST|10|5|2|1|Grossinfo|LiefBest\n{/GetArtikel}"
+        val result = parseArtikelResponse(raw)
+        assertEquals(1, result.size)
+    }
+
+    /** Nicht-numerische empfBestMenge → Fallback 0 */
+    @Test
+    fun parseArtikelResponse_nonNumericEmpfBestMenge_defaultsToZero() {
+        val raw = "{GetArtikel}\n123.4567|Artikel A|W1A|W1B|W1C|W2A|W2B|W2C|ST|10|NICHT|NICHT|NICHT|Grossinfo|LiefBest\n{/GetArtikel}"
+        val result = parseArtikelResponse(raw)
+        assertEquals(1, result.size)
+        assertEquals(0, result[0].empfBestMenge)
+        assertEquals(0, result[0].bestellTrigger)
+        assertEquals(0, result[0].mindestbestand)
+    }
+
+    /** Mehrere Artikel im Block */
+    @Test
+    fun parseArtikelResponse_multipleArtikel_returnsAll() {
+        val raw = buildString {
+            appendLine("{GetArtikel}")
+            appendLine("001.0001|Artikel 1|W1A|W1B|W1C|W2A|W2B|W2C|ST|5|1|0|0|G1|L1")
+            appendLine("002.0002|Artikel 2|W1A|W1B|W1C|W2A|W2B|W2C|KG|3|2|1|0|G2|L2")
+            append("{/GetArtikel}")
+        }
+        val result = parseArtikelResponse(raw)
+        assertEquals(2, result.size)
+        assertEquals("001.0001", result[0].artNr)
+        assertEquals("002.0002", result[1].artNr)
+    }
+
+    /** Zeile ohne schließenden Tag → alle Zeilen nach {GetArtikel} werden geparst */
+    @Test
+    fun parseArtikelResponse_noClosingTag_parsesAllLines() {
+        val raw = "{GetArtikel}\n123.4567|Artikel A|W1A|W1B|W1C|W2A|W2B|W2C|ST|10|5|2|1|Grossinfo|LiefBest"
+        val result = parseArtikelResponse(raw)
+        assertEquals(1, result.size)
+    }
+
     @Test
     fun parseProjektList_empty_returnsEmptyList() {
         assertTrue(parseProjektList("").isEmpty())
@@ -227,6 +289,24 @@ class ServerResponseParserTest {
         """.trimIndent()
 
         assertEquals(listOf("P100 – Projekt Eins"), parseProjektList(raw))
+    }
+
+    /** Zeile mit mehr als einem Pipe → parts.size > 2 → wird ignoriert (branch: size != 2) */
+    @Test
+    fun parseProjektList_lineWithMultiplePipes_ignored() {
+        val raw = """
+            P100|Projekt Eins
+            P200|Projekt Zwei|ExtraFeld
+        """.trimIndent()
+
+        assertEquals(listOf("P100 – Projekt Eins"), parseProjektList(raw))
+    }
+
+    /** Leere Zeile in der Liste → keine Pipe → wird ignoriert */
+    @Test
+    fun parseProjektList_emptyLineInList_ignored() {
+        val raw = "P100|Projekt Eins\n\nP200|Projekt Zwei"
+        assertEquals(listOf("P100 – Projekt Eins", "P200 – Projekt Zwei"), parseProjektList(raw))
     }
 }
 
@@ -271,5 +351,47 @@ class DataRepositoryTest {
         assertEquals(8, DataRepository.recentProjektListe.size)
         assertEquals("P10", DataRepository.recentProjektListe.first())
         assertEquals("P3", DataRepository.recentProjektListe.last())
+    }
+
+    @Test
+    fun rememberProjekt_emptyString_ignored() {
+        DataRepository.recentProjektListe.addAll(listOf("P1"))
+        DataRepository.rememberProjekt("")
+        assertEquals(listOf("P1"), DataRepository.recentProjektListe)
+    }
+
+    @Test
+    fun rememberProjekt_listStartsEmpty_addsCorrectly() {
+        DataRepository.rememberProjekt("P1")
+        assertEquals(listOf("P1"), DataRepository.recentProjektListe)
+    }
+
+    @Test
+    fun rememberProjekt_exactlyMaxEntries_noTruncation() {
+        (1..8).forEach { idx -> DataRepository.rememberProjekt("P$idx", maxEntries = 8) }
+        assertEquals(8, DataRepository.recentProjektListe.size)
+    }
+
+    @Test
+    fun shouldReload_emptyLists_returnsTrue() {
+        DataRepository.artikelListe = emptyList()
+        DataRepository.projektListe = emptyList()
+        assertTrue(DataRepository.shouldReload())
+    }
+
+    @Test
+    fun isLoaded_emptyLists_returnsFalse() {
+        DataRepository.artikelListe = emptyList()
+        DataRepository.projektListe = emptyList()
+        assertFalse(DataRepository.isLoaded())
+    }
+
+    @Test
+    fun clear_resetsList() {
+        DataRepository.recentProjektListe.addAll(listOf("P1", "P2"))
+        DataRepository.clear()
+        assertTrue(DataRepository.recentProjektListe.isEmpty())
+        assertTrue(DataRepository.artikelListe.isEmpty())
+        assertTrue(DataRepository.projektListe.isEmpty())
     }
 }
