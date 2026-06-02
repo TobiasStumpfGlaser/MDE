@@ -89,14 +89,44 @@ tasks.register<JacocoReport>("jacocoTestReport") {
     }
 
     val fileFilter = listOf(
+        // Android-generierte Klassen
         "**/R.class",
         "**/R$*.class",
         "**/BuildConfig.*",
         "**/Manifest*.*",
-        "**/*Test*.*",
-        "android/**/*.*",
         "**/databinding/**",
-        "**/*Binding.*"
+        "**/*Binding.*",
+
+        // Test-Klassen
+        "**/*Test*.*",
+
+        // Android-Aktivitäten (benötigen Android-Laufzeit)
+        "**/*Activity*.*",
+        "**/*Activity\$*.*",
+
+        // Android-Adapter (benötigen Android-Laufzeit)
+        "**/*Adapter*.*",
+        "**/*Adapter\$*.*",
+
+        // Android-spezifische Hilfsklassen
+        "**/TcpClient*.*",
+        "**/TcpLogHelper*.*",
+        "**/FontScaleUtil*.*",
+        "**/LayoutScaleUtil*.*",
+        "**/AppSettings*.*",
+        "**/AlwaysFilterAutoCompleteTextView*.*",
+        "**/UiLoadingHelper*.*",
+        "**/ListDetail*.*",
+        "**/ListItem*.*",
+        "**/UserCache*.*",
+
+        // Datenmodelle (keine Logik)
+        "**/model/**",
+        "**/ui/**",
+
+        // PickList / DropList Activities
+        "**/PickList*.*",
+        "**/DropList*.*"
     )
 
     val kotlinDebugTree = fileTree(
