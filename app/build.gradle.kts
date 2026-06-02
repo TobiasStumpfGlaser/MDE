@@ -43,6 +43,11 @@ android {
         viewBinding = true
         compose = true
     }
+    testOptions {
+        unitTests {
+            isIncludeAndroidResources = true
+        }
+    }
 }
 
 dependencies {
@@ -64,6 +69,7 @@ dependencies {
     implementation(libs.androidx.compose.material3)
     testImplementation(libs.junit)
     testImplementation("io.mockk:mockk:1.13.10")
+    testImplementation("org.robolectric:robolectric:4.13")
     androidTestImplementation(libs.androidx.junit)
     androidTestImplementation(libs.androidx.espresso.core)
     // CameraX
@@ -108,35 +114,33 @@ tasks.register<JacocoReport>("jacocoTestReport") {
         "**/*Adapter*.*",
         "**/*Adapter\$*.*",
 
-        // Android-spezifische Hilfsklassen
+        // Netzwerk (nicht mockbar ohne Codeänderungen)
         "**/TcpClient*.*",
-        "**/TcpLogHelper*.*",
-        "**/FontScaleUtil*.*",
-        "**/LayoutScaleUtil*.*",
-        "**/AppSettings*.*",
-        "**/AlwaysFilterAutoCompleteTextView*.*",
+
+        // UI-Dialog-Helfer (benötigt Activity)
         "**/UiLoadingHelper*.*",
-        "**/ListDetail*.*",
-        "**/ListItem*.*",
-        "**/UserCache*.*",
 
         // Datenmodelle (keine Logik)
         "**/model/**",
         "**/ui/**",
 
-        // PickList / DropList Activities
+        // Einfache Datenhüllen
+        "**/ListDetail*.*",
+        "**/ListItem*.*",
+        "**/UserCache*.*",
         "**/PickList*.*",
         "**/DropList*.*"
     )
 
-    val kotlinDebugTree = fileTree(
-        layout.buildDirectory.dir("intermediates/built_in_kotlinc/debug/compileDebugKotlin/classes")
-    ) {
+    val debugTree = fileTree(layout.buildDirectory.dir("intermediates/javac/debug/compileDebugJavaWithJavac/classes")) {
+        exclude(fileFilter)
+    }
+    val kotlinDebugTree = fileTree(layout.buildDirectory.dir("tmp/kotlin-classes/debug")) {
         exclude(fileFilter)
     }
 
     sourceDirectories.setFrom(files("src/main/java"))
-    classDirectories.setFrom(files(kotlinDebugTree))
+    classDirectories.setFrom(files(debugTree, kotlinDebugTree))
     executionData.setFrom(fileTree(layout.buildDirectory) {
         include("outputs/unit_test_code_coverage/debugUnitTest/testDebugUnitTest.exec")
     })
