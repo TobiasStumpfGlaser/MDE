@@ -32,8 +32,6 @@ import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.math.BigDecimal
-import java.text.DecimalFormat
-import java.text.DecimalFormatSymbols
 import java.util.Date
 import java.util.Locale
 
@@ -161,38 +159,6 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
     private fun uiError(message: String) {
         UiLoadingHelper.showError(this, message)
-    }
-
-    private fun parseMengeOrNull(raw: String): BigDecimal? {
-        val s = raw.trim()
-            .replace(" ", "")
-            .replace("\u00A0", "")
-            .replace(",", ".")
-        if (s.isBlank()) return null
-        return try {
-            BigDecimal(s)
-        } catch (_: Exception) {
-            null
-        }
-    }
-
-    private fun formatMengeForServer(value: BigDecimal): String {
-        val symbols = DecimalFormatSymbols(Locale.GERMANY).apply {
-            decimalSeparator = ','
-            groupingSeparator = '.'
-        }
-        val df = DecimalFormat("0.################", symbols).apply {
-            isGroupingUsed = false
-        }
-        return df.format(value)
-    }
-
-    private fun isIntegerValue(value: BigDecimal): Boolean {
-        return try {
-            value.stripTrailingZeros().scale() <= 0
-        } catch (_: Exception) {
-            false
-        }
     }
 
     private fun SpannableStringBuilder.appendBoldAfterColon(line: String) {
