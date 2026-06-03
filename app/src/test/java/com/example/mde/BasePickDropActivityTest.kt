@@ -7,6 +7,7 @@ import io.mockk.Runs
 import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.just
+import io.mockk.match
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
@@ -88,7 +89,7 @@ class BasePickDropActivityTest {
             .getButton(AlertDialog.BUTTON_POSITIVE)
             .performClick()
 
-        verify { UiLoadingHelper.showError(activity, io.mockk.match { it.contains("Artikel darf nicht leer") }) }
+        verify { UiLoadingHelper.showError(activity, match<String> { it.contains("Artikel darf nicht leer") }) }
         verify(exactly = 0) { TcpClient.sendCommand(any(), any(), "SetBuchung", any(), any()) }
     }
 
@@ -116,11 +117,11 @@ class BasePickDropActivityTest {
                 context = any(),
                 settings = any(),
                 command = "SetBuchung",
-                request = io.mockk.match { it.contains("||-3|") },
+                request = match<String> { it.contains("||-3|") },
                 endTag = "{/SetBuchung}"
             )
         }
-        verify { UiLoadingHelper.update(activity, io.mockk.match { it.contains("Buchung erfolgreich") }, any()) }
+        verify { UiLoadingHelper.update(activity, match<String> { it.contains("Buchung erfolgreich") }, any()) }
     }
 
     @Test
@@ -147,7 +148,7 @@ class BasePickDropActivityTest {
                 context = any(),
                 settings = any(),
                 command = "SetBuchung",
-                request = io.mockk.match { it.contains("||+4|") },
+                request = match<String> { it.contains("||+4|") },
                 endTag = "{/SetBuchung}"
             )
         }
