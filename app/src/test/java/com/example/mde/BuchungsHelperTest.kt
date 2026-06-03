@@ -19,6 +19,7 @@ class BuchungsHelperTest {
         assertNull(parseMengeOrNull(""))
         assertNull(parseMengeOrNull("   "))
         assertNull(parseMengeOrNull("abc"))
+        // Tausendertrennzeichen werden in parseMengeOrNull nicht unterstützt.
         assertNull(parseMengeOrNull("1.234,5"))
     }
 

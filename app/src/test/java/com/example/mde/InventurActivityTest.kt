@@ -84,9 +84,8 @@ class InventurActivityTest {
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
         activity.buchenCount()
-        Thread.sleep(300)
 
-        verify {
+        verify(timeout = 2000) {
             TcpClient.sendCommand(
                 context = any(),
                 settings = any(),
@@ -122,9 +121,8 @@ class InventurActivityTest {
         }
 
         val started = activity.buchenCount()
-        Thread.sleep(300)
 
         assertEquals(true, started)
-        verify(exactly = 1) { TcpClient.sendCommand(any(), any(), "SetBuchung", any(), any()) }
+        verify(timeout = 2000, exactly = 1) { TcpClient.sendCommand(any(), any(), "SetBuchung", any(), any()) }
     }
 }

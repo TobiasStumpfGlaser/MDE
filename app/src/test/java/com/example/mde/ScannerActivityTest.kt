@@ -37,7 +37,7 @@ class ScannerActivityTest {
             val keyCode = KeyEvent.keyCodeFromString("KEYCODE_${c.uppercaseChar()}").takeIf { it != KeyEvent.KEYCODE_UNKNOWN }
                 ?: when (c) {
                     in '0'..'9' -> KeyEvent.KEYCODE_0 + (c - '0')
-                    else -> KeyEvent.KEYCODE_A
+                    else -> throw IllegalArgumentException("Unsupported test barcode char: $c")
                 }
             input.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, keyCode))
         }

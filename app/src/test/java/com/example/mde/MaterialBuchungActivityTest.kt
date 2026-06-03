@@ -18,12 +18,12 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-private fun parseSetBuchungParts(request: String): List<String> =
-    request.removePrefix("{SetBuchung}").removeSuffix("|{/SetBuchung}").split("|")
-
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class MaterialBuchungActivityTest {
+
+    private fun parseSetBuchungParts(request: String): List<String> =
+        request.removePrefix("{SetBuchung}").removeSuffix("|{/SetBuchung}").split("|")
 
     class TestActivity : MaterialBuchungActivity() {
         override val autoLoadArtikelUndProjekte: Boolean = false
@@ -39,13 +39,13 @@ class MaterialBuchungActivityTest {
             serialsText: String? = null
         ): Boolean = doBuchenWithDetails(einlagern, count, artikelText, projektText, mengeText, serialsText)
 
-        @Suppress("UNCHECKED_CAST")
         fun invokeSortProjekteWithRecents(projekte: List<String>): List<String> {
             val method = MaterialBuchungActivity::class.java.getDeclaredMethod(
                 "sortProjekteWithRecents",
                 List::class.java
             )
             method.isAccessible = true
+            @Suppress("UNCHECKED_CAST")
             return method.invoke(this, projekte) as List<String>
         }
 
@@ -139,10 +139,8 @@ class MaterialBuchungActivityTest {
             serialsText = "SN1;SN2"
         )
 
-        Thread.sleep(300)
-
         assertEquals(true, started)
-        verify {
+        verify(timeout = 2000) {
             TcpClient.sendCommand(
                 context = any(),
                 settings = any(),

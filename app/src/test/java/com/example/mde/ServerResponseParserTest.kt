@@ -59,7 +59,7 @@ class ServerResponseParserTest {
     }
 
     @Test
-    fun parseArtikelResponse_tooFewFieldsAndExtraBlankLines_skipsInvalidRows() {
+    fun parseArtikelResponse_skipsTooFewFields_andDefaultsInvalidNumbersToZero() {
         val raw = """
             {GetArtikel}
 
@@ -71,6 +71,7 @@ class ServerResponseParserTest {
 
         val result = parseArtikelResponse(raw)
         assertEquals(1, result.size)
+        assertEquals("234.5678", result.first().artNr)
         assertEquals(0, result.first().empfBestMenge)
         assertEquals(0, result.first().bestellTrigger)
         assertEquals(0, result.first().mindestbestand)

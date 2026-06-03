@@ -111,9 +111,7 @@ class BasePickDropActivityTest {
             .getButton(AlertDialog.BUTTON_POSITIVE)
             .performClick()
 
-        Thread.sleep(300)
-
-        verify {
+        verify(timeout = 2000) {
             TcpClient.sendCommand(
                 context = any(),
                 settings = any(),
@@ -144,9 +142,7 @@ class BasePickDropActivityTest {
             .getButton(AlertDialog.BUTTON_POSITIVE)
             .performClick()
 
-        Thread.sleep(300)
-
-        verify {
+        verify(timeout = 2000) {
             TcpClient.sendCommand(
                 context = any(),
                 settings = any(),
