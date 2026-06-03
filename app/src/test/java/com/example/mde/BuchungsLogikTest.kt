@@ -89,11 +89,18 @@ class TcpClientTest {
 //   if (serialsString.isNotEmpty()) append(serialsString)
 //   append("|{/SetBuchung}")
 //
-// Hinweis zu "artikelText = null/blank":
-//   doBuchenWithDetails hat folgenden Fallback:
-//     val artikel = artikelText?.trim().takeUnless { it.isNullOrBlank() } ?: getSelectedArtikelNr()
-//   Ist artikelText blank, wird getSelectedArtikelNr() aus etFilter verwendet.
-//   Um "kein Artikel" zu testen, muss daher auch etFilter geleert werden.
+// Wichtige Eigenart der Validierung:
+//   hasSelectedArtikel() liest immer aus etFilter (getSelectedArtikelNr()),
+//   NICHT aus dem uebergebenen artikelText-Parameter.
+//   Deshalb muss etFilter fuer Negativ-Tests entsprechend gesetzt werden:
+//
+//   - Kein Artikel:          etFilter leeren
+//   - Unbekannter Artikel:   etFilter auf unbekannte ArtikelNr setzen,
+//                            damit hasSelectedArtikel() false zurueckgibt
+//
+//   Der artikelText-Parameter wird nur fuer den Request-Body verwendet
+//   (Fallback auf etFilter wenn null/blank), die Validierung laeuft immer
+//   ueber etFilter.
 // ---------------------------------------------------------------------------
 
 /**
@@ -204,11 +211,17 @@ class DoBuchenWithDetailsTest {
     }
 
     /**
-     * Wenn ein artikelText uebergeben wird, der nicht in DataRepository.artikelListe ist,
+     * Wenn etFilter eine ArtikelNr enthaelt, die nicht in DataRepository.artikelListe ist,
      * schlaegt hasSelectedArtikel() fehl und sendCommand wird nicht aufgerufen.
+     *
+     * Hintergrund: hasSelectedArtikel() prueft immer gegen etFilter, nicht
+     * gegen den uebergebenen artikelText-Parameter. Deshalb wird auch etFilter
+     * auf die unbekannte ArtikelNr gesetzt.
      */
     @Test
     fun buchen_artikelNichtInListe_sendCommandNichtAufgerufen() {
+        // etFilter auf unbekannte ArtikelNr setzen -- hasSelectedArtikel() liest daraus
+        activity.runOnUiThread { activity.setFilterText("999.9999 | Unbekannt") }
         activity.buchen(
             einlagern = true,
             artikelText = "999.9999",   // nicht in der artikelListe
