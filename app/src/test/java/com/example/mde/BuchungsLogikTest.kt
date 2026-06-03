@@ -88,6 +88,12 @@ class TcpClientTest {
 //   append("$artikel||$serverMenge|||$projekt|${settings.werkNummer}|$username|$now|")
 //   if (serialsString.isNotEmpty()) append(serialsString)
 //   append("|{/SetBuchung}")
+//
+// Hinweis zu "artikelText = null/blank":
+//   doBuchenWithDetails hat folgenden Fallback:
+//     val artikel = artikelText?.trim().takeUnless { it.isNullOrBlank() } ?: getSelectedArtikelNr()
+//   Ist artikelText blank, wird getSelectedArtikelNr() aus etFilter verwendet.
+//   Um "kein Artikel" zu testen, muss daher auch etFilter geleert werden.
 // ---------------------------------------------------------------------------
 
 /**
@@ -166,7 +172,7 @@ class DoBuchenWithDetailsTest {
         activity = Robolectric.buildActivity(TestActivity::class.java, intent)
             .create().start().resume().get()
 
-        // Artikel-Text setzen, damit hasSelectedArtikel() == true
+        // Artikel-Text setzen, damit hasSelectedArtikel() == true (fuer positive Tests)
         activity.runOnUiThread {
             activity.setFilterText("123.4567 | Test Artikel")
         }
@@ -183,9 +189,32 @@ class DoBuchenWithDetailsTest {
     // Validierungs-Tests -- sendCommand darf NICHT aufgerufen werden
     // -----------------------------------------------------------------------
 
+    /**
+     * Wenn artikelText blank UND etFilter leer ist, schlaegt die Artikel-Pruefung fehl.
+     *
+     * Hintergrund: doBuchenWithDetails faellt bei leerem artikelText auf
+     * getSelectedArtikelNr() (etFilter) zurueck. Ist auch etFilter leer,
+     * ist der Artikel wirklich blank und sendCommand wird nicht aufgerufen.
+     */
     @Test
-    fun buchen_artikelBlank_sendCommandNichtAufgerufen() {
+    fun buchen_artikelBlankUndEtFilterLeer_sendCommandNichtAufgerufen() {
+        activity.runOnUiThread { activity.setFilterText("") }
         activity.buchen(einlagern = true, artikelText = "", projektText = "P100", mengeText = "5")
+        verify(exactly = 0) { TcpClient.sendCommand(any(), any(), any(), any(), any()) }
+    }
+
+    /**
+     * Wenn ein artikelText uebergeben wird, der nicht in DataRepository.artikelListe ist,
+     * schlaegt hasSelectedArtikel() fehl und sendCommand wird nicht aufgerufen.
+     */
+    @Test
+    fun buchen_artikelNichtInListe_sendCommandNichtAufgerufen() {
+        activity.buchen(
+            einlagern = true,
+            artikelText = "999.9999",   // nicht in der artikelListe
+            projektText = "P100",
+            mengeText = "5"
+        )
         verify(exactly = 0) { TcpClient.sendCommand(any(), any(), any(), any(), any()) }
     }
 
