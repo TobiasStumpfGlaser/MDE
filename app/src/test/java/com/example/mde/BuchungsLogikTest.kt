@@ -107,14 +107,19 @@ private fun parseRequestParts(request: String): List<String> =
 class DoBuchenWithDetailsTest {
 
     /**
-     * TestActivity legt protected-Member von BaseArtikelScanActivity offen,
-     * da Kotlin keine package-private Sichtbarkeit kennt und der Test
-     * ausserhalb der Klassenvererbung laeuft.
+     * TestActivity legt protected-Member von BaseArtikelScanActivity offen.
+     *
+     * autoLoadArtikelUndProjekte = false verhindert, dass onCreate()
+     * loadArtikelUndProjekteSequential() aufruft, was UiLoadingHelper.show()
+     * triggert und unter Robolectric zu einem Dialog-Barrier-Crash fuehrt.
      */
     class TestActivity : BaseArtikelScanActivity() {
         override fun getLayoutId() = R.layout.activity_inventur
         override val buchungMengeView: EditText? get() = null
         override val buchungProjektView: AutoCompleteTextView? get() = null
+
+        // Verhindert loadArtikelUndProjekteSequential() in onCreate()
+        override val autoLoadArtikelUndProjekte: Boolean get() = false
 
         /** Setzt den Text im Artikel-Filter-Feld (protected etFilter). */
         fun setFilterText(text: String) = etFilter.setText(text)
@@ -134,9 +139,18 @@ class DoBuchenWithDetailsTest {
 
     @Before
     fun setUp() {
+        // TcpClient mocken: Netzwerkaufruf abfangen
         mockkObject(TcpClient)
         every { TcpClient.sendCommand(any(), any(), any(), any(), any()) } returns
                 "{SetBuchung}\nok\n{/SetBuchung}"
+
+        // UiLoadingHelper mocken: verhindert MediaPlayer-NPE und Dialog-Barrier-Crash
+        mockkObject(UiLoadingHelper)
+        every { UiLoadingHelper.show(any(), any(), any(), any()) } just Runs
+        every { UiLoadingHelper.hide() } just Runs
+        every { UiLoadingHelper.showError(any(), any()) } just Runs
+        every { UiLoadingHelper.update(any(), any(), any()) } just Runs
+        every { UiLoadingHelper.playErrorSound(any()) } just Runs
 
         DataRepository.artikelListe = listOf(
             Artikel(
@@ -161,6 +175,7 @@ class DoBuchenWithDetailsTest {
     @After
     fun tearDown() {
         unmockkObject(TcpClient)
+        unmockkObject(UiLoadingHelper)
         DataRepository.clear()
     }
 
@@ -456,23 +471,46 @@ class DoBuchenWithDetailsTest {
     }
 
     // -----------------------------------------------------------------------
-    // Feld [6] -- werkNummer aus AppSettings
+    // Feld [6] -- werkNummer aus AppSettings (Feld muss vorhanden sein)
     // -----------------------------------------------------------------------
 
     @Test
-    fun buchen_werkNummerAnPosition6_leerWennNichtKonfiguriert() {
-        // AppSettings.werkNummer ist in Tests "" (SharedPreferences sind leer)
+    fun buchen_werkNummerAnPosition6_feldVorhanden_einlagern() {
         activity.buchen(einlagern = true, artikelText = "123.4567", projektText = "P100", mengeText = "1")
         Thread.sleep(300)
 
         verify {
             TcpClient.sendCommand(
                 context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req ->
-                    val p = parseRequestParts(req)
-                    // [6] muss vorhanden sein (auch wenn leer)
-                    p.size >= 10 && p[6].isNotNull()
-                },
+                request = match { req -> parseRequestParts(req).size >= 10 },
+                endTag = eq("{/SetBuchung}")
+            )
+        }
+    }
+
+    @Test
+    fun buchen_werkNummerAnPosition6_feldVorhanden_auslagern() {
+        activity.buchen(einlagern = false, artikelText = "123.4567", projektText = "P100", mengeText = "2")
+        Thread.sleep(300)
+
+        verify {
+            TcpClient.sendCommand(
+                context = any(), settings = any(), command = eq("SetBuchung"),
+                request = match { req -> parseRequestParts(req).size >= 10 },
+                endTag = eq("{/SetBuchung}")
+            )
+        }
+    }
+
+    @Test
+    fun buchen_werkNummerAnPosition6_feldVorhanden_count() {
+        activity.buchen(einlagern = true, count = true, artikelText = "123.4567", projektText = "", mengeText = "5")
+        Thread.sleep(300)
+
+        verify {
+            TcpClient.sendCommand(
+                context = any(), settings = any(), command = eq("SetBuchung"),
+                request = match { req -> parseRequestParts(req).size >= 10 },
                 endTag = eq("{/SetBuchung}")
             )
         }
@@ -594,6 +632,3 @@ class DoBuchenWithDetailsTest {
         }
     }
 }
-
-/** Hilfsfunktion: null-safe not-null check fuer String-Elemente. */
-private fun String?.isNotNull(): Boolean = this != null
