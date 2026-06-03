@@ -37,7 +37,7 @@ class ArtNrHelperTest {
     @Test fun exactMatch_empty_returnsFalse()         = assertFalse(isArtNrExactMatch("123.4567", ""))
 }
 
-class BuchungsHelperTest {
+class LegacyBuchungsHelperTest {
 
     @Test
     fun parseMengeOrNull_emptyString_returnsNull() {
@@ -157,7 +157,7 @@ class BuchungsHelperTest {
     }
 }
 
-class ServerResponseParserTest {
+class LegacyServerResponseParserTest {
 
     @Test
     fun parseArtikelResponse_empty_returnsEmptyList() {
