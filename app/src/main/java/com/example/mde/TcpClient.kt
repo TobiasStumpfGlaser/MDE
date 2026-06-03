@@ -40,7 +40,7 @@ object TcpClient {
      *   ...
      *   {/Command}
      */
-    private fun removeTableHeaderLine(raw: String, endTag: String): String {
+    internal fun removeTableHeaderLine(raw: String, endTag: String): String {
         val lines = raw.replace("\r", "").split("\n")
 
         val out = ArrayList<String>(lines.size)
