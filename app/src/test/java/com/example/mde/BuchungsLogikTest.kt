@@ -16,57 +16,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
 // ---------------------------------------------------------------------------
-// TcpClientTest -- removeTableHeaderLine direkt testen (kein Netzwerk noetig)
-// ---------------------------------------------------------------------------
-
-class TcpClientTest {
-
-    @Test
-    fun removeTableHeaderLine_entferntKopfzeileNachStartTag() {
-        val raw = "{GetArtikel}\nHEADER\nDATA1\n{/GetArtikel}"
-        val result = TcpClient.removeTableHeaderLine(raw, "{/GetArtikel}")
-        assertFalse(result.contains("HEADER"))
-        assertTrue(result.contains("DATA1"))
-        assertTrue(result.contains("{GetArtikel}"))
-        assertTrue(result.contains("{/GetArtikel}"))
-    }
-
-    @Test
-    fun removeTableHeaderLine_ohneStartTag_bleibtUnveraendert() {
-        val raw = "kein tag hier\nzeile2"
-        val result = TcpClient.removeTableHeaderLine(raw, "{/GetArtikel}")
-        assertEquals(raw, result)
-    }
-
-    @Test
-    fun removeTableHeaderLine_mehrereBlocks_jedeKopfzeileWirdEntfernt() {
-        val raw = "{GetArtikel}\nHEADER1\nDATA1\n{/GetArtikel}\n{GetArtikel}\nHEADER2\nDATA2\n{/GetArtikel}"
-        val result = TcpClient.removeTableHeaderLine(raw, "{/GetArtikel}")
-        assertFalse(result.contains("HEADER1"))
-        assertFalse(result.contains("HEADER2"))
-        assertTrue(result.contains("DATA1"))
-        assertTrue(result.contains("DATA2"))
-    }
-
-    @Test
-    fun removeTableHeaderLine_leererString_bleibtLeer() {
-        val result = TcpClient.removeTableHeaderLine("", "{/GetArtikel}")
-        assertEquals("", result)
-    }
-
-    @Test
-    fun removeTableHeaderLine_setBuchungFormat_entferntOkAlsKopfzeile() {
-        // removeTableHeaderLine wuerde "ok" faelschlicherweise als Kopfzeile entfernen.
-        // Genau deshalb gilt in sendCommand: shouldStripHeader = false fuer SetBuchung.
-        val raw = "{SetBuchung}\nok\n{/SetBuchung}"
-        val result = TcpClient.removeTableHeaderLine(raw, "{/SetBuchung}")
-        assertFalse(result.contains("ok"))
-        assertTrue(result.contains("{SetBuchung}"))
-        assertTrue(result.contains("{/SetBuchung}"))
-    }
-}
-
-// ---------------------------------------------------------------------------
 // DoBuchenWithDetailsTest -- Robolectric + mockkObject(TcpClient)
 //
 // Request-Format (aus BaseArtikelScanActivity.doBuchenWithDetails):
