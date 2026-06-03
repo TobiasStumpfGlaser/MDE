@@ -44,13 +44,13 @@ class ScannerActivity : AppCompatActivity() {
         private const val CAMERA_PERMISSION_REQUEST = 100
     }
 
-    // ── Views ────────────────────────────────────────────────────────────────
+    // ── Views ──────────────────────────────────────────────────────────────────
 
     private lateinit var previewView: PreviewView
     private lateinit var btnCancel: Button
 
     /** Unsichtbarer EditText für HID-Barcode-Eingaben des Datalogic-Scanners. */
-    private lateinit var hiddenScanInput: EditText
+    internal lateinit var hiddenScanInput: EditText
 
     // ── Kamera & Scanner-Zustand ──────────────────────────────────────────────
 
@@ -66,7 +66,7 @@ class ScannerActivity : AppCompatActivity() {
 
     private val barcodeBuffer = StringBuilder()
 
-    // ── Lifecycle ────────────────────────────────────────────────────────────
+    // ── Lifecycle ──────────────────────────────────────────────────────────────
 
     override fun onCreate(savedInstanceState: Bundle?) {
         val settings = AppSettings(this)
@@ -193,7 +193,7 @@ class ScannerActivity : AppCompatActivity() {
         }
     }
 
-    // ── Kamera-Scan ───────────────────────────────────────────────────────────
+    // ── Kamera-Scan ────────────────────────────────────────────────────────────
 
     /** Initialisiert die CameraX-Preview und den ML-Kit-Barcode-Analyzer. */
     private fun startCamera() {

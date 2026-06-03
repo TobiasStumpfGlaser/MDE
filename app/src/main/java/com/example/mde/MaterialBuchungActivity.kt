@@ -251,7 +251,7 @@ open class MaterialBuchungActivity : BaseArtikelScanActivity() {
      * @param value Rohwert aus dem Eingabefeld.
      * @return Normalisierter String ohne Sonderzeichen.
      */
-    private fun normalizeProjektFilter(value: String): String {
+    internal fun normalizeProjektFilter(value: String): String {
         return value.lowercase().replace(Regex("[^a-z0-9]+"), "")
     }
 
@@ -263,7 +263,7 @@ open class MaterialBuchungActivity : BaseArtikelScanActivity() {
      * @param projekte Vollständige Projektliste.
      * @return Sortierte Liste mit kürzlich verwendeten Projekten zuerst.
      */
-    private fun sortProjekteWithRecents(projekte: List<String>): List<String> {
+    internal fun sortProjekteWithRecents(projekte: List<String>): List<String> {
         val recent = DataRepository.recentProjektListe
         return projekte.sortedWith(
             compareBy<String> {
