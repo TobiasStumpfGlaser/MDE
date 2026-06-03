@@ -55,6 +55,12 @@ class TcpClientTest {
     }
 
     @Test
+    fun removeTableHeaderLine_leerString_bleibtLeer() {
+        val result = TcpClient.removeTableHeaderLine("", "{/GetArtikel}")
+        assertEquals("", result)
+    }
+
+    @Test
     fun removeTableHeaderLine_setBuchungFormat_entferntOkAlsKopfzeile() {
         // removeTableHeaderLine wuerde "ok" faelschlicherweise als Kopfzeile entfernen.
         // Genau deshalb gilt in sendCommand: shouldStripHeader = false fuer SetBuchung.
@@ -63,6 +69,128 @@ class TcpClientTest {
         assertFalse(result.contains("ok"))
         assertTrue(result.contains("{SetBuchung}"))
         assertTrue(result.contains("{/SetBuchung}"))
+    }
+}
+
+class DataRepositoryTest {
+
+    @Before
+    fun setUp() {
+        DataRepository.clear()
+    }
+
+    @After
+    fun tearDown() {
+        DataRepository.clear()
+    }
+
+    @Test
+    fun rememberProjekt_fuegtProjektVorneEin() {
+        DataRepository.recentProjektListe.addAll(listOf("P100", "P200"))
+
+        DataRepository.rememberProjekt("P300")
+
+        assertEquals(listOf("P300", "P100", "P200"), DataRepository.recentProjektListe)
+    }
+
+    @Test
+    fun rememberProjekt_dedupliziertBestehende() {
+        DataRepository.recentProjektListe.addAll(listOf("P100", "P200", "P300"))
+
+        DataRepository.rememberProjekt("P200")
+
+        assertEquals(listOf("P200", "P100", "P300"), DataRepository.recentProjektListe)
+    }
+
+    @Test
+    fun rememberProjekt_begrenztAufMaxEntries() {
+        DataRepository.recentProjektListe.addAll(listOf("P1", "P2", "P3"))
+
+        DataRepository.rememberProjekt("P4", maxEntries = 3)
+
+        assertEquals(listOf("P4", "P1", "P2"), DataRepository.recentProjektListe)
+    }
+
+    @Test
+    fun shouldReload_wennArtikelListeLeer() {
+        DataRepository.artikelListe = emptyList()
+        DataRepository.projektListe = listOf("P100")
+        DataRepository.lastLoadTime = System.currentTimeMillis()
+
+        assertTrue(DataRepository.shouldReload())
+    }
+
+    @Test
+    fun clear_leertAlleFelder() {
+        DataRepository.artikelListe = listOf(
+            Artikel(
+                "123.4567", "Test Artikel",
+                listOf("W1A", "", ""), listOf("", "", ""),
+                "ST", "10", 5, 2, 1, "", ""
+            )
+        )
+        DataRepository.projektListe = listOf("P100")
+        DataRepository.recentProjektListe.addAll(listOf("P100", "P200"))
+
+        DataRepository.clear()
+
+        assertTrue(DataRepository.artikelListe.isEmpty())
+        assertTrue(DataRepository.projektListe.isEmpty())
+        assertTrue(DataRepository.recentProjektListe.isEmpty())
+    }
+}
+
+class BuchungsFormatTest {
+
+    private fun serverMengeFormat(menge: String, einlagern: Boolean, count: Boolean = false): String =
+        when {
+            count -> "=${menge.replace(".", ",")}"
+            einlagern -> "+${menge.replace(".", ",")}"
+            else -> "-${menge.replace(".", ",")}"
+        }
+
+    private fun serialsFormat(serialsRaw: String): String =
+        when {
+            serialsRaw.isBlank() -> ""
+            serialsRaw.startsWith("Charge:", ignoreCase = true) -> {
+                val chargeNr = serialsRaw.substringAfter(":").trim()
+                if (chargeNr.isBlank()) "" else "Charge:$chargeNr"
+            }
+            else -> serialsRaw
+                .split(";")
+                .map { it.trim() }
+                .filter { it.isNotBlank() }
+                .joinToString(";")
+        }
+
+    @Test
+    fun serverMengeFormat_einlagern() {
+        assertEquals("+5,0", serverMengeFormat(menge = "5.0", einlagern = true))
+    }
+
+    @Test
+    fun serverMengeFormat_auslagern() {
+        assertEquals("-5,0", serverMengeFormat(menge = "5.0", einlagern = false))
+    }
+
+    @Test
+    fun serverMengeFormat_count() {
+        assertEquals("=5,0", serverMengeFormat(menge = "5.0", einlagern = true, count = true))
+    }
+
+    @Test
+    fun serialsFormat_leerBleibtLeer() {
+        assertEquals("", serialsFormat(""))
+    }
+
+    @Test
+    fun serialsFormat_chargePrefixWirdErkannt() {
+        assertEquals("Charge:ABC123", serialsFormat("Charge:ABC123"))
+    }
+
+    @Test
+    fun serialsFormat_mehrereSerialsMitSemikolon() {
+        assertEquals("A;B;C", serialsFormat("A;B;C"))
     }
 }
 
