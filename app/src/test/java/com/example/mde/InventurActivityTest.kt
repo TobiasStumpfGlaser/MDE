@@ -7,6 +7,7 @@ import io.mockk.Runs
 import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.just
+import io.mockk.match
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
@@ -90,7 +91,7 @@ class InventurActivityTest {
                 context = any(),
                 settings = any(),
                 command = "SetBuchung",
-                request = io.mockk.match { it.contains("||=9|") },
+                request = match { it.contains("||=9|") },
                 endTag = "{/SetBuchung}"
             )
         }

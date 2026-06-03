@@ -18,7 +18,7 @@ import android.widget.TextView
  * Mengenzählung per [doBuchen]. Erbt die Artikel-Lade- und Scanner-Logik von
  * [BaseArtikelScanActivity].
  */
-class InventurActivity : BaseArtikelScanActivity() {
+open class InventurActivity : BaseArtikelScanActivity() {
     private lateinit var settings: AppSettings
     private lateinit var username: String
 

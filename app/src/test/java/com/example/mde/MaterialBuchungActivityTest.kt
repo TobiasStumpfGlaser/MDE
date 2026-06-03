@@ -5,6 +5,7 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.mde.model.Artikel
 import io.mockk.every
 import io.mockk.just
+import io.mockk.match
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
@@ -209,7 +210,7 @@ class MaterialBuchungActivityTest {
                 context = any(),
                 settings = any(),
                 command = "SetBuchung",
-                request = io.mockk.match { req ->
+                request = match { req ->
                     val p = parseSetBuchungParts(req)
                     p.size >= 10 && p[0] == "123.4567" && p[2] == "+2" && p[5] == "P100" && p[9] == "SN1;SN2"
                 },
@@ -233,7 +234,7 @@ class MaterialBuchungActivityTest {
                 context = any(),
                 settings = any(),
                 command = "SetBuchung",
-                request = io.mockk.match { req ->
+                request = match { req ->
                     val p = parseSetBuchungParts(req)
                     p.size >= 10 && p[2] == "-5"
                 },

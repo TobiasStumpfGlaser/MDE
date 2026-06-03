@@ -13,7 +13,7 @@ import android.widget.Filter
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 
-class MaterialBuchungActivity : BaseArtikelScanActivity() {
+open class MaterialBuchungActivity : BaseArtikelScanActivity() {
 
     companion object {
         private const val CHARGE_PREFIX = "Charge:"
