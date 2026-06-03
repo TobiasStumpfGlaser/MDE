@@ -11,6 +11,7 @@ import io.mockk.verify
 import io.mockk.Runs
 import org.junit.After
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -104,6 +105,21 @@ class MaterialBuchungActivityTest {
     }
 
     @Test
+    fun normalizeProjektFilter_removesSpaces() {
+        assertEquals("abc123", activity.invokeNormalizeProjektFilter("  A B C  1 2 3  "))
+    }
+
+    @Test
+    fun normalizeProjektFilter_handlesUmlauts() {
+        assertEquals("aouaou", activity.invokeNormalizeProjektFilter("ÄÖÜäöü"))
+    }
+
+    @Test
+    fun normalizeProjektFilter_emptyInput_returnsEmpty() {
+        assertEquals("", activity.invokeNormalizeProjektFilter(""))
+    }
+
+    @Test
     fun sortProjekteWithRecents_placesRecentProjectsFirstThenAlphabetic() {
         DataRepository.recentProjektListe.clear()
         DataRepository.recentProjektListe.addAll(listOf("P2 - Zwei", "P1 - Eins"))
@@ -113,6 +129,29 @@ class MaterialBuchungActivityTest {
         )
 
         assertEquals(listOf("P2 - Zwei", "P1 - Eins", "P4 - A", "P3 - Drei"), sorted)
+    }
+
+    @Test
+    fun sortProjekteWithRecents_emptyRecentsList_returnsAlphabetic() {
+        DataRepository.recentProjektListe.clear()
+
+        val sorted = activity.invokeSortProjekteWithRecents(
+            listOf("P3 - Drei", "P1 - Eins", "P2 - Zwei")
+        )
+
+        assertEquals(listOf("P1 - Eins", "P2 - Zwei", "P3 - Drei"), sorted)
+    }
+
+    @Test
+    fun sortProjekteWithRecents_recentNotInList_stillSortsCorrectly() {
+        DataRepository.recentProjektListe.clear()
+        DataRepository.recentProjektListe.addAll(listOf("P999 - Not In List"))
+
+        val sorted = activity.invokeSortProjekteWithRecents(
+            listOf("P3 - Drei", "P1 - Eins")
+        )
+
+        assertEquals(listOf("P1 - Eins", "P3 - Drei"), sorted)
     }
 
     @Test
@@ -127,6 +166,31 @@ class MaterialBuchungActivityTest {
         )
 
         verify(exactly = 0) { TcpClient.sendCommand(any(), any(), any(), any(), any()) }
+    }
+
+    @Test
+    fun doBuchenWithDetails_missingArtikel_returnsFalse() {
+        activity.runOnUiThread { activity.setFilterText("") }
+        val started = activity.buchen(
+            einlagern = true,
+            artikelText = "",
+            projektText = "P100",
+            mengeText = "1"
+        )
+
+        assertFalse(started)
+    }
+
+    @Test
+    fun doBuchenWithDetails_invalidMenge_returnsFalse() {
+        val started = activity.buchen(
+            einlagern = true,
+            artikelText = "123.4567",
+            projektText = "P100",
+            mengeText = "abc"
+        )
+
+        assertFalse(started)
     }
 
     @Test
@@ -153,4 +217,29 @@ class MaterialBuchungActivityTest {
             )
         }
     }
+
+    @Test
+    fun doBuchenWithDetails_auslagernWithNegativeSign() {
+        val started = activity.buchen(
+            einlagern = false,
+            artikelText = "123.4567",
+            projektText = "P100",
+            mengeText = "5"
+        )
+
+        assertEquals(true, started)
+        verify(timeout = 2000) {
+            TcpClient.sendCommand(
+                context = any(),
+                settings = any(),
+                command = "SetBuchung",
+                request = io.mockk.match { req ->
+                    val p = parseSetBuchungParts(req)
+                    p.size >= 10 && p[2] == "-5"
+                },
+                endTag = "{/SetBuchung}"
+            )
+        }
+    }
 }
+
