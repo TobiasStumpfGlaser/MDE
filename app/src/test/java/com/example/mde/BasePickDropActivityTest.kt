@@ -27,6 +27,8 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowAlertDialog
+import org.robolectric.shadows.ShadowSystemClock
+import java.time.Duration
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
@@ -169,8 +171,7 @@ class BasePickDropActivityTest {
 
         waitForDetailsLoaded(activity)
 
-        Thread.sleep(300)
-        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        ShadowSystemClock.advanceBy(Duration.ofMillis(300))
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
@@ -244,8 +245,7 @@ class BasePickDropActivityTest {
 
         waitForDetailsLoaded(activity)
 
-        Thread.sleep(300)
-        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        ShadowSystemClock.advanceBy(Duration.ofMillis(300))
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
@@ -295,8 +295,7 @@ class BasePickDropActivityTest {
 
         waitForDetailsLoaded(activity)
 
-        Thread.sleep(300)
-        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        ShadowSystemClock.advanceBy(Duration.ofMillis(300))
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
