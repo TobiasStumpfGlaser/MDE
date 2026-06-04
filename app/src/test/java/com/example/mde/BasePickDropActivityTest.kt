@@ -71,25 +71,29 @@ class BasePickDropActivityTest {
         DataRepository.clear()
     }
 
-    private fun waitForDetailsViewVisible(activity: BasePickDropActivity) {
+    private fun waitForDetailsLoaded(activity: BasePickDropActivity): RecyclerView {
         val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
+
         var attempts = 0
         while (rvDetails.visibility != View.VISIBLE && attempts < 50) {
             Thread.sleep(100)
             Shadows.shadowOf(Looper.getMainLooper()).idle()
             attempts++
         }
-        assertEquals("Details view should be visible after loading", View.VISIBLE, rvDetails.visibility)
-    }
+        assertEquals(View.VISIBLE, rvDetails.visibility)
 
-    private fun waitForRecyclerViewItems(recyclerView: RecyclerView) {
-        var attempts = 0
-        while ((recyclerView.adapter?.itemCount ?: 0) == 0 && attempts < 50) {
+        attempts = 0
+        while ((rvDetails.adapter?.itemCount ?: 0) == 0 && attempts < 50) {
             Thread.sleep(100)
             Shadows.shadowOf(Looper.getMainLooper()).idle()
             attempts++
         }
-        assertTrue("RecyclerView should have items", (recyclerView.adapter?.itemCount ?: 0) > 0)
+        assertTrue((rvDetails.adapter?.itemCount ?: 0) > 0)
+
+        Thread.sleep(500)
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        return rvDetails
     }
 
     @Test
@@ -163,23 +167,16 @@ class BasePickDropActivityTest {
             )
         }
 
-        waitForDetailsViewVisible(activity)
-
-        val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
-        waitForRecyclerViewItems(rvDetails)
-
-        Thread.sleep(200)
-        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        waitForDetailsLoaded(activity)
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
         activity.onBarcodeScanned("123.4567")
-
         Thread.sleep(300)
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
-        assertNotNull("Dialog should be created", dialog)
+        assertNotNull(dialog)
     }
 
     @Test
@@ -205,10 +202,7 @@ class BasePickDropActivityTest {
             )
         }
 
-        val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
-        assertNotNull(rvDetails)
-
-        waitForRecyclerViewItems(rvDetails)
+        val rvDetails = waitForDetailsLoaded(activity)
 
         val adapter = rvDetails.adapter
         if (adapter != null && adapter.itemCount > 0) {
@@ -245,18 +239,11 @@ class BasePickDropActivityTest {
             )
         }
 
-        waitForDetailsViewVisible(activity)
-
-        val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
-        waitForRecyclerViewItems(rvDetails)
-
-        Thread.sleep(200)
-        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        waitForDetailsLoaded(activity)
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
         activity.onBarcodeScanned("123.4567")
-
         Thread.sleep(300)
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
@@ -300,18 +287,11 @@ class BasePickDropActivityTest {
             )
         }
 
-        waitForDetailsViewVisible(activity)
-
-        val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
-        waitForRecyclerViewItems(rvDetails)
-
-        Thread.sleep(200)
-        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        waitForDetailsLoaded(activity)
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
         activity.onBarcodeScanned("123.4567")
-
         Thread.sleep(300)
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
