@@ -261,6 +261,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         stopLogoutTimer()
     }
 
+    /** Setzt den Logout-Timer neu; sollte in dispatchTouchEvent der Subklassen aufgerufen werden. */
     protected fun resetLogoutTimer() {
         handler.removeCallbacks(timeoutRunnable)
         handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
