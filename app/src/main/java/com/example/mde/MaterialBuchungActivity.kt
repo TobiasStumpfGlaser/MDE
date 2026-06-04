@@ -2,6 +2,7 @@ package com.example.mde
 
 import android.content.Context
 import android.os.Bundle
+import android.view.MotionEvent
 import android.view.LayoutInflater
 import android.view.ViewGroup
 import android.view.inputmethod.InputMethodManager
@@ -243,6 +244,8 @@ open class MaterialBuchungActivity : BaseArtikelScanActivity() {
             etDialogProjekt.showDropDown()
         }
     }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean = super.dispatchTouchEvent(ev)
 
     /**
      * Normalisiert einen Projekt-Filterwert für den Vergleich:

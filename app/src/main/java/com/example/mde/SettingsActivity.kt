@@ -2,6 +2,9 @@ package com.example.mde
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.MotionEvent
 import android.widget.ArrayAdapter
 import android.widget.Button
 import android.widget.CheckBox
@@ -32,6 +35,9 @@ class SettingsActivity : AppCompatActivity() {
 
     private lateinit var sbLayoutScale: SeekBar
     private lateinit var tvLayoutScalePreview: TextView
+    private lateinit var handler: Handler
+    private lateinit var timeoutRunnable: Runnable
+    private var timeoutMillis: Long = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         settings = AppSettings(this)
@@ -48,6 +54,16 @@ class SettingsActivity : AppCompatActivity() {
             resources.getColor(android.R.color.white, theme),
             android.graphics.PorterDuff.Mode.SRC_ATOP
         )
+
+        handler = Handler(Looper.getMainLooper())
+        timeoutRunnable = Runnable {
+            val intent = Intent(this@SettingsActivity, LoginActivity::class.java)
+            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
+            startActivity(intent)
+            finish()
+        }
+        timeoutMillis = settings.logoutTimeSec * 1000L
+        resetInactivityTimer()
 
         val etIp = findViewById<EditText>(R.id.etServerIp)
         val etPort = findViewById<EditText>(R.id.etServerPort)
@@ -137,6 +153,21 @@ class SettingsActivity : AppCompatActivity() {
         txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
     }
 
+    override fun onResume() {
+        super.onResume()
+        resetInactivityTimer()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        stopInactivityTimer()
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        resetInactivityTimer()
+        return super.dispatchTouchEvent(ev)
+    }
+
     /** Wendet das gespeicherte Theme vor [super.onCreate] an. */
     private fun applyTheme(theme: String) {
         when (theme) {
@@ -177,5 +208,14 @@ class SettingsActivity : AppCompatActivity() {
     /** Aktualisiert die Vorschau-TextView mit dem aktuellen Layout-Skalierungsfaktor. */
     private fun updateLayoutPreview(scale: Float) {
         tvLayoutScalePreview.text = "Layout: ${String.format("%.2f", scale)}x"
+    }
+
+    private fun resetInactivityTimer() {
+        handler.removeCallbacks(timeoutRunnable)
+        handler.postDelayed(timeoutRunnable, timeoutMillis)
+    }
+
+    private fun stopInactivityTimer() {
+        handler.removeCallbacks(timeoutRunnable)
     }
 }

@@ -343,6 +343,8 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         detailsAdapter.updateList(sorted)
     }
 
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean = super.dispatchTouchEvent(ev)
+
     private fun setupSpinner() {
         val options = listOf("Position", "Lagerort")
 

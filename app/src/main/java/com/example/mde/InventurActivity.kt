@@ -142,4 +142,6 @@ open class InventurActivity : BaseArtikelScanActivity() {
         doBuchen(true, count = true)
         btnClearClicked()
     }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean = super.dispatchTouchEvent(ev)
 }
