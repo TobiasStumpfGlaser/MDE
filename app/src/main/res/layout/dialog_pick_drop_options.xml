@@ -1,55 +1,68 @@
 <?xml version="1.0" encoding="utf-8"?>
-<LinearLayout
+<ScrollView
     xmlns:android="http://schemas.android.com/apk/res/android"
-    android:orientation="vertical"
-    android:padding="24dp"
     android:layout_width="match_parent"
-    android:layout_height="wrap_content"
-    android:background="?android:attr/windowBackground">
-
-    <TextView
-        android:id="@+id/tvItemInfo"
-        android:layout_width="match_parent"
-        android:layout_height="wrap_content"
-        android:textSize="16sp"
-        android:paddingBottom="16dp"
-        android:textColor="?android:attr/textColorPrimary" />
+    android:layout_height="wrap_content">
 
     <LinearLayout
+        android:orientation="vertical"
+        android:padding="24dp"
         android:layout_width="match_parent"
         android:layout_height="wrap_content"
-        android:orientation="vertical">
+        android:background="?android:attr/windowBackground">
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnYes"
+        <ScrollView
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="JA" />
+            android:maxHeight="200dp">
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnNo"
+            <TextView
+                android:id="@+id/tvItemInfo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:textSize="16sp"
+                android:paddingBottom="16dp"
+                android:textColor="?android:attr/textColorPrimary" />
+
+        </ScrollView>
+
+        <LinearLayout
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
-            android:text="NEIN" />
+            android:orientation="vertical">
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnChangeAmount"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Anzahl ändern" />
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnYes"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="JA" />
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnChangeArticle"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Artikel ändern" />
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnNo"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="NEIN" />
 
-        <androidx.appcompat.widget.AppCompatButton
-            android:id="@+id/btnSerials"
-            android:layout_width="match_parent"
-            android:layout_height="wrap_content"
-            android:text="Seriennummern" />
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnChangeAmount"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Anzahl ändern" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnChangeArticle"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Artikel ändern" />
+
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnSerials"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="Seriennummern" />
+
+        </LinearLayout>
 
     </LinearLayout>
 
-</LinearLayout>
+</ScrollView>
