@@ -1,6 +1,5 @@
 package com.example.mde
 
-import android.app.AlertDialog
 import android.content.Intent
 import android.os.Looper
 import android.view.View
@@ -255,7 +254,7 @@ class BasePickDropActivityTest {
         etDetailFilter.setText("123.4567")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        val dialog = ShadowDialog.getLatestDialog() as AlertDialog
+        val dialog = ShadowDialog.getLatestDialog()
         assertNotNull(dialog)
         assertTrue(dialog.isShowing)
 
@@ -308,7 +307,7 @@ class BasePickDropActivityTest {
         etDetailFilter.setText("123.4567")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        val dialog = ShadowDialog.getLatestDialog() as AlertDialog
+        val dialog = ShadowDialog.getLatestDialog()
         assertNotNull(dialog)
         assertTrue(dialog.isShowing)
 
