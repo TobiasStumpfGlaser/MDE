@@ -25,6 +25,7 @@ import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows
+import org.robolectric.shadows.ShadowDialog
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowAlertDialog
 import org.robolectric.shadows.ShadowSystemClock
@@ -179,7 +180,7 @@ class BasePickDropActivityTest {
         etDetailFilter.setText("123.4567")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        val dialog = ShadowAlertDialog.getLatestAlertDialog()
+        val dialog = ShadowDialog.getLatestDialog()
         assertNotNull(dialog)
     }
 
@@ -215,7 +216,7 @@ class BasePickDropActivityTest {
             holder.itemView.performClick()
             Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-            val dialog = ShadowAlertDialog.getLatestAlertDialog()
+            val dialog = ShadowDialog.getLatestDialog()
             assertNotNull(dialog)
         }
     }
@@ -253,7 +254,7 @@ class BasePickDropActivityTest {
         etDetailFilter.setText("123.4567")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        val dialog = ShadowAlertDialog.getLatestAlertDialog()
+        val dialog = ShadowDialog.getLatestDialog()
         assertNotNull(dialog)
 
         (dialog as AlertDialog).getButton(AlertDialog.BUTTON_POSITIVE).performClick()
@@ -303,7 +304,7 @@ class BasePickDropActivityTest {
         etDetailFilter.setText("123.4567")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        val dialog = ShadowAlertDialog.getLatestAlertDialog()
+        val dialog = ShadowDialog.getLatestDialog()
         assertNotNull(dialog)
 
         (dialog as AlertDialog).getButton(AlertDialog.BUTTON_POSITIVE).performClick()
