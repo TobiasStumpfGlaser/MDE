@@ -291,7 +291,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         } else false
     }
 
-    protected open fun onBarcodeScanned(barcode: String) {
+    internal open fun onBarcodeScanned(barcode: String) {
         val handler = serialDialogScanHandler
         if (handler != null) {
             runOnUiThread { handler(barcode) }
