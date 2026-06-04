@@ -18,6 +18,7 @@ import io.mockk.verify
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
+import org.junit.Assert.assertTrue
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -72,6 +73,34 @@ class BasePickDropActivityTest {
         unmockkObject(TcpClient)
         unmockkObject(UiLoadingHelper)
         DataRepository.clear()
+    }
+
+    /**
+     * Helper function to wait until details view becomes visible.
+     * Waits for the asynchronous coroutine to complete and update the UI.
+     */
+    private fun waitForDetailsViewVisible(activity: BasePickDropActivity) {
+        val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
+        var attempts = 0
+        while (rvDetails.visibility != View.VISIBLE && attempts < 50) {
+            Thread.sleep(100)
+            Shadows.shadowOf(Looper.getMainLooper()).idle()
+            attempts++
+        }
+        assertEquals("Details view should be visible after loading", View.VISIBLE, rvDetails.visibility)
+    }
+
+    /**
+     * Helper function to wait until RecyclerView has items.
+     */
+    private fun waitForRecyclerViewItems(recyclerView: RecyclerView) {
+        var attempts = 0
+        while ((recyclerView.adapter?.itemCount ?: 0) == 0 && attempts < 50) {
+            Thread.sleep(100)
+            Shadows.shadowOf(Looper.getMainLooper()).idle()
+            attempts++
+        }
+        assertTrue("RecyclerView should have items", (recyclerView.adapter?.itemCount ?: 0) > 0)
     }
 
     @Test
@@ -152,9 +181,8 @@ class BasePickDropActivityTest {
             )
         }
 
-        // Ensure details view is visible
-        val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
-        assertEquals("Details view should be visible", View.VISIBLE, rvDetails.visibility)
+        // Wait until details view becomes visible (asynchronous coroutine completion)
+        waitForDetailsViewVisible(activity)
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
@@ -196,6 +224,9 @@ class BasePickDropActivityTest {
         val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
         assertNotNull("Details RecyclerView should exist", rvDetails)
 
+        // Wait for items to be loaded
+        waitForRecyclerViewItems(rvDetails)
+
         // Click first item in the list
         val adapter = rvDetails.adapter
         if (adapter != null && adapter.itemCount > 0) {
@@ -234,6 +265,9 @@ class BasePickDropActivityTest {
                 endTag = "{/GetPick_L1}"
             )
         }
+
+        // Wait until details view becomes visible
+        waitForDetailsViewVisible(activity)
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
@@ -284,6 +318,9 @@ class BasePickDropActivityTest {
                 endTag = "{/GetDrop_L1}"
             )
         }
+
+        // Wait until details view becomes visible
+        waitForDetailsViewVisible(activity)
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
