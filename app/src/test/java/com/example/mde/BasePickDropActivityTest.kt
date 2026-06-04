@@ -2,6 +2,7 @@ package com.example.mde
 
 import android.app.AlertDialog
 import android.content.Intent
+import android.os.Looper
 import androidx.test.core.app.ApplicationProvider
 import io.mockk.Runs
 import io.mockk.clearMocks
@@ -11,11 +12,13 @@ import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
 import org.junit.After
+import org.junit.Assert.assertNotNull
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
+import org.robolectric.Shadows
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowAlertDialog
 
@@ -84,7 +87,12 @@ class BasePickDropActivityTest {
         val item = ListDetail("", "2", "1", "Info", listenNummer = "L1")
 
         showItemDialog(activity, item)
-        (ShadowAlertDialog.getLatestAlertDialog() as AlertDialog)
+        // Let Robolectric process all pending tasks before accessing the dialog
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        
+        val dialog = ShadowAlertDialog.getLatestAlertDialog()
+        assertNotNull("Dialog should be created", dialog)
+        (dialog as AlertDialog)
             .getButton(AlertDialog.BUTTON_POSITIVE)
             .performClick()
 
@@ -107,7 +115,12 @@ class BasePickDropActivityTest {
         setField(activity, "detailsOriginal", listOf(item.copy()))
 
         showItemDialog(activity, item)
-        (ShadowAlertDialog.getLatestAlertDialog() as AlertDialog)
+        // Let Robolectric process all pending tasks before accessing the dialog
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        
+        val dialog = ShadowAlertDialog.getLatestAlertDialog()
+        assertNotNull("Dialog should be created", dialog)
+        (dialog as AlertDialog)
             .getButton(AlertDialog.BUTTON_POSITIVE)
             .performClick()
 
@@ -138,7 +151,12 @@ class BasePickDropActivityTest {
         setField(activity, "detailsOriginal", listOf(item.copy()))
 
         showItemDialog(activity, item)
-        (ShadowAlertDialog.getLatestAlertDialog() as AlertDialog)
+        // Let Robolectric process all pending tasks before accessing the dialog
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        
+        val dialog = ShadowAlertDialog.getLatestAlertDialog()
+        assertNotNull("Dialog should be created", dialog)
+        (dialog as AlertDialog)
             .getButton(AlertDialog.BUTTON_POSITIVE)
             .performClick()
 
