@@ -7,7 +7,6 @@ import io.mockk.Runs
 import io.mockk.clearMocks
 import io.mockk.every
 import io.mockk.just
-import io.mockk.match
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify

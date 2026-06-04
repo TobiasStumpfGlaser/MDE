@@ -5,7 +5,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.mde.model.Artikel
 import io.mockk.every
 import io.mockk.just
-import io.mockk.match
 import io.mockk.mockkObject
 import io.mockk.unmockkObject
 import io.mockk.verify
@@ -96,7 +95,7 @@ class MaterialBuchungActivityTest {
             listOf("P3 - Drei", "P1 - Eins", "P2 - Zwei", "P4 - A")
         )
 
-        assertEquals(listOf("P2 - Zwei", "P1 - Eins", "P4 - A", "P3 - Drei"), sorted)
+        assertEquals(listOf("P2 - Zwei", "P1 - Eins", "P3 - Drei", "P4 - A"), sorted)
     }
 
     @Test

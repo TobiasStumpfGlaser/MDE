@@ -142,9 +142,9 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     protected lateinit var etFilterKeyListener: android.text.method.KeyListener
     protected lateinit var btnScan: Button
-    protected lateinit var etFilter: AutoCompleteTextView
+    internal lateinit var etFilter: AutoCompleteTextView
     protected lateinit var etProjekt: AutoCompleteTextView
-    protected lateinit var edtMenge: EditText
+    internal lateinit var edtMenge: EditText
     protected lateinit var edtSerials: EditText
     protected lateinit var tvArtikelInfo: TextView
     protected lateinit var btnClear: Button
@@ -923,7 +923,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
-    protected fun showArtikelInfo(artikel: Artikel) {
+    internal fun showArtikelInfo(artikel: Artikel) {
         hideKeyboardAndClearFocus()
 
         val itemTextColor = getThemeColor(android.R.attr.textColorPrimary)
@@ -1047,7 +1047,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         )
     }
 
-    protected fun doBuchenWithDetails(
+    internal fun doBuchenWithDetails(
         einlagern: Boolean,
         count: Boolean = false,
         artikelText: String? = null,

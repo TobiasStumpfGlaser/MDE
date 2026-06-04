@@ -44,7 +44,7 @@ class ArtNrHelperTest {
 
     // Additional edge cases for isArtNrExactMatch
     @Test fun exactMatch_bothSpaces_returnsTrue()     = assertTrue(isArtNrExactMatch(" 123.4567 ", " 123.4567 "))
-    @Test fun exactMatch_mixedCase_returnsTrue()      = assertTrue(isArtNrExactMatch("AbC.dEfG", "aBc.DeF G"))
+    @Test fun exactMatch_mixedCase_returnsTrue()      = assertTrue(isArtNrExactMatch("AbC.dEf gH", "aBc.DeF Gh"))
     @Test fun exactMatch_emptyBoth_returnsTrue()      = assertTrue(isArtNrExactMatch("", ""))
     @Test fun exactMatch_onlySpaces_returnsFalse()    = assertFalse(isArtNrExactMatch("123.4567", "   "))
 }

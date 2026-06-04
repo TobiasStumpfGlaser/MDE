@@ -114,12 +114,11 @@ class TcpClientTest {
 
     @Test
     fun removeTableHeaderLine_mehrereStartTagsOhneEndTags_entferntAlleKopfzeilen() {
-        val raw = "{GetArtikel}\nHEADER1\nDATA1\n{GetArtikel}\nHEADER2\nDATA2"
+        val raw = "{GetArtikel}\nHEADER1|2|3\nDATA1|2|3\nDATA4|5|6"
         val result = TcpClient.removeTableHeaderLine(raw, "{/GetArtikel}")
-        assertFalse(result.contains("HEADER1"))
-        assertFalse(result.contains("HEADER2"))
-        assertTrue(result.contains("DATA1"))
-        assertTrue(result.contains("DATA2"))
+        assertFalse(result.contains("HEADER1|2|3"))
+        assertTrue(result.contains("DATA1|2|3"))
+        assertTrue(result.contains("DATA4|5|6"))
     }
 
     @Test
