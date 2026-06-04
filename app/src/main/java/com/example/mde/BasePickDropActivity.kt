@@ -599,7 +599,10 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     }
 
                 val buchungsMengeSigned = mengeParsed.multiply(BigDecimal(buchungsVorzeichen))
-                val buchungsMengeServer = formatMengeForServer(buchungsMengeSigned)
+                var buchungsMengeServer = formatMengeForServer(buchungsMengeSigned)
+                if (!buchungsMengeServer.startsWith("-")) {
+                    buchungsMengeServer = "+$buchungsMengeServer"
+                }
 
                 val request = buildString {
                     append("{SetBuchung}")
