@@ -28,10 +28,6 @@ import org.robolectric.Shadows
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowAlertDialog
 
-/**
- * Tests für BasePickDropActivity.
- * Diese Tests nutzen die öffentlichen Funktionen und UI-Interaktionen der Activity.
- */
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class BasePickDropActivityTest {
@@ -75,10 +71,6 @@ class BasePickDropActivityTest {
         DataRepository.clear()
     }
 
-    /**
-     * Helper function to wait until details view becomes visible.
-     * Waits for the asynchronous coroutine to complete and update the UI.
-     */
     private fun waitForDetailsViewVisible(activity: BasePickDropActivity) {
         val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
         var attempts = 0
@@ -90,9 +82,6 @@ class BasePickDropActivityTest {
         assertEquals("Details view should be visible after loading", View.VISIBLE, rvDetails.visibility)
     }
 
-    /**
-     * Helper function to wait until RecyclerView has items.
-     */
     private fun waitForRecyclerViewItems(recyclerView: RecyclerView) {
         var attempts = 0
         while ((recyclerView.adapter?.itemCount ?: 0) == 0 && attempts < 50) {
@@ -112,7 +101,6 @@ class BasePickDropActivityTest {
 
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        // Verify TcpClient was called to load overview
         verify(timeout = 2000) {
             TcpClient.sendCommand(
                 context = any(),
@@ -133,18 +121,14 @@ class BasePickDropActivityTest {
 
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        // Get the list filter EditText
         val etListFilter = activity.findViewById<AutoCompleteTextView>(R.id.etListFilter)
         val etProjectNumber = activity.findViewById<EditText>(R.id.etProjectNumber)
 
-        // Simulate user entering list number
         etListFilter.setText("L1")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        // Verify project number was set
         assertEquals("P100", etProjectNumber.text.toString())
 
-        // Verify details were loaded
         verify(timeout = 2000) {
             TcpClient.sendCommand(
                 context = any(),
@@ -165,12 +149,10 @@ class BasePickDropActivityTest {
 
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        // Load list first
         val etListFilter = activity.findViewById<AutoCompleteTextView>(R.id.etListFilter)
         etListFilter.setText("L1")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        // Wait for details to be loaded
         verify(timeout = 2000) {
             TcpClient.sendCommand(
                 context = any(),
@@ -181,18 +163,23 @@ class BasePickDropActivityTest {
             )
         }
 
-        // Wait until details view becomes visible (asynchronous coroutine completion)
         waitForDetailsViewVisible(activity)
+
+        val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
+        waitForRecyclerViewItems(rvDetails)
+
+        Thread.sleep(200)
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
-        // Simulate barcode scan for article number that exists in the loaded details
         activity.onBarcodeScanned("123.4567")
+
+        Thread.sleep(300)
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        // Verify dialog was shown
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
-        assertNotNull("Dialog should be created after scanning article that exists in details", dialog)
+        assertNotNull("Dialog should be created", dialog)
     }
 
     @Test
@@ -204,12 +191,10 @@ class BasePickDropActivityTest {
 
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        // Load details
         val etListFilter = activity.findViewById<AutoCompleteTextView>(R.id.etListFilter)
         etListFilter.setText("L1")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        // Wait for details to be loaded
         verify(timeout = 2000) {
             TcpClient.sendCommand(
                 context = any(),
@@ -220,14 +205,11 @@ class BasePickDropActivityTest {
             )
         }
 
-        // Get the details RecyclerView
         val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
-        assertNotNull("Details RecyclerView should exist", rvDetails)
+        assertNotNull(rvDetails)
 
-        // Wait for items to be loaded
         waitForRecyclerViewItems(rvDetails)
 
-        // Click first item in the list
         val adapter = rvDetails.adapter
         if (adapter != null && adapter.itemCount > 0) {
             val holder = adapter.createViewHolder(rvDetails, 0)
@@ -235,9 +217,8 @@ class BasePickDropActivityTest {
             holder.itemView.performClick()
             Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-            // Verify dialog was shown
             val dialog = ShadowAlertDialog.getLatestAlertDialog()
-            assertNotNull("Dialog should be created after clicking detail item", dialog)
+            assertNotNull(dialog)
         }
     }
 
@@ -250,12 +231,10 @@ class BasePickDropActivityTest {
 
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        // Load details
         val etListFilter = activity.findViewById<AutoCompleteTextView>(R.id.etListFilter)
         etListFilter.setText("L1")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        // Wait for details to be loaded
         verify(timeout = 2000) {
             TcpClient.sendCommand(
                 context = any(),
@@ -266,23 +245,27 @@ class BasePickDropActivityTest {
             )
         }
 
-        // Wait until details view becomes visible
         waitForDetailsViewVisible(activity)
+
+        val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
+        waitForRecyclerViewItems(rvDetails)
+
+        Thread.sleep(200)
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
-        // Simulate barcode scan
         activity.onBarcodeScanned("123.4567")
+
+        Thread.sleep(300)
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
-        assertNotNull("Dialog should be created", dialog)
+        assertNotNull(dialog)
 
-        // Click positive button (Yes)
         (dialog as AlertDialog).getButton(AlertDialog.BUTTON_POSITIVE).performClick()
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        // Verify booking was sent with negative amount (pick)
         verify(timeout = 2000) {
             TcpClient.sendCommand(
                 context = any(),
@@ -303,12 +286,10 @@ class BasePickDropActivityTest {
 
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        // Load details
         val etListFilter = activity.findViewById<AutoCompleteTextView>(R.id.etListFilter)
         etListFilter.setText("L1")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        // Wait for details to be loaded
         verify(timeout = 2000) {
             TcpClient.sendCommand(
                 context = any(),
@@ -319,23 +300,27 @@ class BasePickDropActivityTest {
             )
         }
 
-        // Wait until details view becomes visible
         waitForDetailsViewVisible(activity)
+
+        val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
+        waitForRecyclerViewItems(rvDetails)
+
+        Thread.sleep(200)
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
-        // Simulate barcode scan
         activity.onBarcodeScanned("123.4567")
+
+        Thread.sleep(300)
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
-        assertNotNull("Dialog should be created", dialog)
+        assertNotNull(dialog)
 
-        // Click positive button (Yes)
         (dialog as AlertDialog).getButton(AlertDialog.BUTTON_POSITIVE).performClick()
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        // Verify booking was sent with positive amount (drop)
         verify(timeout = 2000) {
             TcpClient.sendCommand(
                 context = any(),
@@ -356,7 +341,6 @@ class BasePickDropActivityTest {
 
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        // Verify TcpClient was called to load overview
         verify(timeout = 2000) {
             TcpClient.sendCommand(
                 context = any(),
