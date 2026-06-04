@@ -3,6 +3,7 @@ package com.example.mde
 import android.app.AlertDialog
 import android.content.Intent
 import android.os.Looper
+import android.view.View
 import android.widget.AutoCompleteTextView
 import android.widget.EditText
 import androidx.recyclerview.widget.RecyclerView
@@ -140,15 +141,30 @@ class BasePickDropActivityTest {
         etListFilter.setText("L1")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
+        // Wait for details to be loaded
+        verify(timeout = 2000) {
+            TcpClient.sendCommand(
+                context = any(),
+                settings = any(),
+                command = "GetPick_L1",
+                request = "{GetPick_L1}",
+                endTag = "{/GetPick_L1}"
+            )
+        }
+
+        // Ensure details view is visible
+        val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
+        assertEquals("Details view should be visible", View.VISIBLE, rvDetails.visibility)
+
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
-        // Simulate barcode scan for article number
+        // Simulate barcode scan for article number that exists in the loaded details
         activity.onBarcodeScanned("123.4567")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         // Verify dialog was shown
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
-        assertNotNull("Dialog should be created after scanning article", dialog)
+        assertNotNull("Dialog should be created after scanning article that exists in details", dialog)
     }
 
     @Test
@@ -164,6 +180,17 @@ class BasePickDropActivityTest {
         val etListFilter = activity.findViewById<AutoCompleteTextView>(R.id.etListFilter)
         etListFilter.setText("L1")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        // Wait for details to be loaded
+        verify(timeout = 2000) {
+            TcpClient.sendCommand(
+                context = any(),
+                settings = any(),
+                command = "GetPick_L1",
+                request = "{GetPick_L1}",
+                endTag = "{/GetPick_L1}"
+            )
+        }
 
         // Get the details RecyclerView
         val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
@@ -196,6 +223,17 @@ class BasePickDropActivityTest {
         val etListFilter = activity.findViewById<AutoCompleteTextView>(R.id.etListFilter)
         etListFilter.setText("L1")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        // Wait for details to be loaded
+        verify(timeout = 2000) {
+            TcpClient.sendCommand(
+                context = any(),
+                settings = any(),
+                command = "GetPick_L1",
+                request = "{GetPick_L1}",
+                endTag = "{/GetPick_L1}"
+            )
+        }
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
@@ -235,6 +273,17 @@ class BasePickDropActivityTest {
         val etListFilter = activity.findViewById<AutoCompleteTextView>(R.id.etListFilter)
         etListFilter.setText("L1")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        // Wait for details to be loaded
+        verify(timeout = 2000) {
+            TcpClient.sendCommand(
+                context = any(),
+                settings = any(),
+                command = "GetDrop_L1",
+                request = "{GetDrop_L1}",
+                endTag = "{/GetDrop_L1}"
+            )
+        }
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
