@@ -245,7 +245,10 @@ open class MaterialBuchungActivity : BaseArtikelScanActivity() {
         }
     }
 
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean = super.dispatchTouchEvent(ev)
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        resetLogoutTimer()
+        return super.dispatchTouchEvent(ev)
+    }
 
     /**
      * Normalisiert einen Projekt-Filterwert für den Vergleich:

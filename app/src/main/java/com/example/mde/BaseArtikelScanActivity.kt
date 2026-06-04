@@ -250,7 +250,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         if (enableIntentWedgeScanHandling) {
             registerIntentWedgeReceiver()
         }
-        handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
+        resetLogoutTimer()
     }
 
     override fun onPause() {
@@ -258,6 +258,15 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         if (enableIntentWedgeScanHandling) {
             unregisterReceiverSafely()
         }
+        stopLogoutTimer()
+    }
+
+    protected fun resetLogoutTimer() {
+        handler.removeCallbacks(timeoutRunnable)
+        handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
+    }
+
+    private fun stopLogoutTimer() {
         handler.removeCallbacks(timeoutRunnable)
     }
 
@@ -1189,9 +1198,4 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
-    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
-        handler.removeCallbacks(timeoutRunnable)
-        handler.postDelayed(timeoutRunnable, logoutTimeoutMillis)
-        return super.dispatchTouchEvent(ev)
-    }
 }
