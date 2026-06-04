@@ -142,4 +142,9 @@ open class InventurActivity : BaseArtikelScanActivity() {
         doBuchen(true, count = true)
         btnClearClicked()
     }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        resetLogoutTimer()
+        return super.dispatchTouchEvent(ev)
+    }
 }

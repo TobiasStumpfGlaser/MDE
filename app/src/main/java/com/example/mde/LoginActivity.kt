@@ -2,6 +2,9 @@ package com.example.mde
 
 import android.content.Intent
 import android.os.Bundle
+import android.os.Handler
+import android.os.Looper
+import android.view.MotionEvent
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
@@ -87,6 +90,9 @@ class LoginActivity : AppCompatActivity() {
 
     private var requestRunning = false
     private val ioScope = CoroutineScope(Dispatchers.IO + Job())
+    private lateinit var handler: Handler
+    private lateinit var timeoutRunnable: Runnable
+    private var timeoutMillis: Long = 0L
 
     override fun onCreate(savedInstanceState: Bundle?) {
         settings = AppSettings(this)
@@ -105,6 +111,13 @@ class LoginActivity : AppCompatActivity() {
         val toolbar = findViewById<Toolbar>(R.id.toolbar)
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayShowTitleEnabled(false)
+
+        handler = Handler(Looper.getMainLooper())
+        timeoutRunnable = Runnable {
+            resetLoginForm()
+        }
+        timeoutMillis = settings.logoutTimeSec * 1000L
+        resetInactivityTimer()
 
         txtUsername = findViewById(R.id.txtUsername)
         txtPin = findViewById(R.id.txtPin)
@@ -136,6 +149,41 @@ class LoginActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         ioScope.cancel()
+    }
+
+    override fun onResume() {
+        super.onResume()
+        resetInactivityTimer()
+    }
+
+    override fun onPause() {
+        super.onPause()
+        stopInactivityTimer()
+    }
+
+    override fun dispatchTouchEvent(ev: MotionEvent): Boolean {
+        resetInactivityTimer()
+        return super.dispatchTouchEvent(ev)
+    }
+
+    private fun resetInactivityTimer() {
+        handler.removeCallbacks(timeoutRunnable)
+        handler.postDelayed(timeoutRunnable, timeoutMillis)
+    }
+
+    private fun stopInactivityTimer() {
+        handler.removeCallbacks(timeoutRunnable)
+    }
+
+    private fun resetLoginForm() {
+        txtPin.text.clear()
+        if (userList.contains(settings.defaultUser)) {
+            selectDefaultUserIfAvailable()
+        } else {
+            txtUsername.setText("", false)
+            txtUsername.clearFocus()
+            txtUsername.dismissDropDown()
+        }
     }
 
     private fun userTextClicked() {
