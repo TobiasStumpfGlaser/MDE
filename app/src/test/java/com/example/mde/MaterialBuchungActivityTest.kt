@@ -216,7 +216,7 @@ class MaterialBuchungActivityTest {
     }
 
     @Test
-    fun dispatchTouchEvent_resetsLogoutTimer() {
+    fun dispatchTouchEvent_resetsInactivityTimer() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val settings = AppSettings(context)
         val previousTimeout = settings.logoutTimeSec
@@ -225,15 +225,15 @@ class MaterialBuchungActivityTest {
         try {
             val intent = Intent(context, MaterialBuchungActivity::class.java)
             intent.putExtra("USERNAME", "testuser")
-            val logoutActivity = Robolectric.buildActivity(MaterialBuchungActivity::class.java, intent)
+            val activity = Robolectric.buildActivity(MaterialBuchungActivity::class.java, intent)
                 .create().start().resume().get()
 
-            val shadowActivity = Shadows.shadowOf(logoutActivity)
+            val shadowActivity = Shadows.shadowOf(activity)
             val mainLooper = Shadows.shadowOf(Looper.getMainLooper())
 
             mainLooper.idleFor(Duration.ofMillis(800))
             val event = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0f, 0f, 0)
-            logoutActivity.dispatchTouchEvent(event)
+            activity.dispatchTouchEvent(event)
             event.recycle()
 
             mainLooper.idleFor(Duration.ofMillis(300))

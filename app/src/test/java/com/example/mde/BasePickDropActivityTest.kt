@@ -350,7 +350,7 @@ class BasePickDropActivityTest {
     }
 
     @Test
-    fun dispatchTouchEvent_resetsLogoutTimer() {
+    fun dispatchTouchEvent_resetsInactivityTimer() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val settings = AppSettings(context)
         val previousTimeout = settings.logoutTimeSec
