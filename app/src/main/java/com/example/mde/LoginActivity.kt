@@ -114,10 +114,7 @@ class LoginActivity : AppCompatActivity() {
 
         handler = Handler(Looper.getMainLooper())
         timeoutRunnable = Runnable {
-            val intent = Intent(this@LoginActivity, LoginActivity::class.java)
-            intent.flags = Intent.FLAG_ACTIVITY_CLEAR_TOP or Intent.FLAG_ACTIVITY_NEW_TASK
-            startActivity(intent)
-            finish()
+            resetLoginForm()
         }
         timeoutMillis = settings.logoutTimeSec * 1000L
         resetInactivityTimer()
@@ -176,6 +173,17 @@ class LoginActivity : AppCompatActivity() {
 
     private fun stopInactivityTimer() {
         handler.removeCallbacks(timeoutRunnable)
+    }
+
+    private fun resetLoginForm() {
+        txtPin.text.clear()
+        if (userList.contains(settings.defaultUser)) {
+            selectDefaultUserIfAvailable()
+        } else {
+            txtUsername.setText("", false)
+            txtUsername.clearFocus()
+            txtUsername.dismissDropDown()
+        }
     }
 
     private fun userTextClicked() {
