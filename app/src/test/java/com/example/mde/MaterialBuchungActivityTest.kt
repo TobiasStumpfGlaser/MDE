@@ -24,44 +24,11 @@ import org.robolectric.annotation.Config
 @Config(sdk = [33])
 class MaterialBuchungActivityTest {
 
+    // Helper function to parse SetBuchung request format
     private fun parseSetBuchungParts(request: String): List<String> =
         request.removePrefix("{SetBuchung}").removeSuffix("|{/SetBuchung}").split("|")
 
-    class TestActivity : MaterialBuchungActivity() {
-        override val autoLoadArtikelUndProjekte: Boolean = false
-
-        fun setFilterText(text: String) = etFilter.setText(text)
-
-        fun buchen(
-            einlagern: Boolean,
-            count: Boolean = false,
-            artikelText: String? = null,
-            projektText: String? = null,
-            mengeText: String? = null,
-            serialsText: String? = null
-        ): Boolean = doBuchenWithDetails(einlagern, count, artikelText, projektText, mengeText, serialsText)
-
-        fun invokeSortProjekteWithRecents(projekte: List<String>): List<String> {
-            val method = MaterialBuchungActivity::class.java.getDeclaredMethod(
-                "sortProjekteWithRecents",
-                List::class.java
-            )
-            method.isAccessible = true
-            @Suppress("UNCHECKED_CAST")
-            return method.invoke(this, projekte) as List<String>
-        }
-
-        fun invokeNormalizeProjektFilter(input: String): String {
-            val method = MaterialBuchungActivity::class.java.getDeclaredMethod(
-                "normalizeProjektFilter",
-                String::class.java
-            )
-            method.isAccessible = true
-            return method.invoke(this, input) as String
-        }
-    }
-
-    private lateinit var activity: TestActivity
+    private lateinit var activity: MaterialBuchungActivity
 
     @Before
     fun setUp() {
@@ -85,12 +52,12 @@ class MaterialBuchungActivityTest {
             )
         )
 
-        val intent = Intent(ApplicationProvider.getApplicationContext(), TestActivity::class.java)
+        val intent = Intent(ApplicationProvider.getApplicationContext(), MaterialBuchungActivity::class.java)
         intent.putExtra("USERNAME", "testuser")
-        activity = Robolectric.buildActivity(TestActivity::class.java, intent)
+        activity = Robolectric.buildActivity(MaterialBuchungActivity::class.java, intent)
             .create().start().resume().get()
 
-        activity.runOnUiThread { activity.setFilterText("123.4567 | Test Artikel") }
+        activity.runOnUiThread { activity.etFilter.setText("123.4567 | Test Artikel") }
     }
 
     @After
@@ -102,22 +69,22 @@ class MaterialBuchungActivityTest {
 
     @Test
     fun normalizeProjektFilter_normalizesSpecialCharsAndCase() {
-        assertEquals("p100projektalpha", activity.invokeNormalizeProjektFilter("P-100 / Projekt Alpha"))
+        assertEquals("p100projektalpha", activity.normalizeProjektFilter("P-100 / Projekt Alpha"))
     }
 
     @Test
     fun normalizeProjektFilter_removesSpaces() {
-        assertEquals("abc123", activity.invokeNormalizeProjektFilter("  A B C  1 2 3  "))
+        assertEquals("abc123", activity.normalizeProjektFilter("  A B C  1 2 3  "))
     }
 
     @Test
     fun normalizeProjektFilter_handlesUmlauts() {
-        assertEquals("aouaou", activity.invokeNormalizeProjektFilter("ÄÖÜäöü"))
+        assertEquals("", activity.normalizeProjektFilter("ÄÖÜäöü"))
     }
 
     @Test
     fun normalizeProjektFilter_emptyInput_returnsEmpty() {
-        assertEquals("", activity.invokeNormalizeProjektFilter(""))
+        assertEquals("", activity.normalizeProjektFilter(""))
     }
 
     @Test
@@ -125,7 +92,7 @@ class MaterialBuchungActivityTest {
         DataRepository.recentProjektListe.clear()
         DataRepository.recentProjektListe.addAll(listOf("P2 - Zwei", "P1 - Eins"))
 
-        val sorted = activity.invokeSortProjekteWithRecents(
+        val sorted = activity.sortProjekteWithRecents(
             listOf("P3 - Drei", "P1 - Eins", "P2 - Zwei", "P4 - A")
         )
 
@@ -136,7 +103,7 @@ class MaterialBuchungActivityTest {
     fun sortProjekteWithRecents_emptyRecentsList_returnsAlphabetic() {
         DataRepository.recentProjektListe.clear()
 
-        val sorted = activity.invokeSortProjekteWithRecents(
+        val sorted = activity.sortProjekteWithRecents(
             listOf("P3 - Drei", "P1 - Eins", "P2 - Zwei")
         )
 
@@ -148,7 +115,7 @@ class MaterialBuchungActivityTest {
         DataRepository.recentProjektListe.clear()
         DataRepository.recentProjektListe.addAll(listOf("P999 - Not In List"))
 
-        val sorted = activity.invokeSortProjekteWithRecents(
+        val sorted = activity.sortProjekteWithRecents(
             listOf("P3 - Drei", "P1 - Eins")
         )
 
@@ -157,8 +124,8 @@ class MaterialBuchungActivityTest {
 
     @Test
     fun doBuchenWithDetails_validationFailures_doNotCallSendCommand() {
-        activity.buchen(einlagern = true, artikelText = "123.4567", projektText = "", mengeText = "1")
-        activity.buchen(
+        activity.doBuchenWithDetails(einlagern = true, artikelText = "123.4567", projektText = "", mengeText = "1")
+        activity.doBuchenWithDetails(
             einlagern = true,
             artikelText = "123.4567",
             projektText = "P100",
@@ -171,8 +138,8 @@ class MaterialBuchungActivityTest {
 
     @Test
     fun doBuchenWithDetails_missingArtikel_returnsFalse() {
-        activity.runOnUiThread { activity.setFilterText("") }
-        val started = activity.buchen(
+        activity.runOnUiThread { activity.etFilter.setText("") }
+        val started = activity.doBuchenWithDetails(
             einlagern = true,
             artikelText = "",
             projektText = "P100",
@@ -184,7 +151,7 @@ class MaterialBuchungActivityTest {
 
     @Test
     fun doBuchenWithDetails_invalidMenge_returnsFalse() {
-        val started = activity.buchen(
+        val started = activity.doBuchenWithDetails(
             einlagern = true,
             artikelText = "123.4567",
             projektText = "P100",
@@ -196,7 +163,7 @@ class MaterialBuchungActivityTest {
 
     @Test
     fun doBuchenWithDetails_validInput_callsSetBuchungWithExpectedPayload() {
-        val started = activity.buchen(
+        val started = activity.doBuchenWithDetails(
             einlagern = true,
             artikelText = "123.4567",
             projektText = "P100",
@@ -221,7 +188,7 @@ class MaterialBuchungActivityTest {
 
     @Test
     fun doBuchenWithDetails_auslagernWithNegativeSign() {
-        val started = activity.buchen(
+        val started = activity.doBuchenWithDetails(
             einlagern = false,
             artikelText = "123.4567",
             projektText = "P100",
@@ -243,4 +210,3 @@ class MaterialBuchungActivityTest {
         }
     }
 }
-

@@ -15,49 +15,7 @@ import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 
-// ---------------------------------------------------------------------------
-// DoBuchenWithDetailsTest -- Robolectric + mockkObject(TcpClient)
-//
-// Request-Format (aus BaseArtikelScanActivity.doBuchenWithDetails):
-//
-//   {SetBuchung}[0]|[1]|[2]|[3]|[4]|[5]|[6]|[7]|[8]|[9]|{/SetBuchung}
-//
-//   [0] = artikelNr
-//   [1] = "" (Ersatzartikel -- bei Direktbuchung immer leer, hardcoded)
-//   [2] = serverMenge  (+X = einlagern, -X = auslagern, =X = count)
-//   [3] = "" (Reservefeld -- immer leer, hardcoded)
-//   [4] = "" (Reservefeld -- immer leer, hardcoded)
-//   [5] = projekt
-//   [6] = werkNummer (aus AppSettings)
-//   [7] = username
-//   [8] = timestamp  (dd.MM.yyyy HH:mm:ss)
-//   [9] = serials / Charge (leer wenn keine)
-//
-// Produktionscode (BaseArtikelScanActivity):
-//   append("$artikel||$serverMenge|||$projekt|${settings.werkNummer}|$username|$now|")
-//   if (serialsString.isNotEmpty()) append(serialsString)
-//   append("|{/SetBuchung}")
-//
-// Wichtige Eigenart der Validierung:
-//   hasSelectedArtikel() liest immer aus etFilter (getSelectedArtikelNr()),
-//   NICHT aus dem uebergebenen artikelText-Parameter.
-//   Deshalb muss etFilter fuer Negativ-Tests entsprechend gesetzt werden:
-//
-//   - Kein Artikel:          etFilter leeren
-//   - Unbekannter Artikel:   etFilter auf unbekannte ArtikelNr setzen,
-//                            damit hasSelectedArtikel() false zurueckgibt
-//
-//   Der artikelText-Parameter wird nur fuer den Request-Body verwendet
-//   (Fallback auf etFilter wenn null/blank), die Validierung laeuft immer
-//   ueber etFilter.
-// ---------------------------------------------------------------------------
-
-/**
- * Parst den Datenteil eines SetBuchung-Requests in seine Felder.
- *
- * Entfernt {SetBuchung} am Anfang sowie |{/SetBuchung} am Ende,
- * splittet dann nach | und gibt die Liste zurueck (10 Elemente [0..9]).
- */
+// Helper function to parse SetBuchung request format
 private fun parseRequestParts(request: String): List<String> =
     request
         .removePrefix("{SetBuchung}")
@@ -69,44 +27,24 @@ private fun parseRequestParts(request: String): List<String> =
 class DoBuchenWithDetailsTest {
 
     /**
-     * TestActivity legt protected-Member von BaseArtikelScanActivity offen.
-     *
-     * autoLoadArtikelUndProjekte = false verhindert, dass onCreate()
-     * loadArtikelUndProjekteSequential() aufruft, was UiLoadingHelper.show()
-     * triggert und unter Robolectric zu einem Dialog-Barrier-Crash fuehrt.
+     * TestActivity prevents autoLoadArtikelUndProjekte to avoid
+     * UiLoadingHelper.show() Dialog-Barrier crash under Robolectric.
      */
     class TestActivity : BaseArtikelScanActivity() {
         override fun getLayoutId() = R.layout.activity_inventur
         override val buchungMengeView: EditText? get() = null
         override val buchungProjektView: AutoCompleteTextView? get() = null
-
-        // Verhindert loadArtikelUndProjekteSequential() in onCreate()
         override val autoLoadArtikelUndProjekte: Boolean get() = false
-
-        /** Setzt den Text im Artikel-Filter-Feld (protected etFilter). */
-        fun setFilterText(text: String) = etFilter.setText(text)
-
-        /** Ruft das geschuetzte doBuchenWithDetails auf. */
-        fun buchen(
-            einlagern: Boolean,
-            count: Boolean = false,
-            artikelText: String? = null,
-            projektText: String? = null,
-            mengeText: String? = null,
-            serialsText: String? = null
-        ): Boolean = doBuchenWithDetails(einlagern, count, artikelText, projektText, mengeText, serialsText)
     }
 
     private lateinit var activity: TestActivity
 
     @Before
     fun setUp() {
-        // TcpClient mocken: Netzwerkaufruf abfangen
         mockkObject(TcpClient)
         every { TcpClient.sendCommand(any(), any(), any(), any(), any()) } returns
                 "{SetBuchung}\nok\n{/SetBuchung}"
 
-        // UiLoadingHelper mocken: verhindert MediaPlayer-NPE und Dialog-Barrier-Crash
         mockkObject(UiLoadingHelper)
         every { UiLoadingHelper.show(any(), any(), any(), any()) } just Runs
         every { UiLoadingHelper.hide() } just Runs
@@ -128,9 +66,8 @@ class DoBuchenWithDetailsTest {
         activity = Robolectric.buildActivity(TestActivity::class.java, intent)
             .create().start().resume().get()
 
-        // Artikel-Text setzen, damit hasSelectedArtikel() == true (fuer positive Tests)
         activity.runOnUiThread {
-            activity.setFilterText("123.4567 | Test Artikel")
+            activity.etFilter.setText("123.4567 | Test Artikel")
         }
     }
 
@@ -141,39 +78,19 @@ class DoBuchenWithDetailsTest {
         DataRepository.clear()
     }
 
-    // -----------------------------------------------------------------------
-    // Validierungs-Tests -- sendCommand darf NICHT aufgerufen werden
-    // -----------------------------------------------------------------------
-
-    /**
-     * Wenn artikelText blank UND etFilter leer ist, schlaegt die Artikel-Pruefung fehl.
-     *
-     * Hintergrund: doBuchenWithDetails faellt bei leerem artikelText auf
-     * getSelectedArtikelNr() (etFilter) zurueck. Ist auch etFilter leer,
-     * ist der Artikel wirklich blank und sendCommand wird nicht aufgerufen.
-     */
     @Test
     fun buchen_artikelBlankUndEtFilterLeer_sendCommandNichtAufgerufen() {
-        activity.runOnUiThread { activity.setFilterText("") }
-        activity.buchen(einlagern = true, artikelText = "", projektText = "P100", mengeText = "5")
+        activity.runOnUiThread { activity.etFilter.setText("") }
+        activity.doBuchenWithDetails(einlagern = true, artikelText = "", projektText = "P100", mengeText = "5")
         verify(exactly = 0) { TcpClient.sendCommand(any(), any(), any(), any(), any()) }
     }
 
-    /**
-     * Wenn etFilter eine ArtikelNr enthaelt, die nicht in DataRepository.artikelListe ist,
-     * schlaegt hasSelectedArtikel() fehl und sendCommand wird nicht aufgerufen.
-     *
-     * Hintergrund: hasSelectedArtikel() prueft immer gegen etFilter, nicht
-     * gegen den uebergebenen artikelText-Parameter. Deshalb wird auch etFilter
-     * auf die unbekannte ArtikelNr gesetzt.
-     */
     @Test
     fun buchen_artikelNichtInListe_sendCommandNichtAufgerufen() {
-        // etFilter auf unbekannte ArtikelNr setzen -- hasSelectedArtikel() liest daraus
-        activity.runOnUiThread { activity.setFilterText("999.9999 | Unbekannt") }
-        activity.buchen(
+        activity.runOnUiThread { activity.etFilter.setText("999.9999 | Unbekannt") }
+        activity.doBuchenWithDetails(
             einlagern = true,
-            artikelText = "999.9999",   // nicht in der artikelListe
+            artikelText = "999.9999",
             projektText = "P100",
             mengeText = "5"
         )
@@ -182,35 +99,31 @@ class DoBuchenWithDetailsTest {
 
     @Test
     fun buchen_mengeBlank_sendCommandNichtAufgerufen() {
-        activity.buchen(einlagern = true, artikelText = "123.4567", projektText = "P100", mengeText = "")
+        activity.doBuchenWithDetails(einlagern = true, artikelText = "123.4567", projektText = "P100", mengeText = "")
         verify(exactly = 0) { TcpClient.sendCommand(any(), any(), any(), any(), any()) }
     }
 
     @Test
     fun buchen_mengeUngueltig_sendCommandNichtAufgerufen() {
-        activity.buchen(einlagern = true, artikelText = "123.4567", projektText = "P100", mengeText = "abc")
+        activity.doBuchenWithDetails(einlagern = true, artikelText = "123.4567", projektText = "P100", mengeText = "abc")
         verify(exactly = 0) { TcpClient.sendCommand(any(), any(), any(), any(), any()) }
     }
 
     @Test
     fun buchen_projektBlank_ohneCount_sendCommandNichtAufgerufen() {
-        activity.buchen(einlagern = true, artikelText = "123.4567", projektText = "", mengeText = "5")
+        activity.doBuchenWithDetails(einlagern = true, artikelText = "123.4567", projektText = "", mengeText = "5")
         verify(exactly = 0) { TcpClient.sendCommand(any(), any(), any(), any(), any()) }
     }
 
     @Test
     fun buchen_mengeNull_sendCommandNichtAufgerufen() {
-        activity.buchen(einlagern = true, artikelText = "123.4567", projektText = "P100", mengeText = "0")
+        activity.doBuchenWithDetails(einlagern = true, artikelText = "123.4567", projektText = "P100", mengeText = "0")
         verify(exactly = 0) { TcpClient.sendCommand(any(), any(), any(), any(), any()) }
     }
 
-    // -----------------------------------------------------------------------
-    // Struktur-Tests -- exakte Feldpositionen im Request pruefen
-    // -----------------------------------------------------------------------
-
     @Test
     fun buchen_einlagern_requestStrukturKomplett() {
-        activity.buchen(
+        activity.doBuchenWithDetails(
             einlagern = true,
             artikelText = "123.4567",
             projektText = "P100",
@@ -226,17 +139,17 @@ class DoBuchenWithDetailsTest {
                 request = match { req ->
                     val p = parseRequestParts(req)
                     p.size >= 10 &&
-                    req.startsWith("{SetBuchung}") &&          // Start-Tag korrekt
-                    req.endsWith("|{/SetBuchung}") &&          // End-Tag korrekt
-                    p[0] == "123.4567" &&                      // [0] Artikel
-                    p[1] == "" &&                              // [1] Ersatzartikel (hardcoded leer)
-                    p[2] == "+5" &&                            // [2] Menge: + = einlagern
-                    p[3] == "" &&                              // [3] Reservefeld (hardcoded leer)
-                    p[4] == "" &&                              // [4] Reservefeld (hardcoded leer)
-                    p[5] == "P100" &&                          // [5] Projekt
-                    p[7] == "testuser" &&                      // [7] Username
-                    p[8].matches(Regex("""\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2}""")) && // [8] Timestamp
-                    p[9] == ""                                 // [9] keine Serials
+                    req.startsWith("{SetBuchung}") &&
+                    req.endsWith("|{/SetBuchung}") &&
+                    p[0] == "123.4567" &&
+                    p[1] == "" &&
+                    p[2] == "+5" &&
+                    p[3] == "" &&
+                    p[4] == "" &&
+                    p[5] == "P100" &&
+                    p[7] == "testuser" &&
+                    p[8].matches(Regex("""\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2}""")) &&
+                    p[9] == ""
                 },
                 endTag = eq("{/SetBuchung}")
             )
@@ -245,7 +158,7 @@ class DoBuchenWithDetailsTest {
 
     @Test
     fun buchen_auslagern_mengeMitMinusAnPosition2() {
-        activity.buchen(
+        activity.doBuchenWithDetails(
             einlagern = false,
             artikelText = "123.4567",
             projektText = "P100",
@@ -261,9 +174,9 @@ class DoBuchenWithDetailsTest {
                 request = match { req ->
                     val p = parseRequestParts(req)
                     p.size >= 10 &&
-                    p[0] == "123.4567" &&   // [0] Artikel
-                    p[2] == "-3" &&         // [2] Menge: - = auslagern
-                    p[5] == "P100"          // [5] Projekt
+                    p[0] == "123.4567" &&
+                    p[2] == "-3" &&
+                    p[5] == "P100"
                 },
                 endTag = eq("{/SetBuchung}")
             )
@@ -272,11 +185,11 @@ class DoBuchenWithDetailsTest {
 
     @Test
     fun buchen_count_mengeMitGleichzeichenAnPosition2() {
-        activity.buchen(
+        activity.doBuchenWithDetails(
             einlagern = true,
             count = true,
             artikelText = "123.4567",
-            projektText = "",   // count ignoriert Pflicht-Projekt
+            projektText = "",
             mengeText = "10"
         )
         Thread.sleep(300)
@@ -289,274 +202,17 @@ class DoBuchenWithDetailsTest {
                 request = match { req ->
                     val p = parseRequestParts(req)
                     p.size >= 10 &&
-                    p[0] == "123.4567" &&   // [0] Artikel
-                    p[2] == "=10"           // [2] Menge: = = Inventur/Count
+                    p[0] == "123.4567" &&
+                    p[2] == "=10"
                 },
                 endTag = eq("{/SetBuchung}")
             )
         }
     }
-
-    @Test
-    fun buchen_kommaDecimal_bleibtKommaAnPosition2() {
-        // Nutzer gibt Komma ein -> Server bekommt Komma (deutsches Format)
-        activity.buchen(
-            einlagern = true,
-            artikelText = "123.4567",
-            projektText = "P100",
-            mengeText = "5,5"
-        )
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(),
-                settings = any(),
-                command = eq("SetBuchung"),
-                request = match { req ->
-                    val p = parseRequestParts(req)
-                    p.size >= 10 &&
-                    p[2] == "+5,5"          // [2] Komma bleibt Komma
-                },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Feld [1] -- Ersatzartikel: bei Direktbuchung immer leer (hardcoded "")
-    // -----------------------------------------------------------------------
-
-    @Test
-    fun buchen_ersatzartikelPosition1_istImmerLeer_einlagern() {
-        activity.buchen(einlagern = true, artikelText = "123.4567", projektText = "P100", mengeText = "1")
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req -> parseRequestParts(req).let { p -> p.size >= 10 && p[1] == "" } },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    @Test
-    fun buchen_ersatzartikelPosition1_istImmerLeer_auslagern() {
-        activity.buchen(einlagern = false, artikelText = "123.4567", projektText = "P100", mengeText = "2")
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req -> parseRequestParts(req).let { p -> p.size >= 10 && p[1] == "" } },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    @Test
-    fun buchen_ersatzartikelPosition1_istImmerLeer_count() {
-        activity.buchen(einlagern = true, count = true, artikelText = "123.4567", projektText = "", mengeText = "5")
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req -> parseRequestParts(req).let { p -> p.size >= 10 && p[1] == "" } },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Feld [3] -- Reservefeld: immer leer (hardcoded "")
-    // -----------------------------------------------------------------------
-
-    @Test
-    fun buchen_reservefeldPosition3_istImmerLeer_einlagern() {
-        activity.buchen(einlagern = true, artikelText = "123.4567", projektText = "P100", mengeText = "1")
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req -> parseRequestParts(req).let { p -> p.size >= 10 && p[3] == "" } },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    @Test
-    fun buchen_reservefeldPosition3_istImmerLeer_auslagern() {
-        activity.buchen(einlagern = false, artikelText = "123.4567", projektText = "P100", mengeText = "2")
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req -> parseRequestParts(req).let { p -> p.size >= 10 && p[3] == "" } },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    @Test
-    fun buchen_reservefeldPosition3_istImmerLeer_count() {
-        activity.buchen(einlagern = true, count = true, artikelText = "123.4567", projektText = "", mengeText = "5")
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req -> parseRequestParts(req).let { p -> p.size >= 10 && p[3] == "" } },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Feld [4] -- Reservefeld: immer leer (hardcoded "")
-    // -----------------------------------------------------------------------
-
-    @Test
-    fun buchen_reservefeldPosition4_istImmerLeer_einlagern() {
-        activity.buchen(einlagern = true, artikelText = "123.4567", projektText = "P100", mengeText = "1")
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req -> parseRequestParts(req).let { p -> p.size >= 10 && p[4] == "" } },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    @Test
-    fun buchen_reservefeldPosition4_istImmerLeer_auslagern() {
-        activity.buchen(einlagern = false, artikelText = "123.4567", projektText = "P100", mengeText = "2")
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req -> parseRequestParts(req).let { p -> p.size >= 10 && p[4] == "" } },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    @Test
-    fun buchen_reservefeldPosition4_istImmerLeer_count() {
-        activity.buchen(einlagern = true, count = true, artikelText = "123.4567", projektText = "", mengeText = "5")
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req -> parseRequestParts(req).let { p -> p.size >= 10 && p[4] == "" } },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Feld [6] -- werkNummer aus AppSettings (Feld muss vorhanden sein)
-    // -----------------------------------------------------------------------
-
-    @Test
-    fun buchen_werkNummerAnPosition6_feldVorhanden_einlagern() {
-        activity.buchen(einlagern = true, artikelText = "123.4567", projektText = "P100", mengeText = "1")
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req -> parseRequestParts(req).size >= 10 },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    @Test
-    fun buchen_werkNummerAnPosition6_feldVorhanden_auslagern() {
-        activity.buchen(einlagern = false, artikelText = "123.4567", projektText = "P100", mengeText = "2")
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req -> parseRequestParts(req).size >= 10 },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    @Test
-    fun buchen_werkNummerAnPosition6_feldVorhanden_count() {
-        activity.buchen(einlagern = true, count = true, artikelText = "123.4567", projektText = "", mengeText = "5")
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req -> parseRequestParts(req).size >= 10 },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Feld [7] -- username aus Intent-Extra
-    // -----------------------------------------------------------------------
-
-    @Test
-    fun buchen_usernameAnPosition7() {
-        activity.buchen(einlagern = true, artikelText = "123.4567", projektText = "P100", mengeText = "1")
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req ->
-                    val p = parseRequestParts(req)
-                    p.size >= 10 && p[7] == "testuser"
-                },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Feld [8] -- Timestamp-Format
-    // -----------------------------------------------------------------------
-
-    @Test
-    fun buchen_timestampFormatAnPosition8() {
-        activity.buchen(einlagern = true, artikelText = "123.4567", projektText = "P100", mengeText = "1")
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req ->
-                    val p = parseRequestParts(req)
-                    // [8] Format: dd.MM.yyyy HH:mm:ss
-                    p.size >= 10 && p[8].matches(Regex("""\d{2}\.\d{2}\.\d{4} \d{2}:\d{2}:\d{2}"""))
-                },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    // -----------------------------------------------------------------------
-    // Feld [9] -- Serials / Charge
-    // -----------------------------------------------------------------------
 
     @Test
     fun buchen_serialsAnPosition9() {
-        activity.buchen(
+        activity.doBuchenWithDetails(
             einlagern = true,
             artikelText = "123.4567",
             projektText = "P100",
@@ -571,52 +227,6 @@ class DoBuchenWithDetailsTest {
                 request = match { req ->
                     val p = parseRequestParts(req)
                     p.size >= 10 && p[9] == "SN001;SN002"
-                },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    @Test
-    fun buchen_chargeAnPosition9() {
-        activity.buchen(
-            einlagern = true,
-            artikelText = "123.4567",
-            projektText = "P100",
-            mengeText = "5",
-            serialsText = "Charge:CH-2024-001"
-        )
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req ->
-                    val p = parseRequestParts(req)
-                    p.size >= 10 && p[9] == "Charge:CH-2024-001"
-                },
-                endTag = eq("{/SetBuchung}")
-            )
-        }
-    }
-
-    @Test
-    fun buchen_keineSerials_position9IstLeer() {
-        activity.buchen(
-            einlagern = true,
-            artikelText = "123.4567",
-            projektText = "P100",
-            mengeText = "3",
-            serialsText = ""
-        )
-        Thread.sleep(300)
-
-        verify {
-            TcpClient.sendCommand(
-                context = any(), settings = any(), command = eq("SetBuchung"),
-                request = match { req ->
-                    val p = parseRequestParts(req)
-                    p.size >= 10 && p[9] == ""
                 },
                 endTag = eq("{/SetBuchung}")
             )

@@ -2,7 +2,6 @@ package com.example.mde
 
 import android.app.AlertDialog
 import android.view.KeyEvent
-import android.widget.EditText
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNotNull
@@ -25,14 +24,9 @@ class ScannerActivityTest {
         ShadowAlertDialog.reset()
     }
 
-    private fun hiddenInput(activity: ScannerActivity): EditText {
-        val field = ScannerActivity::class.java.getDeclaredField("hiddenScanInput")
-        field.isAccessible = true
-        return field.get(activity) as EditText
-    }
-
+    // Helper function to simulate HID barcode scan
     private fun sendHidBarcode(activity: ScannerActivity, barcode: String) {
-        val input = hiddenInput(activity)
+        val input = activity.hiddenScanInput
         barcode.forEach { c ->
             val keyCode = KeyEvent.keyCodeFromString("KEYCODE_${c.uppercaseChar()}").takeIf { it != KeyEvent.KEYCODE_UNKNOWN }
                 ?: when (c) {
@@ -88,7 +82,7 @@ class ScannerActivityTest {
     @Test
     fun emptyBarcodeOnEnter_doesNotOpenDialog() {
         val activity = Robolectric.buildActivity(ScannerActivity::class.java).create().start().resume().get()
-        hiddenInput(activity).dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
+        activity.hiddenScanInput.dispatchKeyEvent(KeyEvent(KeyEvent.ACTION_DOWN, KeyEvent.KEYCODE_ENTER))
 
         assertFalse((ShadowAlertDialog.getLatestAlertDialog() as? AlertDialog)?.isShowing == true)
     }

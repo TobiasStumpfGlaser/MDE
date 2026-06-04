@@ -24,22 +24,7 @@ import org.robolectric.annotation.Config
 @Config(sdk = [33])
 class InventurActivityTest {
 
-    class TestActivity : InventurActivity() {
-        override val autoLoadArtikelUndProjekte: Boolean = false
-
-        fun setFilterText(text: String) = etFilter.setText(text)
-        fun setMengeText(text: String) = edtMenge.setText(text)
-        fun buchenCount(): Boolean = doBuchenWithDetails(
-            einlagern = true,
-            count = true,
-            artikelText = null,
-            projektText = "",
-            mengeText = edtMenge.text.toString(),
-            serialsText = ""
-        )
-    }
-
-    private lateinit var activity: TestActivity
+    private lateinit var activity: InventurActivity
 
     @Before
     fun setUp() {
@@ -63,9 +48,9 @@ class InventurActivityTest {
             )
         )
 
-        val intent = Intent(ApplicationProvider.getApplicationContext(), TestActivity::class.java)
+        val intent = Intent(ApplicationProvider.getApplicationContext(), InventurActivity::class.java)
         intent.putExtra("USERNAME", "testuser")
-        activity = Robolectric.buildActivity(TestActivity::class.java, intent)
+        activity = Robolectric.buildActivity(InventurActivity::class.java, intent)
             .create().start().resume().get()
     }
 
@@ -79,12 +64,19 @@ class InventurActivityTest {
     @Test
     fun countBooking_usesEqualsPrefixInServerAmount() {
         activity.runOnUiThread {
-            activity.setFilterText("123.4567 | Test Artikel")
-            activity.setMengeText("9")
+            activity.etFilter.setText("123.4567 | Test Artikel")
+            activity.edtMenge.setText("9")
         }
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
-        activity.buchenCount()
+        activity.doBuchenWithDetails(
+            einlagern = true,
+            count = true,
+            artikelText = null,
+            projektText = "",
+            mengeText = activity.edtMenge.text.toString(),
+            serialsText = ""
+        )
 
         verify(timeout = 2000) {
             TcpClient.sendCommand(
@@ -100,16 +92,30 @@ class InventurActivityTest {
     @Test
     fun validation_emptyArticleOrMissingAmount_preventsBooking() {
         activity.runOnUiThread {
-            activity.setFilterText("")
-            activity.setMengeText("5")
+            activity.etFilter.setText("")
+            activity.edtMenge.setText("5")
         }
-        activity.buchenCount()
+        activity.doBuchenWithDetails(
+            einlagern = true,
+            count = true,
+            artikelText = null,
+            projektText = "",
+            mengeText = activity.edtMenge.text.toString(),
+            serialsText = ""
+        )
 
         activity.runOnUiThread {
-            activity.setFilterText("123.4567 | Test Artikel")
-            activity.setMengeText("")
+            activity.etFilter.setText("123.4567 | Test Artikel")
+            activity.edtMenge.setText("")
         }
-        activity.buchenCount()
+        activity.doBuchenWithDetails(
+            einlagern = true,
+            count = true,
+            artikelText = null,
+            projektText = "",
+            mengeText = activity.edtMenge.text.toString(),
+            serialsText = ""
+        )
 
         verify(exactly = 0) { TcpClient.sendCommand(any(), any(), any(), any(), any()) }
     }
@@ -117,11 +123,18 @@ class InventurActivityTest {
     @Test
     fun validCountBooking_callsServerSuccessfully() {
         activity.runOnUiThread {
-            activity.setFilterText("123.4567 | Test Artikel")
-            activity.setMengeText("3")
+            activity.etFilter.setText("123.4567 | Test Artikel")
+            activity.edtMenge.setText("3")
         }
 
-        val started = activity.buchenCount()
+        val started = activity.doBuchenWithDetails(
+            einlagern = true,
+            count = true,
+            artikelText = null,
+            projektText = "",
+            mengeText = activity.edtMenge.text.toString(),
+            serialsText = ""
+        )
 
         assertEquals(true, started)
         verify(timeout = 2000, exactly = 1) { TcpClient.sendCommand(any(), any(), "SetBuchung", any(), any()) }
