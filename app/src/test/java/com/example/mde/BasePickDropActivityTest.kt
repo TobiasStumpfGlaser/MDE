@@ -27,7 +27,6 @@ import org.robolectric.RobolectricTestRunner
 import org.robolectric.Shadows
 import org.robolectric.shadows.ShadowDialog
 import org.robolectric.annotation.Config
-import org.robolectric.shadows.ShadowAlertDialog
 import org.robolectric.shadows.ShadowSystemClock
 import java.time.Duration
 
@@ -182,6 +181,7 @@ class BasePickDropActivityTest {
 
         val dialog = ShadowDialog.getLatestDialog()
         assertNotNull(dialog)
+        assertTrue(dialog.isShowing)
     }
 
     @Test
@@ -218,6 +218,7 @@ class BasePickDropActivityTest {
 
             val dialog = ShadowDialog.getLatestDialog()
             assertNotNull(dialog)
+            assertTrue(dialog.isShowing)
         }
     }
 
@@ -254,10 +255,13 @@ class BasePickDropActivityTest {
         etDetailFilter.setText("123.4567")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        val dialog = ShadowDialog.getLatestDialog()
+        val dialog = ShadowDialog.getLatestDialog() as AlertDialog
         assertNotNull(dialog)
+        assertTrue(dialog.isShowing)
 
-        (dialog as AlertDialog).getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+        val btnYes = dialog.findViewById<View>(R.id.btnYes)
+        assertNotNull("Button btnYes not found", btnYes)
+        btnYes.performClick()
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         verify(timeout = 2000) {
@@ -304,10 +308,13 @@ class BasePickDropActivityTest {
         etDetailFilter.setText("123.4567")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        val dialog = ShadowDialog.getLatestDialog()
+        val dialog = ShadowDialog.getLatestDialog() as AlertDialog
         assertNotNull(dialog)
+        assertTrue(dialog.isShowing)
 
-        (dialog as AlertDialog).getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+        val btnYes = dialog.findViewById<View>(R.id.btnYes)
+        assertNotNull("Button btnYes not found", btnYes)
+        btnYes.performClick()
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         verify(timeout = 2000) {
