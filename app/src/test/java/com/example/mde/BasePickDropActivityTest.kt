@@ -169,6 +169,9 @@ class BasePickDropActivityTest {
 
         waitForDetailsLoaded(activity)
 
+        Thread.sleep(300)
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
         val etDetailFilter = activity.findViewById<AutoCompleteTextView>(R.id.etDetailFilter)
@@ -241,6 +244,9 @@ class BasePickDropActivityTest {
 
         waitForDetailsLoaded(activity)
 
+        Thread.sleep(300)
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
         val etDetailFilter = activity.findViewById<AutoCompleteTextView>(R.id.etDetailFilter)
@@ -288,6 +294,9 @@ class BasePickDropActivityTest {
         }
 
         waitForDetailsLoaded(activity)
+
+        Thread.sleep(300)
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
