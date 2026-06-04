@@ -171,8 +171,8 @@ class BasePickDropActivityTest {
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
-        activity.onBarcodeScanned("123.4567")
-        Thread.sleep(300)
+        val etDetailFilter = activity.findViewById<AutoCompleteTextView>(R.id.etDetailFilter)
+        etDetailFilter.setText("123.4567")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
@@ -243,8 +243,8 @@ class BasePickDropActivityTest {
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
-        activity.onBarcodeScanned("123.4567")
-        Thread.sleep(300)
+        val etDetailFilter = activity.findViewById<AutoCompleteTextView>(R.id.etDetailFilter)
+        etDetailFilter.setText("123.4567")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
@@ -291,8 +291,8 @@ class BasePickDropActivityTest {
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
 
-        activity.onBarcodeScanned("123.4567")
-        Thread.sleep(300)
+        val etDetailFilter = activity.findViewById<AutoCompleteTextView>(R.id.etDetailFilter)
+        etDetailFilter.setText("123.4567")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         val dialog = ShadowAlertDialog.getLatestAlertDialog()
