@@ -61,7 +61,6 @@ class BasePickDropActivityTest {
         } answers {
             val onOk = arg<() -> Unit>(7)
             onOk.invoke()
-            Unit
         }
 
         DataRepository.clear()
@@ -103,7 +102,7 @@ class BasePickDropActivityTest {
     fun pickActivity_loadsOverviewList_successfully() {
         val intent = Intent(ApplicationProvider.getApplicationContext(), PickListActivity::class.java)
         intent.putExtra("USERNAME", "tester")
-        val activity = Robolectric.buildActivity(PickListActivity::class.java, intent)
+        Robolectric.buildActivity(PickListActivity::class.java, intent)
             .create().start().resume().get()
 
         Shadows.shadowOf(Looper.getMainLooper()).idle()
@@ -333,7 +332,7 @@ class BasePickDropActivityTest {
     fun dropActivity_loadsOverviewList_successfully() {
         val intent = Intent(ApplicationProvider.getApplicationContext(), DropListActivity::class.java)
         intent.putExtra("USERNAME", "tester")
-        val activity = Robolectric.buildActivity(DropListActivity::class.java, intent)
+        Robolectric.buildActivity(DropListActivity::class.java, intent)
             .create().start().resume().get()
 
         Shadows.shadowOf(Looper.getMainLooper()).idle()

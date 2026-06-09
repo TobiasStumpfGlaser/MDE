@@ -14,8 +14,11 @@ import android.widget.EditText
 import android.widget.Filter
 import android.widget.ImageButton
 import android.widget.TextView
+import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import com.datalogic.decode.BarcodeManager
+import com.datalogic.decode.configuration.ScannerProperties
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -28,6 +31,25 @@ import kotlinx.coroutines.withContext
 object UserCache {
     val userList = mutableListOf<String>()
     val userPinMap = mutableMapOf<String, String>()
+}
+
+object DatalogicWedgeController {
+    fun setWedgeConfig(manager: BarcodeManager): Boolean {
+        return try {
+            val cfg = ScannerProperties.edit(manager) ?: return false
+
+            val iWedge = cfg.intentWedge ?: return false
+            iWedge.enable.set(true)
+
+            val kWedge = cfg.keyboardWedge ?: return false
+            kWedge.enable.set(false)
+
+            val errorCode = cfg.store(manager, true)
+            errorCode == 0
+        } catch (_: Throwable) {
+            false
+        }
+    }
 }
 
 class UserAdapter(
@@ -90,6 +112,7 @@ class LoginActivity : AppCompatActivity() {
 
     private var requestRunning = false
     private val ioScope = CoroutineScope(Dispatchers.IO + Job())
+    private lateinit var barcodeManager: BarcodeManager
     private lateinit var handler: Handler
     private lateinit var timeoutRunnable: Runnable
     private var timeoutMillis: Long = 0L
@@ -105,6 +128,26 @@ class LoginActivity : AppCompatActivity() {
         super.onCreate(savedInstanceState)
         TcpLogHelper.clearLogs(this)
 
+        handler = Handler(Looper.getMainLooper())
+
+        timeoutRunnable = Runnable {
+            resetLoginForm()
+        }
+
+        barcodeManager = BarcodeManager()
+
+        val wedgeOk = try {
+            DatalogicWedgeController.setWedgeConfig(barcodeManager)
+        } catch (_: Throwable) {
+            false
+        }
+
+        if (!wedgeOk) {
+            handler.post {
+                showScannerErrorDialog()
+            }
+        }
+
         window.setSoftInputMode(WindowManager.LayoutParams.SOFT_INPUT_STATE_ALWAYS_VISIBLE)
         setContentView(R.layout.activity_login)
 
@@ -112,10 +155,6 @@ class LoginActivity : AppCompatActivity() {
         setSupportActionBar(toolbar)
         supportActionBar?.setDisplayShowTitleEnabled(false)
 
-        handler = Handler(Looper.getMainLooper())
-        timeoutRunnable = Runnable {
-            resetLoginForm()
-        }
         timeoutMillis = settings.logoutTimeSec * 1000L
         resetInactivityTimer()
 
@@ -144,6 +183,19 @@ class LoginActivity : AppCompatActivity() {
         btnReload.setOnClickListener { loadUserList() }
 
         loadUserList()
+    }
+
+    private fun showScannerErrorDialog() {
+        AlertDialog.Builder(this)
+            .setIcon(android.R.drawable.ic_dialog_alert)
+            .setTitle("Scanner-Konfiguration-Error")
+            .setMessage(
+                "Die Datalogic Scanner-Konfiguration konnte nicht gesetzt werden.\n\n" +
+                        "Bitte prüfen Sie die Scanner-Einstellungen -> Intent-Wedge"
+            )
+            .setCancelable(false)
+            .setPositiveButton("OK", null)
+            .show()
     }
 
     override fun onDestroy() {
