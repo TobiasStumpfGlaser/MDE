@@ -31,6 +31,7 @@ import kotlinx.coroutines.withContext
 object UserCache {
     val userList = mutableListOf<String>()
     val userPinMap = mutableMapOf<String, String>()
+    val nameToInitials = mutableMapOf<String, String>()
 }
 
 object DatalogicWedgeController {
@@ -108,7 +109,7 @@ class LoginActivity : AppCompatActivity() {
 
     private val userList get() = UserCache.userList
     private val userPinMap get() = UserCache.userPinMap
-    private val nameToInitials = mutableMapOf<String, String>()
+    private val nameToInitials = UserCache.nameToInitials
 
     private var requestRunning = false
     private val ioScope = CoroutineScope(Dispatchers.IO + Job())
