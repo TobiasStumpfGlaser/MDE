@@ -46,12 +46,12 @@ internal fun isArtNrExactMatch(input: String, artNr: String): Boolean =
     input.trim().equals(artNr.trim(), ignoreCase = true)
 
 data class ListDetail(
-    var artNr: String,
-    var menge: String,
-    val pos: String,
-    var info: String,
+    var artNr: String = "",
+    var menge: String = "",
+    val pos: String = "",
+    var info: String = "",
     var isCharge: Boolean = false,
-    val listenNummer: String,
+    val listenNummer: String = "",
     var serials: List<String> = emptyList(),
     var lagerOrtW1: String = "",
     var lagerOrtW2: String = "",
@@ -1063,6 +1063,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 detail.lagerOrtW1 = artikel.lagerorteW1.filter { it.isNotBlank() }.joinToString(", ")
                 detail.lagerOrtW2 = artikel.lagerorteW2.filter { it.isNotBlank() }.joinToString(", ")
                 detail.grossInfo = artikel.grossInfo
+                detail.info = artikel.bez
             }
         }
 

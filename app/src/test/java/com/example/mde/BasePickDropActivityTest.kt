@@ -30,6 +30,7 @@ import org.robolectric.shadows.ShadowDialog
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowSystemClock
 import java.time.Duration
+import android.widget.TextView
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
@@ -379,5 +380,61 @@ class BasePickDropActivityTest {
         } finally {
             settings.logoutTimeSec = previousTimeout
         }
+    }
+
+    @Test
+    fun detailView_displaysArtikelDataFromFillDetailsWithArtikelData() {
+        val intent = Intent(
+            ApplicationProvider.getApplicationContext(),
+            PickListActivity::class.java
+        )
+        intent.putExtra("USERNAME", "tester")
+
+        val activity = Robolectric.buildActivity(
+            PickListActivity::class.java,
+            intent
+        ).create().start().resume().get()
+
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        activity.findViewById<AutoCompleteTextView>(R.id.etListFilter)
+            .setText("L1")
+
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        val rvDetails = waitForDetailsLoaded(activity)
+
+        var text = ""
+
+        repeat(30) {
+            Shadows.shadowOf(Looper.getMainLooper()).idle()
+            Thread.sleep(100)
+
+            val adapter = rvDetails.adapter ?: return@repeat
+            if (adapter.itemCount == 0) return@repeat
+
+            val holder = adapter.createViewHolder(rvDetails, 0)
+            adapter.onBindViewHolder(holder, 0)
+
+            text = holder.itemView
+                .findViewById<TextView>(android.R.id.text1)
+                .text
+                .toString()
+
+            if (text.contains("Bezeichnung: Artikel")) {
+                return@repeat
+            }
+        }
+
+        assertEquals(
+            """
+        LagerOrt: A, B, C
+        Groß-Info: G
+        Artikelnummer: 123.4567
+        To pick: 3
+        Bezeichnung: Artikel
+        """.trimIndent(),
+            text
+        )
     }
 }

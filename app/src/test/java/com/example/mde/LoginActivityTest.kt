@@ -92,9 +92,9 @@ class LoginActivityTest {
             txtPin.setText("9999")
         }
 
-        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        shadowOf(Looper.getMainLooper()).idle()
 
-        Shadows.shadowOf(Looper.getMainLooper())
+        shadowOf(Looper.getMainLooper())
             .idleFor(Duration.ofMillis(1100))
 
         assertEquals("", txtPin.text.toString())
@@ -117,9 +117,9 @@ class LoginActivityTest {
             txtPin.setText("9999")
         }
 
-        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        shadowOf(Looper.getMainLooper()).idle()
 
-        val mainLooper = Shadows.shadowOf(Looper.getMainLooper())
+        val mainLooper = shadowOf(Looper.getMainLooper())
 
         mainLooper.idleFor(Duration.ofMillis(800))
 
