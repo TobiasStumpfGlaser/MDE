@@ -7,7 +7,6 @@ import androidx.test.core.app.ApplicationProvider
 import com.example.mde.model.Artikel
 import io.mockk.*
 import org.junit.After
-import org.junit.Assert.*
 import org.junit.Before
 import org.junit.Test
 import org.junit.runner.RunWith
@@ -56,7 +55,7 @@ class DoBuchenWithDetailsTest {
             Artikel(
                 "123.4567", "Test Artikel",
                 listOf("W1A", "", ""), listOf("", "", ""),
-                "ST", "10", 5, 2, 1, "", ""
+                "ST", "10", 5, 2, 1, "grInfo", "liefBest", false,"1234567654321","Artikel Zusatz"
             )
         )
         DataRepository.projektListe = listOf("P100 - Projekt Eins")

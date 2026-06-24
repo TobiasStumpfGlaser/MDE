@@ -35,7 +35,7 @@ import java.math.BigDecimal
 import java.util.Date
 import java.util.Locale
 
-data class ListItem(val nummer: String, val projektNr: String, val projektName: String)
+data class ListItem(val nummer: String, val state: String, val projektNr: String, val projektName: String)
 
 /** Returns `true` when [input] exactly matches the Artikelnummer format `ddd.dddd` (8 chars). */
 internal fun isFullArtNr(input: String): Boolean =
@@ -888,7 +888,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
                     val items = lines.mapNotNull { line ->
                         val parts = line.split("|").map { it.trim() }
-                        if (parts.size >= 3) ListItem(parts[0], parts[1], parts[2]) else null
+                        if (parts.size >= 4) ListItem(parts[0], parts[1],parts[2], parts[3]) else null
                     }
 
                     withContext(Dispatchers.Main) {
@@ -1153,7 +1153,13 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             val oddColor = getThemeColor(R.attr.tableRowOddColor)
             val evenColor = getThemeColor(R.attr.tableRowEvenColor)
             holder.itemView.setBackgroundColor(if (position % 2 == 0) oddColor else evenColor)
-            holder.tvItem.setTextColor(getThemeColor(android.R.attr.textColorPrimary))
+            when (item.state.uppercase()) {
+                "PK" -> holder.tvItem.setTextColor(android.graphics.Color.parseColor("#B04A4A"))
+                "GN" -> holder.tvItem.setTextColor(android.graphics.Color.parseColor("#3E7D3E"))
+                else -> holder.tvItem.setTextColor(
+                    getThemeColor(android.R.attr.textColorPrimary)
+                )
+            }
             holder.itemView.setOnClickListener {
                 currentProjektNr = item.projektNr
                 etProjectNumber.setText(currentProjektNr)

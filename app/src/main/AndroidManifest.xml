@@ -46,6 +46,9 @@
         <activity
             android:name=".InventurActivity"
             android:label=".activity_inventur"/>
+        <activity
+            android:name=".BestellungActivity"
+            android:label=".activity_bestellung"/>
     </application>
 
 </manifest>

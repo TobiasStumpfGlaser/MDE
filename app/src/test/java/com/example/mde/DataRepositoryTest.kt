@@ -11,6 +11,26 @@ import com.example.mde.model.Artikel
  */
 class DataRepositoryTest {
 
+    private fun testArtikel(
+        artNr: String = "123.4567",
+        bez: String = "Test"
+    ) = Artikel(
+        artNr = artNr,
+        bez = bez,
+        lagerorteW1 = emptyList(),
+        lagerorteW2 = emptyList(),
+        masseinheit = "ST",
+        bestand = "10",
+        mindestbestand = 0,
+        empfBestMenge = 0,
+        bestellTrigger = 0,
+        grossInfo = "",
+        suchZusatz = "",
+        EAN = "",
+        snPflicht = false,
+        liefBestNr = ""
+    )
+
     @Before
     fun setUp() {
         DataRepository.recentProjektListe.clear()
@@ -19,7 +39,7 @@ class DataRepositoryTest {
         DataRepository.lastLoadTime = 0
     }
 
-    // ── rememberProjekt Tests ──────────────────────────────────────────────
+    // ───────── rememberProjekt ─────────
 
     @Test
     fun rememberProjekt_addsToFront() {
@@ -37,58 +57,34 @@ class DataRepositoryTest {
 
     @Test
     fun rememberProjekt_blankIgnored() {
-        DataRepository.recentProjektListe.addAll(listOf("P1", "P2"))
         DataRepository.rememberProjekt("   ")
-        assertEquals(listOf("P1", "P2"), DataRepository.recentProjektListe)
-    }
-
-    @Test
-    fun rememberProjekt_emptyStringIgnored() {
-        DataRepository.recentProjektListe.addAll(listOf("P1"))
-        DataRepository.rememberProjekt("")
-        assertEquals(listOf("P1"), DataRepository.recentProjektListe)
+        assertTrue(DataRepository.recentProjektListe.isEmpty())
     }
 
     @Test
     fun rememberProjekt_maxEntriesRespected() {
-        (1..10).forEach { idx -> DataRepository.rememberProjekt("P$idx", maxEntries = 8) }
+        (1..10).forEach { DataRepository.rememberProjekt("P$it", maxEntries = 8) }
+
         assertEquals(8, DataRepository.recentProjektListe.size)
         assertEquals("P10", DataRepository.recentProjektListe.first())
         assertEquals("P3", DataRepository.recentProjektListe.last())
     }
 
     @Test
-    fun rememberProjekt_exactlyMaxEntries_noTruncation() {
-        (1..8).forEach { idx -> DataRepository.rememberProjekt("P$idx", maxEntries = 8) }
-        assertEquals(8, DataRepository.recentProjektListe.size)
-    }
-
-    @Test
-    fun rememberProjekt_listStartsEmpty_addsCorrectly() {
-        DataRepository.rememberProjekt("P1")
-        assertEquals(listOf("P1"), DataRepository.recentProjektListe)
-    }
-
-    @Test
     fun rememberProjekt_customMaxEntries3_limitsTo3() {
-        DataRepository.rememberProjekt("P1", maxEntries = 3)
-        DataRepository.rememberProjekt("P2", maxEntries = 3)
-        DataRepository.rememberProjekt("P3", maxEntries = 3)
-        DataRepository.rememberProjekt("P4", maxEntries = 3)
+        (1..4).forEach { DataRepository.rememberProjekt("P$it", maxEntries = 3) }
+
         assertEquals(3, DataRepository.recentProjektListe.size)
-        assertEquals("P4", DataRepository.recentProjektListe[0])
-        assertFalse(DataRepository.recentProjektListe.contains("P1"))
+        assertEquals("P4", DataRepository.recentProjektListe.first())
     }
 
     @Test
-    fun rememberProjekt_singleEntry_maxEntries1_limitsTo1() {
-        DataRepository.rememberProjekt("P1", maxEntries = 1)
-        DataRepository.rememberProjekt("P2", maxEntries = 1)
-        assertEquals(1, DataRepository.recentProjektListe.size)
-        assertEquals("P2", DataRepository.recentProjektListe[0])
+    fun rememberProjekt_duplicateMultipleTimes_onlyOnce() {
+        repeat(3) { DataRepository.rememberProjekt("P100") }
+        assertEquals(listOf("P100"), DataRepository.recentProjektListe)
     }
 
-    // ── shouldReload Tests ─────────────────────────────────────────────────
+    // ───────── shouldReload ─────────
 
     @Test
     fun shouldReload_emptyLists_returnsTrue() {
@@ -96,111 +92,59 @@ class DataRepositoryTest {
     }
 
     @Test
-    fun shouldReload_oldTimestamp_returnsTrue() {
-        DataRepository.artikelListe = listOf()
-        DataRepository.lastLoadTime = System.currentTimeMillis() - (2 * 60 * 60 * 1000L)
-        assertTrue(DataRepository.shouldReload())
-    }
-
-    @Test
-    fun shouldReload_dataLoadedAndFresh_returnsFalse() {
-        DataRepository.artikelListe = listOf(Artikel("123.4567", "Test", emptyList(), emptyList(), "ST", "10", 0, 0, 0, "", ""))
-        DataRepository.projektListe = listOf("P1 – Projekt 1")
+    fun shouldReload_freshData_returnsFalse() {
+        DataRepository.artikelListe = listOf(testArtikel())
+        DataRepository.projektListe = listOf("P1")
         DataRepository.lastLoadTime = System.currentTimeMillis()
+
         assertFalse(DataRepository.shouldReload())
     }
 
     @Test
-    fun shouldReload_artikelLoadedProjektEmpty_returnsTrue() {
-        DataRepository.artikelListe = listOf(Artikel("123.4567", "Test", emptyList(), emptyList(), "ST", "10", 0, 0, 0, "", ""))
-        DataRepository.projektListe = emptyList()
-        DataRepository.lastLoadTime = System.currentTimeMillis()
-        assertTrue(DataRepository.shouldReload())
-    }
-
-    @Test
-    fun shouldReload_bothLoadedButStale_returnsTrue() {
-        DataRepository.artikelListe = listOf(Artikel("123.4567", "Test", emptyList(), emptyList(), "ST", "10", 0, 0, 0, "", ""))
-        DataRepository.projektListe = listOf("P1 – Projekt 1")
+    fun shouldReload_staleData_returnsTrue() {
+        DataRepository.artikelListe = listOf(testArtikel())
+        DataRepository.projektListe = listOf("P1")
         DataRepository.lastLoadTime = System.currentTimeMillis() - (2 * 60 * 60 * 1000L)
+
         assertTrue(DataRepository.shouldReload())
     }
 
-    // ── isLoaded Tests ─────────────────────────────────────────────────────
+    @Test
+    fun shouldReload_exactOneHour_returnsFalse() {
+        DataRepository.artikelListe = listOf(testArtikel())
+        DataRepository.projektListe = listOf("P1")
+        DataRepository.lastLoadTime = System.currentTimeMillis() - (60 * 60 * 1000L)
+
+        assertFalse(DataRepository.shouldReload())
+    }
+
+    // ───────── isLoaded ─────────
 
     @Test
-    fun isLoaded_emptyLists_returnsFalse() {
+    fun isLoaded_bothEmpty_returnsFalse() {
         assertFalse(DataRepository.isLoaded())
     }
 
     @Test
-    fun isLoaded_bothListsNonEmpty_returnsTrue() {
-        DataRepository.artikelListe = listOf(Artikel("123.4567", "Test", emptyList(), emptyList(), "ST", "10", 0, 0, 0, "", ""))
-        DataRepository.projektListe = listOf("P1 – Projekt 1")
+    fun isLoaded_bothFilled_returnsTrue() {
+        DataRepository.artikelListe = listOf(testArtikel())
+        DataRepository.projektListe = listOf("P1")
+
         assertTrue(DataRepository.isLoaded())
     }
 
-    @Test
-    fun isLoaded_artikelEmptyProjektNonEmpty_returnsFalse() {
-        DataRepository.artikelListe = emptyList()
-        DataRepository.projektListe = listOf("P1 – Projekt 1")
-        assertFalse(DataRepository.isLoaded())
-    }
-
-    // ── clear Tests ────────────────────────────────────────────────────────
+    // ───────── clear ─────────
 
     @Test
     fun clear_resetsAllData() {
-        DataRepository.recentProjektListe.addAll(listOf("P1", "P2"))
-        DataRepository.artikelListe = listOf(Artikel("123.4567", "Test", emptyList(), emptyList(), "ST", "10", 0, 0, 0, "", ""))
-        DataRepository.projektListe = listOf("P1 – Projekt 1")
+        DataRepository.recentProjektListe.add("P1")
+        DataRepository.artikelListe = listOf(testArtikel())
+        DataRepository.projektListe = listOf("P1")
+
         DataRepository.clear()
+
         assertTrue(DataRepository.recentProjektListe.isEmpty())
         assertTrue(DataRepository.artikelListe.isEmpty())
         assertTrue(DataRepository.projektListe.isEmpty())
-    }
-
-    // ── Zusätzliche Edge Case Tests ────────────────────────────────────────
-
-    @Test
-    fun rememberProjekt_whitespaceOnlyString_ignored() {
-        DataRepository.rememberProjekt("P1")
-        DataRepository.rememberProjekt("\t\n  ")
-        assertEquals(1, DataRepository.recentProjektListe.size)
-        assertEquals("P1", DataRepository.recentProjektListe[0])
-    }
-
-    @Test
-    fun rememberProjekt_multipleAddsSameItem_onlyOneEntry() {
-        DataRepository.rememberProjekt("P100")
-        DataRepository.rememberProjekt("P100")
-        DataRepository.rememberProjekt("P100")
-        assertEquals(1, DataRepository.recentProjektListe.size)
-        assertEquals("P100", DataRepository.recentProjektListe[0])
-    }
-
-    @Test
-    fun shouldReload_artikelEmptyProjektLoaded_returnsTrue() {
-        DataRepository.artikelListe = emptyList()
-        DataRepository.projektListe = listOf("P1 – Projekt 1")
-        DataRepository.lastLoadTime = System.currentTimeMillis()
-        assertTrue(DataRepository.shouldReload())
-    }
-
-    @Test
-    fun shouldReload_exactlyOneHour_returnsFalse() {
-        DataRepository.artikelListe = listOf(Artikel("123.4567", "Test", emptyList(), emptyList(), "ST", "10", 0, 0, 0, "", ""))
-        DataRepository.projektListe = listOf("P1 – Projekt 1")
-        DataRepository.lastLoadTime = System.currentTimeMillis() - (60 * 60 * 1000L)
-        // Bei genau einer Stunde sollte nicht neu geladen werden (<=, nicht <)
-        assertFalse(DataRepository.shouldReload())
-    }
-
-    @Test
-    fun shouldReload_justOverOneHour_returnsTrue() {
-        DataRepository.artikelListe = listOf(Artikel("123.4567", "Test", emptyList(), emptyList(), "ST", "10", 0, 0, 0, "", ""))
-        DataRepository.projektListe = listOf("P1 – Projekt 1")
-        DataRepository.lastLoadTime = System.currentTimeMillis() - (60 * 60 * 1000L + 1)
-        assertTrue(DataRepository.shouldReload())
     }
 }

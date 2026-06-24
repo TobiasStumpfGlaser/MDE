@@ -63,6 +63,7 @@ class MainActivity : AppCompatActivity() {
         val btnMaterialBook = findViewById<Button>(R.id.btnMaterialBook)
         val btnPicklist = findViewById<AppCompatButton>(R.id.btnPicklist)
         val btnDroplist = findViewById<AppCompatButton>(R.id.btnDroplist)
+        val btnBestellung = findViewById<AppCompatButton>(R.id.btnBestellung)
         val btnInventur = findViewById<AppCompatButton>(R.id.btnInventur)
 
         val txtHeader = findViewById<TextView>(R.id.txtHeader)
@@ -88,6 +89,12 @@ class MainActivity : AppCompatActivity() {
 
         btnInventur.setOnClickListener {
             val intent = Intent(this@MainActivity, InventurActivity::class.java)
+            intent.putExtra("USERNAME", username)
+            startActivity(intent)
+        }
+
+        btnBestellung.setOnClickListener {
+            val intent = Intent(this@MainActivity, BestellungActivity::class.java)
             intent.putExtra("USERNAME", username)
             startActivity(intent)
         }

@@ -75,7 +75,11 @@ class ArtikelAdapter(context: Context, artikelListe: List<Artikel>) :
                 } else {
                     val query = constraint.toString().lowercase()
                     allItems.filter {
-                        it.artNr.lowercase().contains(query) || it.bez.lowercase().contains(query)
+                        it.artNr.lowercase().contains(query) ||
+                                it.bez.lowercase().contains(query) ||
+                                it.EAN.lowercase().contains(query) ||
+                                it.grossInfo.lowercase().contains(query) ||
+                                it.suchZusatz.lowercase().contains(query)
                     }
                 }
                 results.values = filtered.toMutableList()
@@ -352,7 +356,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         return etFilter.text.toString().trim().split("|").firstOrNull()?.trim().orEmpty()
     }
 
-    protected fun hasSelectedArtikel(): Boolean {
+    internal fun hasSelectedArtikel(): Boolean {
         val artikelNr = getSelectedArtikelNr()
         if (artikelNr.isBlank()) return false
         return artikelListe.any { it.artNr.equals(artikelNr, ignoreCase = true) }
@@ -583,6 +587,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
         fun tryAddSerial(input: String) {
             when {
+                input.length <= 3 -> onSerialError("Seriennummer Format falsch")
                 serials.contains(input) -> onSerialError("Seriennummer bereits vorhanden")
                 chargeMode && serials.size >= 1 -> onSerialError("Nur eine Chargennummer erlaubt")
                 !chargeMode && serials.size >= maxMenge -> onSerialError("Maximale Menge erreicht")
@@ -794,7 +799,26 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
-    private fun sortProjekteWithRecents(projekte: List<String>): List<String> {
+    /**
+     * Normalisiert einen Projekt-Filterwert für den Vergleich:
+     * Alles klein schreiben und Nicht-Alphanumerik-Zeichen entfernen.
+     *
+     * @param value Rohwert aus dem Eingabefeld.
+     * @return Normalisierter String ohne Sonderzeichen.
+     */
+    internal open fun normalizeProjektFilter(value: String): String {
+        return value.lowercase().replace(Regex("[^a-z0-9]+"), "")
+    }
+
+    /**
+     * Sortiert die Projektliste so, dass zuletzt verwendete Projekte oben stehen.
+     * Projekte, die nicht in [DataRepository.recentProjektListe] enthalten sind,
+     * werden alphabetisch angehängt.
+     *
+     * @param projekte Vollständige Projektliste.
+     * @return Sortierte Liste mit kürzlich verwendeten Projekten zuerst.
+     */
+    internal open fun sortProjekteWithRecents(projekte: List<String>): List<String> {
         val recent = DataRepository.recentProjektListe
         return projekte.sortedWith(
             compareBy<String> {
@@ -933,7 +957,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
-    internal fun showArtikelInfo(artikel: Artikel) {
+    internal open fun showArtikelInfo(artikel: Artikel) {
         hideKeyboardAndClearFocus()
 
         val itemTextColor = getThemeColor(android.R.attr.textColorPrimary)
@@ -949,7 +973,10 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             "Empf. Bestellmenge: ${artikel.empfBestMenge}",
             "Bestell-Trigger: ${artikel.bestellTrigger}",
             "Groß-Info: ${artikel.grossInfo}",
-            "LiefBestNr: ${artikel.liefBestNr}"
+            "LiefBestNr: ${artikel.liefBestNr}",
+            "SN Pflicht: ${if (artikel.snPflicht) "Ja" else "Nein"}",
+            "EAN: ${artikel.EAN}",
+            "Suchzusatz: ${artikel.suchZusatz}"
         )
 
         val finalSpannable = SpannableStringBuilder()
@@ -1002,8 +1029,14 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 }
 
                 val filterText = input.split("|")[0].trim()
-                val matches = artikelListe.filter {
-                    it.artNr.contains(filterText, true) || it.bez.contains(filterText, true)
+                val matches = artikelListe.filter { artikel ->
+                    val q = filterText.lowercase()
+
+                            artikel.artNr.contains(q, true) ||
+                            artikel.bez.contains(q, true) ||
+                            artikel.grossInfo.contains(q, true) ||
+                            artikel.EAN.contains(q, true) ||
+                            artikel.suchZusatz.contains(q, true)
                 }
 
                 when (matches.size) {
@@ -1037,6 +1070,123 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
+    fun doBestellen(): Boolean {
+        val current = System.currentTimeMillis()
+        if (current - lastBookingTime < bookingCooldown) return false
+        lastBookingTime = current
+
+        val artikel = getSelectedArtikelNr()
+        val projektText = buchungProjektView?.text?.toString()?.trim().orEmpty()
+        val mengeText = buchungMengeView?.text?.toString()?.trim().orEmpty()
+        val eilig= false
+
+        return doBestellenWithDetails(
+            artikelText = artikel,
+            projektText = projektText,
+            mengeText = mengeText,
+            eilig = eilig
+        )
+    }
+
+    internal fun doBestellenWithDetails(
+        artikelText: String? = null,
+        projektText: String? = null,
+        mengeText: String? = null,
+        eilig: Boolean? = null
+    ): Boolean {
+        val artikel = artikelText?.trim().takeUnless { it.isNullOrBlank() } ?: getSelectedArtikelNr()
+        var projekt = projektText?.trim().orEmpty()
+        val menge = mengeText?.trim().orEmpty()
+        val eiligKennzeichen = if (eilig == true) "X" else ""
+        val username = intent.getStringExtra("USERNAME") ?: "?"
+        val settings = AppSettings(this)
+        val now = java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
+
+        if (artikel.isBlank() || !hasSelectedArtikel()) {
+            showErrorWithLoadingHelper("Bitte zuerst einen Artikel auswählen")
+            return false
+        }
+        if (projekt.isBlank()) {
+            showErrorWithLoadingHelper("Bitte ein Projekt eingeben")
+            return false
+        }
+        if (menge.isBlank()) {
+            showErrorWithLoadingHelper("Bitte eine Menge eingeben")
+            return false
+        }
+
+        val serverMenge = menge.replace(".", ",")
+
+        val mengeValue = menge.replace(",", ".").toDoubleOrNull()
+        if (mengeValue == null || (mengeValue == 0.0)) {
+            showErrorWithLoadingHelper("Ungültige Menge")
+            return false
+        }
+
+        projekt = projekt.split(" – ")[0]
+
+        val request = buildString {
+            append("{SetBestellung}")
+            append("$artikel|$serverMenge|$eiligKennzeichen|$projekt|${settings.werkNummer}|$username|$now|")
+            append("|{/SetBestellung}")
+        }
+
+        UiLoadingHelper.show(
+            activity = this,
+            message = "Bestellung läuft…",
+            status = UiLoadingHelper.LoadingStatus.LOADING,
+            onCancel = null
+        )
+
+        CoroutineScope(Dispatchers.IO).launch {
+            var attempts = 0
+            while (attempts < 3) {
+                attempts++
+                try {
+                    val response = TcpClient.sendCommand(
+                        context = this@BaseArtikelScanActivity,
+                        settings = settings,
+                        command = "SetBestellung",
+                        request = request,
+                        endTag = "{/SetBestellung}"
+                    )
+                    val cleaned = response.replace("\r", "").trim()
+
+                    withContext(Dispatchers.Main) {
+                        if (cleaned == "{SetBestellung}\nok\n{/SetBestellung}") {
+                            UiLoadingHelper.update(
+                                activity = this@BaseArtikelScanActivity,
+                                message = "Bestellung erfolgreich",
+                                status = UiLoadingHelper.LoadingStatus.SUCCESS
+                            )
+                            if (AppSettings(this@BaseArtikelScanActivity).clearAfterSuccess) {
+                                btnClearClicked()
+                            }
+                        } else {
+                            UiLoadingHelper.update(
+                                activity = this@BaseArtikelScanActivity,
+                                message = "Bestellung fehlgeschlagen:\n$response",
+                                status = UiLoadingHelper.LoadingStatus.ERROR
+                            )
+                        }
+                    }
+                    return@launch
+                } catch (_: Exception) {
+                    if (attempts >= 3) {
+                        withContext(Dispatchers.Main) {
+                            UiLoadingHelper.update(
+                                activity = this@BaseArtikelScanActivity,
+                                message = "Bestellung fehlgeschlagen",
+                                status = UiLoadingHelper.LoadingStatus.ERROR
+                            )
+                        }
+                    }
+                }
+            }
+        }
+        return true
+    }
+
     fun doBuchen(einlagern: Boolean, count: Boolean = false) {
         val current = System.currentTimeMillis()
         if (current - lastBookingTime < bookingCooldown) return
@@ -1066,7 +1216,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         serialsText: String? = null
     ): Boolean {
         val artikel = artikelText?.trim().takeUnless { it.isNullOrBlank() } ?: getSelectedArtikelNr()
-        val projekt = projektText?.trim().orEmpty()
+        var projekt = projektText?.trim().orEmpty()
         val menge = mengeText?.trim().orEmpty()
         val serialsRaw = serialsText?.trim().orEmpty()
         val username = intent.getStringExtra("USERNAME") ?: "?"
@@ -1084,6 +1234,19 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         if (menge.isBlank()) {
             showErrorWithLoadingHelper("Bitte eine Menge eingeben")
             return false
+        }
+
+        val artikelObj = artikelListe.find {
+            it.artNr.equals(artikel, ignoreCase = true)
+        }
+
+        if (artikelObj?.snPflicht == true && !count) {
+            val hasSerials = serialsRaw.isNotBlank()
+
+            if (!hasSerials) {
+                showErrorWithLoadingHelper("Artikel ist SN-pflichtig – bitte Seriennummern erfassen")
+                return false
+            }
         }
 
         val serverMenge = when {
@@ -1123,6 +1286,8 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 serialList.joinToString(";")
             }
         }
+
+        projekt = projekt.split(" – ")[0]
 
         val request = buildString {
             append("{SetBuchung}")

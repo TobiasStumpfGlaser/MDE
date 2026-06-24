@@ -7,19 +7,18 @@
     android:fitsSystemWindows="true"
     android:background="?android:attr/windowBackground">
 
-    <!-- Toolbar -->
+    <!-- TOOLBAR (UNCHANGED) -->
     <androidx.appcompat.widget.Toolbar
         android:id="@+id/toolbar"
         android:layout_width="0dp"
         android:layout_height="wrap_content"
-        android:layout_marginTop="0dp"
         android:background="?attr/colorPrimary"
         android:elevation="4dp"
         android:minHeight="?attr/actionBarSize"
         android:theme="@style/ThemeOverlay.AppCompat.Dark.ActionBar"
-        app:layout_constraintEnd_toEndOf="parent"
+        app:layout_constraintTop_toTopOf="parent"
         app:layout_constraintStart_toStartOf="parent"
-        app:layout_constraintTop_toTopOf="parent">
+        app:layout_constraintEnd_toEndOf="parent">
 
         <LinearLayout
             android:layout_width="wrap_content"
@@ -31,98 +30,103 @@
                 android:layout_width="50dp"
                 android:layout_height="50dp"
                 android:src="@drawable/ic_launcher_foreground"
-                android:scaleType="fitCenter"
                 android:layout_marginStart="8dp"
-                android:layout_marginEnd="8dp" />
-
-            <!-- Abstand -->
-            <View
-                android:layout_width="8dp"
-                android:layout_height="match_parent" />
+                android:layout_marginEnd="8dp"/>
 
             <TextView
                 android:id="@+id/txtHeader"
                 android:layout_width="wrap_content"
                 android:layout_height="wrap_content"
                 android:text="BW MDE"
-                android:textColor="?android:attr/textColorPrimary"
                 android:textSize="25sp"
-                android:textStyle="bold" />
+                android:textStyle="bold"/>
         </LinearLayout>
+
     </androidx.appcompat.widget.Toolbar>
 
-    <!-- Scrollbarer Hauptbereich -->
+    <!-- SCROLL -->
     <ScrollView
         android:layout_width="0dp"
         android:layout_height="0dp"
+        android:fillViewport="true"
         app:layout_constraintTop_toBottomOf="@id/toolbar"
         app:layout_constraintBottom_toBottomOf="parent"
         app:layout_constraintStart_toStartOf="parent"
         app:layout_constraintEnd_toEndOf="parent">
 
         <LinearLayout
-            android:id="@+id/mainContainer"
             android:layout_width="match_parent"
             android:layout_height="wrap_content"
             android:orientation="vertical"
             android:padding="24dp">
 
-            <!-- Info Scan -->
-            <androidx.appcompat.widget.AppCompatButton
-                android:id="@+id/btnInfoScan"
-                android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:text="Info Scan"
-                android:visibility="gone"
-                android:textSize="20sp" />
-
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="10dp" />
-
-            <!-- Material Buchung -->
+            <!-- MATERIAL -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnMaterialBook"
                 android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:text="Material Buchung"
-                android:textSize="20sp" />
+                android:layout_height="75dp"
+                android:text="📦  Materialbuchung  ➕➖"
+                android:textAllCaps="false"
+                android:textSize="22sp"
+                android:gravity="center"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"/>
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="10dp" />
+            <View android:layout_height="12dp" android:layout_width="match_parent"/>
 
-            <!-- Picklist -->
+            <!-- PICKLIST -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnPicklist"
                 android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:text="Picklist"
-                android:textSize="20sp" />
+                android:layout_height="75dp"
+                android:text="📋  Picklisten  ➡️"
+                android:textAllCaps="false"
+                android:textSize="22sp"
+                android:gravity="center"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"/>
 
-            <View
-                android:layout_width="match_parent"
-                android:layout_height="10dp" />
+            <View android:layout_height="12dp" android:layout_width="match_parent"/>
 
-            <!-- Droplist -->
+            <!-- DROPLIST -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnDroplist"
                 android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:text="Droplist"
-                android:textSize="20sp" />
+                android:layout_height="75dp"
+                android:text="📋  Droplisten  ⬅️"
+                android:textAllCaps="false"
+                android:textSize="22sp"
+                android:gravity="center"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"/>
 
-            <View
+            <View android:layout_height="12dp" android:layout_width="match_parent"/>
+
+            <!-- BESTELLUNG -->
+            <androidx.appcompat.widget.AppCompatButton
+                android:id="@+id/btnBestellung"
                 android:layout_width="match_parent"
-                android:layout_height="10dp" />
+                android:layout_height="75dp"
+                android:text="🛒  Bestellung  🚚"
+                android:textAllCaps="false"
+                android:textSize="22sp"
+                android:gravity="center"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"/>
 
-            <!-- Inventur -->
+            <View android:layout_height="12dp" android:layout_width="match_parent"/>
+
+            <!-- INVENTUR -->
             <androidx.appcompat.widget.AppCompatButton
                 android:id="@+id/btnInventur"
                 android:layout_width="match_parent"
-                android:layout_height="70dp"
-                android:text="Ist-Zählung"
-                android:textSize="20sp" />
+                android:layout_height="75dp"
+                android:text="📊  Inventur  🟰"
+                android:textAllCaps="false"
+                android:textSize="22sp"
+                android:gravity="center"
+                android:paddingStart="20dp"
+                android:paddingEnd="20dp"/>
 
         </LinearLayout>
 

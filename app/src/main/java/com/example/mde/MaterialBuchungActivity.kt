@@ -251,35 +251,6 @@ open class MaterialBuchungActivity : BaseArtikelScanActivity() {
     }
 
     /**
-     * Normalisiert einen Projekt-Filterwert für den Vergleich:
-     * Alles klein schreiben und Nicht-Alphanumerik-Zeichen entfernen.
-     *
-     * @param value Rohwert aus dem Eingabefeld.
-     * @return Normalisierter String ohne Sonderzeichen.
-     */
-    internal fun normalizeProjektFilter(value: String): String {
-        return value.lowercase().replace(Regex("[^a-z0-9]+"), "")
-    }
-
-    /**
-     * Sortiert die Projektliste so, dass zuletzt verwendete Projekte oben stehen.
-     * Projekte, die nicht in [DataRepository.recentProjektListe] enthalten sind,
-     * werden alphabetisch angehängt.
-     *
-     * @param projekte Vollständige Projektliste.
-     * @return Sortierte Liste mit kürzlich verwendeten Projekten zuerst.
-     */
-    internal fun sortProjekteWithRecents(projekte: List<String>): List<String> {
-        val recent = DataRepository.recentProjektListe
-        return projekte.sortedWith(
-            compareBy<String> {
-                val idx = recent.indexOf(it)
-                if (idx >= 0) idx else Int.MAX_VALUE
-            }.thenBy { it.lowercase() }
-        )
-    }
-
-    /**
      * Formatiert eine Liste von Seriennummern für den Server-Request.
      *
      * - Leere Liste → leerer String.

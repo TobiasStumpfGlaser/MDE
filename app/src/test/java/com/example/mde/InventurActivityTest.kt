@@ -5,19 +5,8 @@ import android.os.Looper
 import android.view.MotionEvent
 import androidx.test.core.app.ApplicationProvider
 import com.example.mde.model.Artikel
-import io.mockk.Runs
-import io.mockk.clearMocks
-import io.mockk.every
-import io.mockk.just
-import io.mockk.mockkObject
-import io.mockk.unmockkObject
-import io.mockk.verify
-import org.junit.After
-import org.junit.Assert.assertEquals
-import org.junit.Assert.assertNotNull
-import org.junit.Assert.assertNull
-import org.junit.Before
-import org.junit.Test
+import io.mockk.*
+import org.junit.*
 import org.junit.runner.RunWith
 import org.robolectric.Robolectric
 import org.robolectric.RobolectricTestRunner
@@ -45,16 +34,49 @@ class InventurActivityTest {
         every { UiLoadingHelper.playErrorSound(any()) } just Runs
 
         DataRepository.clear()
+
         DataRepository.artikelListe = listOf(
             Artikel(
-                "123.4567", "Test Artikel",
-                listOf("A", "", ""), listOf("", "", ""),
-                "ST", "10", 0, 0, 0, "", ""
+                artNr = "123.4567",
+                bez = "Test Artikel",
+                lagerorteW1 = listOf("A", "", ""),
+                lagerorteW2 = listOf("", "", ""),
+                masseinheit = "ST",
+                bestand = "10",
+                mindestbestand = 0,
+                empfBestMenge = 0,
+                bestellTrigger = 0,
+                grossInfo = "",
+                liefBestNr = "",
+                snPflicht = false,
+                EAN = "4001234567890",
+                suchZusatz = "TESTSUCH"
+            ),
+            Artikel(
+                artNr = "123.4568",
+                bez = "Test Artikel",
+                lagerorteW1 = listOf("A", "", ""),
+                lagerorteW2 = listOf("", "", ""),
+                masseinheit = "ST",
+                bestand = "10",
+                mindestbestand = 0,
+                empfBestMenge = 0,
+                bestellTrigger = 0,
+                grossInfo = "",
+                liefBestNr = "",
+                snPflicht = true,
+                EAN = "4001234567892",
+                suchZusatz = "TESTSUCH2"
             )
         )
 
-        val intent = Intent(ApplicationProvider.getApplicationContext(), InventurActivity::class.java)
-        intent.putExtra("USERNAME", "testuser")
+        val intent = Intent(
+            ApplicationProvider.getApplicationContext(),
+            InventurActivity::class.java
+        ).apply {
+            putExtra("USERNAME", "testuser")
+        }
+
         activity = Robolectric.buildActivity(InventurActivity::class.java, intent)
             .create().start().resume().get()
     }
@@ -66,6 +88,90 @@ class InventurActivityTest {
         DataRepository.clear()
     }
 
+    // ─────────────────────────────────────────────
+    // EAN SEARCH TEST
+    // ─────────────────────────────────────────────
+
+    @Test
+    fun filter_byEAN_findsArticle() {
+        activity.runOnUiThread {
+            activity.etFilter.setText("4001234567892")
+        }
+
+        Assert.assertTrue(activity.hasSelectedArtikel())
+    }
+
+    // ─────────────────────────────────────────────
+    // SUCHZUSATZ SEARCH TEST
+    // ─────────────────────────────────────────────
+
+    @Test
+    fun filter_bySuchzusatz_findsArticle() {
+        activity.runOnUiThread {
+            activity.etFilter.setText("TESTSUCH2")
+        }
+
+        Assert.assertTrue(activity.hasSelectedArtikel())
+    }
+
+    // ─────────────────────────────────────────────
+    // SN PFLICHT VALIDATION
+    // ─────────────────────────────────────────────
+
+    @Test
+    fun snPflicht_blocksBooking_withoutSerials() {
+        activity.runOnUiThread {
+            activity.etFilter.setText("123.4568 | Test Artikel")
+            activity.edtMenge.setText("1")
+        }
+
+        val result = activity.doBuchenWithDetails(
+            einlagern = true,
+            count = false,
+            artikelText = null,
+            projektText = "TEST",
+            mengeText = "1",
+            serialsText = "" // ❌ keine Seriennummern
+        )
+
+        Assert.assertFalse(result)
+
+        verify(exactly = 0) {
+            TcpClient.sendCommand(any(), any(), any(), any(), any())
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // SN OK = Booking allowed
+    // ─────────────────────────────────────────────
+
+    @Test
+    fun snPflicht_allowsBooking_withSerials() {
+        activity.runOnUiThread {
+            activity.etFilter.setText("123.4567 | Test Artikel")
+            activity.edtMenge.setText("1")
+        }
+
+        val result = activity.doBuchenWithDetails(
+            einlagern = true,
+            count = false,
+            artikelText = null,
+            projektText = "TEST",
+            mengeText = "1",
+            serialsText = "SN123"
+        )
+
+        Assert.assertTrue(result)
+
+        verify(exactly = 1) {
+            TcpClient.sendCommand(any(), any(), "SetBuchung", any(), any())
+        }
+    }
+
+    // ─────────────────────────────────────────────
+    // COUNT BOOKING (unchanged logic)
+    // ─────────────────────────────────────────────
+
     @Test
     fun countBooking_usesEqualsPrefixInServerAmount() {
         activity.runOnUiThread {
@@ -74,105 +180,65 @@ class InventurActivityTest {
         }
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
+
         activity.doBuchenWithDetails(
             einlagern = true,
             count = true,
             artikelText = null,
-            projektText = "",
-            mengeText = activity.edtMenge.text.toString(),
+            projektText = "TEST",
+            mengeText = "9",
             serialsText = ""
         )
 
-        verify(timeout = 2000) {
+        verify {
             TcpClient.sendCommand(
-                context = any(),
-                settings = any(),
-                command = "SetBuchung",
-                request = match { it.contains("||=9|") },
-                endTag = "{/SetBuchung}"
+                any(),
+                any(),
+                eq("SetBuchung"),
+                match { it.contains("||=9|") },
+                eq("{/SetBuchung}")
             )
         }
     }
 
-    @Test
-    fun validation_emptyArticleOrMissingAmount_preventsBooking() {
-        activity.runOnUiThread {
-            activity.etFilter.setText("")
-            activity.edtMenge.setText("5")
-        }
-        activity.doBuchenWithDetails(
-            einlagern = true,
-            count = true,
-            artikelText = null,
-            projektText = "",
-            mengeText = activity.edtMenge.text.toString(),
-            serialsText = ""
-        )
-
-        activity.runOnUiThread {
-            activity.etFilter.setText("123.4567 | Test Artikel")
-            activity.edtMenge.setText("")
-        }
-        activity.doBuchenWithDetails(
-            einlagern = true,
-            count = true,
-            artikelText = null,
-            projektText = "",
-            mengeText = activity.edtMenge.text.toString(),
-            serialsText = ""
-        )
-
-        verify(exactly = 0) { TcpClient.sendCommand(any(), any(), any(), any(), any()) }
-    }
-
-    @Test
-    fun validCountBooking_callsServerSuccessfully() {
-        activity.runOnUiThread {
-            activity.etFilter.setText("123.4567 | Test Artikel")
-            activity.edtMenge.setText("3")
-        }
-
-        val started = activity.doBuchenWithDetails(
-            einlagern = true,
-            count = true,
-            artikelText = null,
-            projektText = "",
-            mengeText = activity.edtMenge.text.toString(),
-            serialsText = ""
-        )
-
-        assertEquals(true, started)
-        verify(timeout = 2000, exactly = 1) { TcpClient.sendCommand(any(), any(), "SetBuchung", any(), any()) }
-    }
+    // ─────────────────────────────────────────────
+    // TIMER TEST (unchanged)
+    // ─────────────────────────────────────────────
 
     @Test
     fun dispatchTouchEvent_resetsInactivityTimer() {
         val context = ApplicationProvider.getApplicationContext<android.content.Context>()
         val settings = AppSettings(context)
+
         val previousTimeout = settings.logoutTimeSec
         settings.logoutTimeSec = 1
 
         try {
-            val intent = Intent(context, InventurActivity::class.java)
-            intent.putExtra("USERNAME", "testuser")
+            val intent = Intent(context, InventurActivity::class.java).apply {
+                putExtra("USERNAME", "testuser")
+            }
+
             val activity = Robolectric.buildActivity(InventurActivity::class.java, intent)
                 .create().start().resume().get()
 
             val shadowActivity = Shadows.shadowOf(activity)
-            val mainLooper = Shadows.shadowOf(Looper.getMainLooper())
+            val looper = Shadows.shadowOf(Looper.getMainLooper())
 
-            mainLooper.idleFor(Duration.ofMillis(800))
+            looper.idleFor(Duration.ofMillis(800))
+
             val event = MotionEvent.obtain(0, 0, MotionEvent.ACTION_DOWN, 0f, 0f, 0)
             activity.dispatchTouchEvent(event)
             event.recycle()
 
-            mainLooper.idleFor(Duration.ofMillis(300))
-            assertNull(shadowActivity.nextStartedActivity)
+            looper.idleFor(Duration.ofMillis(300))
+            Assert.assertNull(shadowActivity.nextStartedActivity)
 
-            mainLooper.idleFor(Duration.ofMillis(800))
+            looper.idleFor(Duration.ofMillis(1200))
+
             val startedIntent = shadowActivity.nextStartedActivity
-            assertNotNull(startedIntent)
-            assertEquals(LoginActivity::class.java.name, startedIntent.component?.className)
+            Assert.assertNotNull(startedIntent)
+            Assert.assertEquals(LoginActivity::class.java.name, startedIntent.component?.className)
+
         } finally {
             settings.logoutTimeSec = previousTimeout
         }

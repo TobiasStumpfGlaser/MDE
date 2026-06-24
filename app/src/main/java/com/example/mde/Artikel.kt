@@ -11,5 +11,10 @@ data class Artikel(
     val bestellTrigger: Int,
     val mindestbestand: Int,
     val grossInfo: String,
-    val liefBestNr: String
+    val liefBestNr: String,
+    val snPflicht: Boolean,
+    val EAN: String,
+    val suchZusatz: String,
+    val bestellt3M: Int,
+    val bestellt6M: Int
 )
