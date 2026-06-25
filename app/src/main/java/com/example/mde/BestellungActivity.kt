@@ -14,6 +14,7 @@ import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
 import android.widget.AutoCompleteTextView
 import android.widget.Button
+import android.widget.CheckBox
 import android.widget.EditText
 import android.widget.Filter
 import android.widget.TextView
@@ -196,6 +197,7 @@ open class BestellungActivity : BaseArtikelScanActivity() {
 
         val etDialogProjekt = dialogView.findViewById<AutoCompleteTextView>(R.id.etDialogProjekt)
         val edtDialogMenge = dialogView.findViewById<EditText>(R.id.edtDialogMenge)
+        val cbEilig = dialogView.findViewById<CheckBox>(R.id.cbEilig)
         val btnDialogCancel = dialogView.findViewById<Button>(R.id.btnDialogCancel)
         val btnDialogOk = dialogView.findViewById<Button>(R.id.btnDialogOk)
 
@@ -283,6 +285,7 @@ open class BestellungActivity : BaseArtikelScanActivity() {
         btnDialogOk.setOnClickListener {
             val projekt = etDialogProjekt.text.toString().trim()
             val menge = edtDialogMenge.text.toString().trim()
+            val eilig = cbEilig.isChecked
 
             if (projekt.isBlank()) {
                 showErrorWithLoadingHelper("Bitte ein Projekt eingeben")
@@ -295,7 +298,7 @@ open class BestellungActivity : BaseArtikelScanActivity() {
 
             DataRepository.rememberProjekt(projekt)
 
-            val started = doBestellenWithDetails(null, projektText=projekt, mengeText=menge, false)
+            val started = doBestellenWithDetails(null, projektText=projekt, mengeText=menge, eilig)
             if (started) {
                 dialog.dismiss()
             }

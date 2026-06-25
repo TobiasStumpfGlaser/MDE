@@ -41,11 +41,11 @@ class BasePickDropActivityTest {
         mockkObject(TcpClient)
         every { TcpClient.sendCommand(any(), any(), any(), any(), any()) } answers {
             when (thirdArg<String>()) {
-                "GetPickOverview" -> "{GetPickOverview}\nL1|P100|Projekt 100\n{/GetPickOverview}"
-                "GetDropOverview" -> "{GetDropOverview}\nL1|P100|Projekt 100\n{/GetDropOverview}"
+                "GetPickOverview" -> "{GetPickOverview}\nL1|PK|P100|Projekt 100\n{/GetPickOverview}"
+                "GetDropOverview" -> "{GetDropOverview}\nL1|GN|P100|Projekt 100\n{/GetDropOverview}"
                 "GetPick_L1" -> "{GetPick_L1}\n123.4567|3|1|Test Info\n{/GetPick_L1}"
                 "GetDrop_L1" -> "{GetDrop_L1}\n123.4567|4|1|Test Info\n{/GetDrop_L1}"
-                "GetArtikel" -> "{GetArtikel}\n123.4567|Artikel|A|B|C|D|E|F|ST|1|0|0|0|G|L|||\n{/GetArtikel}"
+                "GetArtikel" -> "{GetArtikel}\n123.4567|Artikel|A|B|C|D|E|F|ST|1|0|0|0|G|L||||||||\n{/GetArtikel}"
                 "SetBuchung" -> "{SetBuchung}\nok\n{/SetBuchung}"
                 else -> ""
             }

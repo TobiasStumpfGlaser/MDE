@@ -55,7 +55,10 @@ class DoBuchenWithDetailsTest {
             Artikel(
                 "123.4567", "Test Artikel",
                 listOf("W1A", "", ""), listOf("", "", ""),
-                "ST", "10", 5, 2, 1, "grInfo", "liefBest", false,"1234567654321","Artikel Zusatz"
+                "ST", "10", 5,
+                2, 1, "grInfo",
+                snPflicht = false, bestellt3M = 2, bestellt6M =  4,
+                EAN ="1234567654321", suchZusatz= "Artikel Zusatz", liefBestNr = "LiefBestNr"
             )
         )
         DataRepository.projektListe = listOf("P100 - Projekt Eins")

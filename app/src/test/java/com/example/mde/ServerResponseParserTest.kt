@@ -74,6 +74,8 @@ class ServerResponseParserTest {
         trigger: String = "2",
         min: String = "1",
         gross: String = "Grossinfo",
+        bestellt3M: Int = 6,
+        bestellt6M: Int = 10,
         lief: String = "LiefBest",
         sn: String = "true",
         ean: String = "4001234567890",
@@ -85,8 +87,8 @@ class ServerResponseParserTest {
             w2a, w2b, w2c,
             me, bestand,
             empf, trigger, min,
-            gross, lief,
-            sn, ean, such
+            gross, sn, bestellt3M, bestellt6M,
+            ean, such, lief
         ).joinToString("|")
     }
 
@@ -295,7 +297,7 @@ class ServerResponseParserTest {
     fun parseArtikelResponse_emptyFields_stillValid() {
         val raw = """
             {GetArtikel}
-            |||||||||||||||||
+            |||||||||||||||||||
             {/GetArtikel}
         """.trimIndent()
 

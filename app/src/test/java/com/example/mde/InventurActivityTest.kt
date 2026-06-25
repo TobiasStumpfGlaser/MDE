@@ -49,6 +49,8 @@ class InventurActivityTest {
                 grossInfo = "",
                 liefBestNr = "",
                 snPflicht = false,
+                bestellt3M = 4,
+                bestellt6M = 6,
                 EAN = "4001234567890",
                 suchZusatz = "TESTSUCH"
             ),
@@ -66,6 +68,8 @@ class InventurActivityTest {
                 liefBestNr = "",
                 snPflicht = true,
                 EAN = "4001234567892",
+                bestellt3M = 4,
+                bestellt6M = 6,
                 suchZusatz = "TESTSUCH2"
             )
         )

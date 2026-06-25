@@ -29,18 +29,47 @@
                 android:paddingEnd="16dp"
                 android:textSize="18sp" />
 
-            <EditText
-                android:id="@+id/edtDialogMenge"
+            <LinearLayout
                 android:layout_width="match_parent"
-                android:layout_height="72dp"
+                android:layout_height="wrap_content"
                 android:layout_marginBottom="16dp"
-                android:background="?attr/editTextBackground"
-                android:hint="Menge"
-                android:inputType="numberDecimal"
-                android:paddingStart="16dp"
-                android:paddingEnd="16dp"
-                android:textSize="18sp" />
+                android:orientation="horizontal"
+                android:gravity="center_vertical">
 
+                <EditText
+                    android:id="@+id/edtDialogMenge"
+                    android:layout_width="0dp"
+                    android:layout_height="72dp"
+                    android:layout_weight="1"
+                    android:background="?attr/editTextBackground"
+                    android:hint="Menge"
+                    android:inputType="numberDecimal"
+                    android:textSize="18sp" />
+
+                <View android:layout_height="match_parent"
+                    android:layout_width="12dp"/>
+
+                <LinearLayout
+                    android:layout_width="wrap_content"
+                    android:layout_height="wrap_content"
+                    android:orientation="vertical"
+                    android:gravity="center_horizontal">
+
+                    <CheckBox
+                        android:id="@+id/cbEilig"
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="" />
+
+                    <TextView
+                        android:layout_width="wrap_content"
+                        android:layout_height="wrap_content"
+                        android:text="Eilig"
+                        android:textSize="12sp" />
+
+                </LinearLayout>
+
+            </LinearLayout>
         </LinearLayout>
     </ScrollView>
 
