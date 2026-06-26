@@ -1,5 +1,6 @@
 package com.example.mde
 
+import android.content.Intent
 import android.os.Bundle
 import android.os.SystemClock
 import android.text.Editable
@@ -627,7 +628,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
                 CoroutineScope(Dispatchers.IO).launch {
                     var attempts = 0
-                    while (attempts < 3) {
+                    while (attempts < 1) {
                         attempts++
                         try {
                             if (attempts > 1) {
@@ -682,7 +683,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                             }
                             return@launch
                         } catch (_: Exception) {
-                            if (attempts < 3) {
+                            if (attempts < 1) {
                                 withContext(Dispatchers.Main) {
                                     UiLoadingHelper.update(
                                         activity = this@BasePickDropActivity,
@@ -696,12 +697,14 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     }
 
                     withContext(Dispatchers.Main) {
-                        UiLoadingHelper.update(
+
+                        UiLoadingHelper.showErrorAndWaitForAction(
                             activity = this@BasePickDropActivity,
-                            message = "Kein Server erreichbar nach 3 Versuchen",
-                            status = UiLoadingHelper.LoadingStatus.ERROR
-                        )
-                        btnYes.isEnabled = true
+                            message = "Buchung fehlgeschlagen\nkeine Serverantwort"
+                        ) {
+                            startActivity(Intent(this@BasePickDropActivity, MainActivity::class.java))
+                            finish()
+                        }
                     }
                 }
             }

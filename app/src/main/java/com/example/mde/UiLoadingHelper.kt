@@ -353,5 +353,52 @@ object UiLoadingHelper {
         mp.setOnCompletionListener { it.release() }
     }
 
+    fun showErrorAndWaitForAction(
+        activity: Activity,
+        message: String,
+        onOk: () -> Unit
+    ) {
+        autoHideJob?.cancel()
+
+        loadingDialog?.dismiss()
+        loadingDialog = null
+
+        playErrorSound(activity)
+
+        val icon = TextView(activity).apply {
+            text = "❌"
+            textSize = 48f
+            gravity = Gravity.CENTER
+        }
+
+        val text = TextView(activity).apply {
+            this.text = message
+            setPadding(20, 20, 20, 20)
+            gravity = Gravity.CENTER
+            textAlignment = TextView.TEXT_ALIGNMENT_CENTER
+        }
+
+        val layout = LinearLayout(activity).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(40, 40, 40, 40)
+            gravity = Gravity.CENTER
+            addView(icon)
+            addView(text)
+        }
+
+        val dialog = AlertDialog.Builder(activity)
+            .setView(layout)
+            .setCancelable(false)
+            .setPositiveButton("OK") { d, _ ->
+                d.dismiss()
+                hide()
+                onOk()
+            }
+            .create()
+
+        loadingDialog = dialog
+        dialog.show()
+    }
+
     enum class LoadingStatus { LOADING, SUCCESS, ERROR }
 }

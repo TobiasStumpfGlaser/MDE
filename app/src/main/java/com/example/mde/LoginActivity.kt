@@ -127,7 +127,7 @@ class LoginActivity : AppCompatActivity() {
         }
 
         super.onCreate(savedInstanceState)
-        TcpLogHelper.clearLogs(this)
+        TcpLogHelper.cleanupOldLogs(this)
 
         handler = Handler(Looper.getMainLooper())
 
@@ -170,11 +170,9 @@ class LoginActivity : AppCompatActivity() {
         val txtHeader = findViewById<TextView>(R.id.txtHeader)
         txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
 
-        if (userList.isNotEmpty()) {
-            userAdapter = UserAdapter(this, userList)
-            txtUsername.setAdapter(userAdapter)
-            selectDefaultUserIfAvailable()
-        }
+        userAdapter = UserAdapter(this, userList)
+        txtUsername.setAdapter(userAdapter)
+        selectDefaultUserIfAvailable()
 
         txtUsername.setOnClickListener { userTextClicked() }
         txtUsername.setOnFocusChangeListener { _, hasFocus ->
@@ -249,13 +247,14 @@ class LoginActivity : AppCompatActivity() {
     }
 
     private fun userTextFocusChanged(hasFocus: Boolean) {
-        if (hasFocus) {
-            txtUsername.post {
-                txtUsername.setText("", false)
+        if (!hasFocus) return
+
+        txtUsername.post {
+            if (::userAdapter.isInitialized) {
                 userAdapter.updateList(userList)
-                txtUsername.dismissDropDown()
-                txtUsername.showDropDown()
             }
+
+            txtUsername.dismissDropDown()
         }
     }
 

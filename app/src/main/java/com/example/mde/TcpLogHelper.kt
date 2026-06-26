@@ -37,7 +37,39 @@ object TcpLogHelper {
      * @return [File] der zugehörigen Log-Datei.
      */
     private fun getLogFile(context: Context, command: String): File {
-        return File(getLogDir(context), "$command.txt")
+        val date = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault()).format(Date())
+        return File(getLogDir(context), "${command}_$date.txt")
+    }
+
+    fun cleanupOldLogs(context: Context) {
+        try {
+            val dir = getLogDir(context)
+            if (!dir.exists()) return
+
+            val format = SimpleDateFormat("yyyy-MM-dd", Locale.getDefault())
+            val cutoff = System.currentTimeMillis() - (7L * 24 * 60 * 60 * 1000)
+
+            dir.listFiles()?.forEach { file ->
+                try {
+                    val name = file.nameWithoutExtension
+
+                    // erwartet: command_yyyy-MM-dd
+                    val datePart = name.substringAfterLast("_", "")
+
+                    val fileDate = format.parse(datePart)?.time ?: return@forEach
+
+                    if (fileDate < cutoff) {
+                        file.delete()
+                    }
+
+                } catch (_: Exception) {
+                    // ignorieren
+                }
+            }
+
+        } catch (e: Exception) {
+            e.printStackTrace()
+        }
     }
 
     /**

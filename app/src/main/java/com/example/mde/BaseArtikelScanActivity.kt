@@ -42,6 +42,8 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import java.util.Date
 import java.util.Locale
+import kotlin.collections.emptyList
+
 
 object DatalogicIntentWedge {
     const val ACTION = "com.datalogic.decodewedge.decode_action"
@@ -754,6 +756,9 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                         } else {
                             adapter.updateList(artikelListe)
                         }
+
+                        etFilter.setText("")
+                        etFilter.dismissDropDown()
                     }
 
                     val projekteResponse = TcpClient.sendCommand(
@@ -797,6 +802,25 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 }
             }
         }
+    }
+
+    private fun resetArtikelFilter() {
+        artikelListe = emptyList()
+
+        etFilter.setText("")
+        etFilter.dismissDropDown()
+
+        if (::adapter.isInitialized) {
+            adapter.updateList(emptyList())
+        } else {
+            adapter = ArtikelAdapter(
+                this@BaseArtikelScanActivity,
+                emptyList()
+            )
+            etFilter.setAdapter(adapter)
+        }
+
+        showEmptyArtikelInfo()
     }
 
     /**
@@ -1140,7 +1164,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
         CoroutineScope(Dispatchers.IO).launch {
             var attempts = 0
-            while (attempts < 3) {
+            while (attempts < 1) {
                 attempts++
                 try {
                     val response = TcpClient.sendCommand(
@@ -1172,13 +1196,15 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     }
                     return@launch
                 } catch (_: Exception) {
-                    if (attempts >= 3) {
+                    if (attempts >= 1) {
                         withContext(Dispatchers.Main) {
                             UiLoadingHelper.update(
                                 activity = this@BaseArtikelScanActivity,
-                                message = "Bestellung fehlgeschlagen",
+                                message = "Bestellung fehlgeschlagen\nkeine Serverantwort\"",
                                 status = UiLoadingHelper.LoadingStatus.ERROR
                             )
+                            resetArtikelFilter()
+                            btnClearClicked()
                         }
                     }
                 }
@@ -1307,7 +1333,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
         CoroutineScope(Dispatchers.IO).launch {
             var attempts = 0
-            while (attempts < 3) {
+            while (attempts < 1) {
                 attempts++
                 try {
                     val response = TcpClient.sendCommand(
@@ -1339,13 +1365,15 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                     }
                     return@launch
                 } catch (_: Exception) {
-                    if (attempts >= 3) {
+                    if (attempts >= 1) {
                         withContext(Dispatchers.Main) {
                             UiLoadingHelper.update(
                                 activity = this@BaseArtikelScanActivity,
-                                message = "Buchung fehlgeschlagen",
+                                message = "Buchung fehlgeschlagen\nkeine Serverantwort",
                                 status = UiLoadingHelper.LoadingStatus.ERROR
                             )
+                            resetArtikelFilter()
+                            btnClearClicked()
                         }
                     }
                 }
