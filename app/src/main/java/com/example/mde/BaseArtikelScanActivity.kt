@@ -176,6 +176,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     private lateinit var timeoutRunnable: Runnable
     private var logoutTimeoutMillis = 0L
     private var requestRunning = false
+    private var selectedArtikel: Artikel? = null
     private val ioScope = CoroutineScope(Dispatchers.IO)
     protected var textWatcherEnabled = true
 
@@ -320,7 +321,17 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         val cleanedBarcode = barcode.trim()
         if (cleanedBarcode.isBlank()) return false
 
-        val matchedArtikel = artikelListe.find { it.artNr.equals(cleanedBarcode, ignoreCase = true) }
+        val matchedArtikel =
+            if (cleanedBarcode.length == 8) {
+                artikelListe.find {
+                    it.artNr.equals(cleanedBarcode, ignoreCase = true)
+                }
+            } else {
+                artikelListe.find {
+                    it.EAN.trim().contains(cleanedBarcode, ignoreCase = true)
+                }
+            }
+
         etFilter.setText(cleanedBarcode)
         etFilter.setSelection(0)
 
@@ -336,6 +347,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
 
     protected fun applySelectedArtikel(artikel: Artikel) {
         clearInlineError()
+        selectedArtikel = artikel
         artikelNoMatchActive = false
         showArtikelInfo(artikel)
 
@@ -359,9 +371,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
     }
 
     internal fun hasSelectedArtikel(): Boolean {
-        val artikelNr = getSelectedArtikelNr()
-        if (artikelNr.isBlank()) return false
-        return artikelListe.any { it.artNr.equals(artikelNr, ignoreCase = true) }
+        return selectedArtikel != null
     }
 
     protected open fun onArticleFieldClicked() {
