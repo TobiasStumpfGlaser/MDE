@@ -1153,7 +1153,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         val request = buildString {
             append("{SetBestellung}")
             append("$artikel|$serverMenge|$eiligKennzeichen|$projekt|${settings.werkNummer}|$username|$now|")
-            append("|{/SetBestellung}")
+            append("{/SetBestellung}")
         }
 
         UiLoadingHelper.show(
