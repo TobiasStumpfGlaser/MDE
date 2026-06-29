@@ -27,6 +27,8 @@ class MainActivity : AppCompatActivity() {
     private lateinit var username: String
     private lateinit var timeoutRunnable: Runnable
 
+    private val allowedOrderUsers = setOf("RKL", "RG", "MRE", "AMA", "SRE")
+
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -97,6 +99,12 @@ class MainActivity : AppCompatActivity() {
             val intent = Intent(this@MainActivity, BestellungActivity::class.java)
             intent.putExtra("USERNAME", username)
             startActivity(intent)
+        }
+
+        if (allowedOrderUsers.contains(username)) {
+            btnBestellung.visibility = android.view.View.VISIBLE
+        } else {
+            btnBestellung.visibility = android.view.View.GONE
         }
     }
 
