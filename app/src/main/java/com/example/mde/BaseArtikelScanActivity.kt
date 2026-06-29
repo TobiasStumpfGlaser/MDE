@@ -698,6 +698,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         buchungProjektView?.text?.clear()
         buchungMengeView?.text?.clear()
 
+        buchungMengeView?.clearFocus()
         etFilter.clearFocus()
         if (suppressKeyboardOnStart) {
             hideSoftKeyboard(etFilter)

@@ -34,7 +34,7 @@ internal fun parseArtikelResponse(raw: String): List<Artikel> {
                         bestellTrigger = p[11].toIntOrNull() ?: 0,
                         mindestbestand = p[12].toIntOrNull() ?: 0,
                         grossInfo = p[13],
-                        snPflicht = !p[14].isNullOrEmpty(),
+                        snPflicht = !p[14].isNullOrBlank(),
                         bestellt3M = p[15].toIntOrNull() ?: 0,
                         bestellt6M = p[16].toIntOrNull() ?: 0,
                         EAN = p[17],

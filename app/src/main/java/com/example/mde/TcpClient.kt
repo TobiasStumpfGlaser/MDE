@@ -151,8 +151,7 @@ object TcpClient {
             val stringResponse = response.toString()
             TcpLogHelper.logResponse(context, command, stringResponse)
 
-            // NEU: immer Tabellenkopf entfernen, AUSSER bei SetBuchung
-            val shouldStripHeader = !command.contains("SetBuchung", ignoreCase = true)
+            val shouldStripHeader = command.startsWith("Get", ignoreCase = true)
 
             return if (shouldStripHeader) {
                 removeTableHeaderLine(stringResponse, endTag)
