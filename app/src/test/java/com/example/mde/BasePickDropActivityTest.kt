@@ -393,6 +393,47 @@ class BasePickDropActivityTest {
     }
 
     @Test
+    fun pickBooking_changeArticleDialog_rejectsPartialEanMatch() {
+        val intent = Intent(ApplicationProvider.getApplicationContext(), PickListActivity::class.java)
+        intent.putExtra("USERNAME", "tester")
+        val activity = Robolectric.buildActivity(PickListActivity::class.java, intent)
+            .create().start().resume().get()
+
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        activity.findViewById<AutoCompleteTextView>(R.id.etListFilter).setText("L1")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        waitForDetailsLoaded(activity)
+
+        ShadowSystemClock.advanceBy(Duration.ofMillis(300))
+
+        activity.findViewById<AutoCompleteTextView>(R.id.etDetailFilter).setText("123.4567")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        val itemDialog = ShadowDialog.getLatestDialog()
+        assertNotNull(itemDialog)
+        assertTrue(itemDialog.isShowing)
+
+        itemDialog.findViewById<View>(R.id.btnChangeArticle).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        val changeDialog = ShadowDialog.getLatestDialog() as AlertDialog
+        clearMocks(UiLoadingHelper, answers = false, recordedCalls = true)
+        activity.onBarcodeScanned("400123456789")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        changeDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        verify {
+            UiLoadingHelper.showError(
+                activity,
+                "Ersatzartikel muss das Format ddd.dddd haben (z.B. 123.4567)"
+            )
+        }
+    }
+
+    @Test
     fun pickBooking_changeArticleDialog_rejectsInvalidReplacementFormat() {
         val intent = Intent(ApplicationProvider.getApplicationContext(), PickListActivity::class.java)
         intent.putExtra("USERNAME", "tester")
@@ -537,6 +578,96 @@ class BasePickDropActivityTest {
         assertTrue(dialog.isShowing)
 
         dialog.findViewById<View>(R.id.btnYes).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        verify {
+            UiLoadingHelper.showError(activity, "Artikel ist SN-pflichtig – bitte Seriennummern erfassen")
+        }
+        verify(exactly = 0) {
+            TcpClient.sendCommand(
+                context = any(),
+                settings = any(),
+                command = "SetBuchung",
+                request = any(),
+                endTag = "{/SetBuchung}"
+            )
+        }
+    }
+
+    @Test
+    fun pickBooking_blocksSnPflichtReplacementArtikelWithoutSerials() {
+        DataRepository.artikelListe = listOf(
+            Artikel(
+                artNr = "123.4567",
+                bez = "Artikel",
+                lagerorteW1 = listOf("A", "B", "C"),
+                lagerorteW2 = listOf("D", "E", "F"),
+                masseinheit = "ST",
+                bestand = "1",
+                empfBestMenge = 0,
+                bestellTrigger = 0,
+                mindestbestand = 0,
+                grossInfo = "Info",
+                liefBestNr = "LIEF1",
+                snPflicht = false,
+                EAN = "4000000000001",
+                suchZusatz = "SUCH1",
+                bestellt3M = 0,
+                bestellt6M = 0
+            ),
+            Artikel(
+                artNr = "765.4321",
+                bez = "Ersatzartikel",
+                lagerorteW1 = listOf("A", "B", "C"),
+                lagerorteW2 = listOf("D", "E", "F"),
+                masseinheit = "ST",
+                bestand = "1",
+                empfBestMenge = 0,
+                bestellTrigger = 0,
+                mindestbestand = 0,
+                grossInfo = "Info",
+                liefBestNr = "LIEF2",
+                snPflicht = true,
+                EAN = "4001234567892",
+                suchZusatz = "SUCH2",
+                bestellt3M = 0,
+                bestellt6M = 0
+            )
+        )
+
+        val intent = Intent(ApplicationProvider.getApplicationContext(), PickListActivity::class.java)
+        intent.putExtra("USERNAME", "tester")
+        val activity = Robolectric.buildActivity(PickListActivity::class.java, intent)
+            .create().start().resume().get()
+
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        activity.findViewById<AutoCompleteTextView>(R.id.etListFilter).setText("L1")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        waitForDetailsLoaded(activity)
+
+        ShadowSystemClock.advanceBy(Duration.ofMillis(300))
+
+        activity.findViewById<AutoCompleteTextView>(R.id.etDetailFilter).setText("123.4567")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        val itemDialog = ShadowDialog.getLatestDialog()
+        assertNotNull(itemDialog)
+        assertTrue(itemDialog.isShowing)
+
+        itemDialog.findViewById<View>(R.id.btnChangeArticle).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        val changeDialog = ShadowDialog.getLatestDialog() as AlertDialog
+        activity.onBarcodeScanned("4001234567892")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        changeDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        clearMocks(TcpClient, UiLoadingHelper, answers = false, recordedCalls = true)
+
+        itemDialog.findViewById<View>(R.id.btnYes).performClick()
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         verify {
