@@ -815,13 +815,13 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             .setMessage("Aktuell: ${item.artNr}\nBitte neue Artikelnummer eingeben.")
             .setView(et)
             .setPositiveButton("OK") { _, _ ->
-                val hadReplacement = !replacementArtNr.isNullOrBlank()
                 val neueArtNr = resolveReplacementArtNr(et.text.toString())
                 if (neueArtNr.isNotEmpty() && !isFullArtNr(neueArtNr)) {
                     uiError("Ersatzartikel muss das Format ddd.dddd haben (z.B. 123.4567)")
                     return@setPositiveButton
                 }
 
+                val hadReplacement = !replacementArtNr.isNullOrBlank()
                 replacementArtNr = when {
                     neueArtNr.isBlank() -> {
                         if (hadReplacement) {
