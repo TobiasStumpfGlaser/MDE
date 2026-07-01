@@ -816,16 +816,26 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             .setView(et)
             .setPositiveButton("OK") { _, _ ->
                 val neueArtNr = resolveReplacementArtNr(et.text.toString())
-                if (neueArtNr.isBlank()) {
-                    uiError("Neue Artikelnummer darf nicht leer sein.")
+                if (neueArtNr.isNotEmpty() && !isFullArtNr(neueArtNr)) {
+                    uiError("Ersatzartikel muss das Format ddd.dddd haben (z.B. 123.4567)")
                     return@setPositiveButton
                 }
 
-                replacementArtNr = if (neueArtNr.equals(item.artNr, ignoreCase = true)) {
-                    uiInfo("Ersatz entfernt (Artikel bleibt unverändert).")
-                    null
-                } else {
-                    neueArtNr
+                val hadReplacement = !replacementArtNr.isNullOrBlank()
+                replacementArtNr = when {
+                    neueArtNr.isBlank() -> {
+                        if (hadReplacement) {
+                            uiInfo("Ersatz entfernt (Artikel bleibt unverändert).")
+                        }
+                        null
+                    }
+                    neueArtNr.equals(item.artNr, ignoreCase = true) -> {
+                        uiInfo("Ersatz entfernt (Artikel bleibt unverändert).")
+                        null
+                    }
+                    else -> {
+                        neueArtNr
+                    }
                 }
 
                 onArticleChanged()
