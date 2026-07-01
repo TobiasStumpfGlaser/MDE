@@ -25,6 +25,7 @@ import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.DividerItemDecoration
 import androidx.recyclerview.widget.LinearLayoutManager
 import androidx.recyclerview.widget.RecyclerView
+import com.example.mde.model.Artikel
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -216,6 +217,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         setupListFilter()
         setupDetailFilter()
         setupDetailFilterKeyboardBehavior()
+        ensureArtikelLoaded { }
 
         loadList()
     }
@@ -583,6 +585,18 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     return
                 }
 
+                val artikelObj = DataRepository.artikelListe.find { artikel ->
+                    artikel.artNr.equals(artikelAlt, ignoreCase = true)
+                }
+
+                if (artikelObj?.snPflicht == true) {
+                    if (item.serials.isEmpty() && !projekt.contains("UMBUCHUNG")) {
+                        uiError("Artikel ist SN-pflichtig – bitte Seriennummern erfassen")
+                        btnYes.isEnabled = true
+                        return
+                    }
+                }
+
                 val bookedKey = item.key()
                 val now =
                     java.text.SimpleDateFormat("dd.MM.yyyy HH:mm:ss", Locale.GERMANY).format(Date())
@@ -801,7 +815,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             .setMessage("Aktuell: ${item.artNr}\nBitte neue Artikelnummer eingeben.")
             .setView(et)
             .setPositiveButton("OK") { _, _ ->
-                val neueArtNr = et.text.toString().trim()
+                val neueArtNr = resolveReplacementArtNr(et.text.toString())
                 if (neueArtNr.isBlank()) {
                     uiError("Neue Artikelnummer darf nicht leer sein.")
                     return@setPositiveButton
@@ -820,8 +834,16 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             .create()
 
         serialDialogScanHandler = { scannedBarcode ->
-            et.setText(scannedBarcode)
-            et.setSelection(et.text.length)
+            fun applyScannedArticle() {
+                et.setText(resolveReplacementArtNr(scannedBarcode))
+                et.setSelection(et.text.length)
+            }
+
+            if (DataRepository.artikelListe.isEmpty()) {
+                ensureArtikelLoaded { applyScannedArticle() }
+            } else {
+                applyScannedArticle()
+            }
         }
 
         dialog.setOnDismissListener {
@@ -829,6 +851,24 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         }
 
         dialog.show()
+    }
+
+    private fun resolveReplacementArtNr(input: String): String {
+        val cleanedInput = input.trim()
+        if (cleanedInput.isBlank()) return ""
+        return findArtikelByBarcodeOrArtNr(cleanedInput)?.artNr ?: cleanedInput
+    }
+
+    private fun findArtikelByBarcodeOrArtNr(input: String): Artikel? {
+        if (input.length == 8) {
+            return DataRepository.artikelListe.find { artikel ->
+                artikel.artNr.equals(input, ignoreCase = true)
+            }
+        }
+
+        return DataRepository.artikelListe.find { artikel ->
+            artikel.EAN.trim().contains(input, ignoreCase = true)
+        }
     }
 
     /**
