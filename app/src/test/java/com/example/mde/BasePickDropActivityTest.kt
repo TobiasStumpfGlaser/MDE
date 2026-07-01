@@ -418,6 +418,7 @@ class BasePickDropActivityTest {
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         val changeDialog = ShadowDialog.getLatestDialog() as AlertDialog
+        assertNull(DataRepository.artikelListe.find { it.EAN.trim() == "400123456789" })
         clearMocks(UiLoadingHelper, answers = false, recordedCalls = true)
         activity.onBarcodeScanned("400123456789")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
