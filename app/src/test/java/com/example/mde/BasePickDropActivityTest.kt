@@ -458,7 +458,7 @@ class BasePickDropActivityTest {
         itemDialog.findViewById<View>(R.id.btnChangeArticle).performClick()
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        var changeDialog = ShadowDialog.getLatestDialog() as AlertDialog
+        val changeDialog = ShadowDialog.getLatestDialog() as AlertDialog
         activity.onBarcodeScanned("4001234567892")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
@@ -468,11 +468,11 @@ class BasePickDropActivityTest {
         itemDialog.findViewById<View>(R.id.btnChangeArticle).performClick()
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        changeDialog = ShadowDialog.getLatestDialog() as AlertDialog
-        val replacementInput = requireNotNull(findEditText(changeDialog.window!!.decorView))
+        val clearedChangeDialog = ShadowDialog.getLatestDialog() as AlertDialog
+        val replacementInput = requireNotNull(findEditText(clearedChangeDialog.window!!.decorView))
         replacementInput.setText("")
 
-        changeDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+        clearedChangeDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         clearMocks(TcpClient, answers = false, recordedCalls = true)
