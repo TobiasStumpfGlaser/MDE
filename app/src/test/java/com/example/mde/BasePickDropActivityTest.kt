@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Looper
 import android.view.MotionEvent
 import android.view.View
+import android.view.ViewGroup
 import android.widget.AutoCompleteTextView
 import android.widget.EditText
 import androidx.appcompat.app.AlertDialog
@@ -99,6 +100,17 @@ class BasePickDropActivityTest {
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         return rvDetails
+    }
+
+    private fun findEditText(root: View): EditText? {
+        if (root is EditText) return root
+        if (root is ViewGroup) {
+            for (index in 0 until root.childCount) {
+                val match = findEditText(root.getChildAt(index))
+                if (match != null) return match
+            }
+        }
+        return null
     }
 
     @Test
@@ -375,6 +387,105 @@ class BasePickDropActivityTest {
                 settings = any(),
                 command = "SetBuchung",
                 request = match<String> { it.contains("123.4567|765.4321|-3|") },
+                endTag = "{/SetBuchung}"
+            )
+        }
+    }
+
+    @Test
+    fun pickBooking_changeArticleDialog_rejectsInvalidReplacementFormat() {
+        val intent = Intent(ApplicationProvider.getApplicationContext(), PickListActivity::class.java)
+        intent.putExtra("USERNAME", "tester")
+        val activity = Robolectric.buildActivity(PickListActivity::class.java, intent)
+            .create().start().resume().get()
+
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        activity.findViewById<AutoCompleteTextView>(R.id.etListFilter).setText("L1")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        waitForDetailsLoaded(activity)
+
+        ShadowSystemClock.advanceBy(Duration.ofMillis(300))
+
+        activity.findViewById<AutoCompleteTextView>(R.id.etDetailFilter).setText("123.4567")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        val itemDialog = ShadowDialog.getLatestDialog()
+        assertNotNull(itemDialog)
+        assertTrue(itemDialog.isShowing)
+
+        itemDialog.findViewById<View>(R.id.btnChangeArticle).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        val changeDialog = ShadowDialog.getLatestDialog() as AlertDialog
+        val replacementInput = requireNotNull(findEditText(changeDialog.window!!.decorView))
+        replacementInput.setText("1234")
+
+        changeDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        verify {
+            UiLoadingHelper.showError(
+                activity,
+                "Ersatzartikel muss das Format ddd.dddd haben (z.B. 123.4567)"
+            )
+        }
+    }
+
+    @Test
+    fun pickBooking_changeArticleDialog_allowsEmptyReplacementToClearExistingReplacement() {
+        val intent = Intent(ApplicationProvider.getApplicationContext(), PickListActivity::class.java)
+        intent.putExtra("USERNAME", "tester")
+        val activity = Robolectric.buildActivity(PickListActivity::class.java, intent)
+            .create().start().resume().get()
+
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        activity.findViewById<AutoCompleteTextView>(R.id.etListFilter).setText("L1")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        waitForDetailsLoaded(activity)
+
+        ShadowSystemClock.advanceBy(Duration.ofMillis(300))
+
+        val etDetailFilter = activity.findViewById<AutoCompleteTextView>(R.id.etDetailFilter)
+        etDetailFilter.setText("123.4567")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        val itemDialog = ShadowDialog.getLatestDialog()
+        assertNotNull(itemDialog)
+        assertTrue(itemDialog.isShowing)
+
+        itemDialog.findViewById<View>(R.id.btnChangeArticle).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        var changeDialog = ShadowDialog.getLatestDialog() as AlertDialog
+        activity.onBarcodeScanned("4001234567892")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        changeDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        itemDialog.findViewById<View>(R.id.btnChangeArticle).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        changeDialog = ShadowDialog.getLatestDialog() as AlertDialog
+        val replacementInput = requireNotNull(findEditText(changeDialog.window!!.decorView))
+        replacementInput.setText("")
+
+        changeDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        clearMocks(TcpClient, answers = false, recordedCalls = true)
+
+        itemDialog.findViewById<View>(R.id.btnYes).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        verify(timeout = 2000) {
+            TcpClient.sendCommand(
+                context = any(),
+                settings = any(),
+                command = "SetBuchung",
+                request = match<String> { it.contains("123.4567||-3|") },
                 endTag = "{/SetBuchung}"
             )
         }
