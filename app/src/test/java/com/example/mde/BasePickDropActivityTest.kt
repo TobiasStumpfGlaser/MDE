@@ -585,7 +585,8 @@ class BasePickDropActivityTest {
                 EAN = "4000000000001",
                 suchZusatz = "SUCH1",
                 bestellt3M = 0,
-                bestellt6M = 0
+                bestellt6M = 0,
+                handLager = false
             )
         )
 
@@ -647,7 +648,8 @@ class BasePickDropActivityTest {
                 EAN = "4000000000001",
                 suchZusatz = "SUCH1",
                 bestellt3M = 0,
-                bestellt6M = 0
+                bestellt6M = 0,
+                handLager = false
             ),
             Artikel(
                 artNr = "765.4321",
@@ -665,7 +667,8 @@ class BasePickDropActivityTest {
                 EAN = "4001234567892",
                 suchZusatz = "SUCH2",
                 bestellt3M = 0,
-                bestellt6M = 0
+                bestellt6M = 0,
+                handLager = false
             )
         )
 

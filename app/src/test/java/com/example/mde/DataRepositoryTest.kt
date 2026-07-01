@@ -30,7 +30,8 @@ class DataRepositoryTest {
         snPflicht = false,
         bestellt6M = 4,
         bestellt3M = 2,
-        liefBestNr = ""
+        liefBestNr = "",
+        handLager = false
     )
 
     @Before

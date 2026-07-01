@@ -21,7 +21,7 @@ internal fun parseArtikelResponse(raw: String): List<Artikel> {
             !parse || line.isBlank() -> return@forEach
             else -> {
                 val p = line.split("|")
-                if (p.size < 20) return@forEach
+                if (p.size < 21) return@forEach
                 liste.add(
                     Artikel(
                         artNr = p[0],
@@ -34,12 +34,13 @@ internal fun parseArtikelResponse(raw: String): List<Artikel> {
                         bestellTrigger = p[11].toIntOrNull() ?: 0,
                         mindestbestand = p[12].toIntOrNull() ?: 0,
                         grossInfo = p[13],
-                        snPflicht = !p[14].isNullOrBlank(),
-                        bestellt3M = p[15].toIntOrNull() ?: 0,
-                        bestellt6M = p[16].toIntOrNull() ?: 0,
-                        EAN = p[17],
-                        suchZusatz = p[18],
-                        liefBestNr = p[19],
+                        handLager = !p[14].isNullOrBlank(),
+                        snPflicht = !p[15].isNullOrBlank(),
+                        bestellt3M = p[16].toIntOrNull() ?: 0,
+                        bestellt6M = p[17].toIntOrNull() ?: 0,
+                        EAN = p[18],
+                        suchZusatz = p[19],
+                        liefBestNr = p[20],
                     )
                 )
             }

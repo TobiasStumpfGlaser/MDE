@@ -86,12 +86,10 @@ open class BestellungActivity : BaseArtikelScanActivity() {
             "Bezeichnung: ${artikel.bez}",
             "Bestellt 3M: ${artikel.bestellt3M}",
             "Bestellt 6M: ${artikel.bestellt6M}",
+            "Handlager: ${if (artikel.handLager) "Ja" else "Nein"}",
             "Bestand: ${artikel.bestand}",
             "Mindestbestand: ${artikel.mindestbestand}",
-            "Empf. Bestellmenge: ${artikel.empfBestMenge}",
-            "Bestell-Trigger: ${artikel.bestellTrigger}",
-            "Groß-Info: ${artikel.grossInfo}",
-            "LiefBestNr: ${artikel.liefBestNr}",
+            "Groß-Info: ${artikel.grossInfo}"
         )
 
         val finalSpannable = SpannableStringBuilder()

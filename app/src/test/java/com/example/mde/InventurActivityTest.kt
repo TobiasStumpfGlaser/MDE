@@ -52,7 +52,8 @@ class InventurActivityTest {
                 bestellt3M = 4,
                 bestellt6M = 6,
                 EAN = "4001234567890",
-                suchZusatz = "TESTSUCH"
+                suchZusatz = "TESTSUCH",
+                handLager = false
             ),
             Artikel(
                 artNr = "123.4568",
@@ -70,7 +71,8 @@ class InventurActivityTest {
                 EAN = "4001234567892",
                 bestellt3M = 4,
                 bestellt6M = 6,
-                suchZusatz = "TESTSUCH2"
+                suchZusatz = "TESTSUCH2",
+                handLager = false
             )
         )
 

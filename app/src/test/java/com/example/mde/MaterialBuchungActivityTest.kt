@@ -61,9 +61,10 @@ class MaterialBuchungActivityTest {
                 liefBestNr = "",
                 bestellt3M = 4,
                 bestellt6M = 6,
-                snPflicht = true,          // <- wichtig für neue Logik
-                EAN = "EAN123456",         // <- NEU relevant für Filter
-                suchZusatz = "SUCH123"     // <- NEU relevant für Filter
+                snPflicht = true,           // <- wichtig für neue Logik
+                EAN = "EAN123456",          // <- NEU relevant für Filter
+                suchZusatz = "SUCH123",     // <- NEU relevant für Filter
+                handLager = false
             )
         )
 

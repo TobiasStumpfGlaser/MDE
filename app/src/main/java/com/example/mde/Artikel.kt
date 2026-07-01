@@ -16,5 +16,6 @@ data class Artikel(
     val EAN: String,
     val suchZusatz: String,
     val bestellt3M: Int,
-    val bestellt6M: Int
+    val bestellt6M: Int,
+    val handLager: Boolean
 )
