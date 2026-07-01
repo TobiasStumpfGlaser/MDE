@@ -1264,10 +1264,13 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
             showErrorWithLoadingHelper("Bitte zuerst einen Artikel auswählen")
             return false
         }
+
+        projekt = projekt.split(" – ")[0]
         if (projekt.isBlank() && !count) {
             showErrorWithLoadingHelper("Bitte ein Projekt eingeben")
             return false
         }
+
         if (menge.isBlank()) {
             showErrorWithLoadingHelper("Bitte eine Menge eingeben")
             return false
@@ -1278,9 +1281,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
 
         if (artikelObj?.snPflicht == true && !count) {
-            val hasSerials = serialsRaw.isNotBlank()
-
-            if (!hasSerials) {
+            if (!serialsRaw.isNotBlank() && !projekt.contains("UMBUCHUNG")) {
                 showErrorWithLoadingHelper("Artikel ist SN-pflichtig – bitte Seriennummern erfassen")
                 return false
             }
@@ -1323,8 +1324,6 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
                 serialList.joinToString(";")
             }
         }
-
-        projekt = projekt.split(" – ")[0]
 
         val request = buildString {
             append("{SetBuchung}")
