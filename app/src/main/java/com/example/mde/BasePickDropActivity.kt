@@ -258,10 +258,15 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
     private fun processDetailBarcode(barcode: String) {
         val input = barcode.trim()
-        if (!isFullArtNr(input)) return
         if (detailDialogOpenOrPending) return
 
-        val matches = detailsOriginal.filter { detail -> isArtNrExactMatch(input, detail.artNr) }
+        val artNrToMatch = if (isFullArtNr(input)) {
+            input
+        } else {
+            findArtikelByBarcodeOrArtNr(input)?.artNr
+        } ?: return
+
+        val matches = detailsOriginal.filter { detail -> isArtNrExactMatch(artNrToMatch, detail.artNr) }
         if (matches.isEmpty()) return
 
         val itemToOpen = matches.minByOrNull { detail -> detail.pos.toIntOrNull() ?: Int.MAX_VALUE } ?: return
@@ -886,7 +891,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
         if (cleanedInput.length > 8) {
             return DataRepository.artikelListe.find { artikel ->
-                artikel.EAN.trim().equals(cleanedInput, ignoreCase = true)
+                artikel.EAN.trim().contains(cleanedInput, ignoreCase = true)
             }
         }
 

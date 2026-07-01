@@ -393,7 +393,7 @@ class BasePickDropActivityTest {
     }
 
     @Test
-    fun pickBooking_changeArticleDialog_rejectsPartialEanMatch() {
+    fun pickBooking_changeArticleDialog_resolvesContainedEanToArtikelnummer() {
         val intent = Intent(ApplicationProvider.getApplicationContext(), PickListActivity::class.java)
         intent.putExtra("USERNAME", "tester")
         val activity = Robolectric.buildActivity(PickListActivity::class.java, intent)
@@ -418,18 +418,24 @@ class BasePickDropActivityTest {
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         val changeDialog = ShadowDialog.getLatestDialog() as AlertDialog
-        assertNull(DataRepository.artikelListe.find { it.EAN.trim() == "400123456789" })
-        clearMocks(UiLoadingHelper, answers = false, recordedCalls = true)
         activity.onBarcodeScanned("400123456789")
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
         changeDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
         Shadows.shadowOf(Looper.getMainLooper()).idle()
 
-        verify {
-            UiLoadingHelper.showError(
-                activity,
-                "Ersatzartikel muss das Format ddd.dddd haben (z.B. 123.4567)"
+        clearMocks(TcpClient, answers = false, recordedCalls = true)
+
+        itemDialog.findViewById<View>(R.id.btnYes).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        verify(timeout = 2000) {
+            TcpClient.sendCommand(
+                context = any(),
+                settings = any(),
+                command = "SetBuchung",
+                request = match<String> { it.contains("123.4567|765.4321|-3|") },
+                endTag = "{/SetBuchung}"
             )
         }
     }
@@ -531,6 +537,33 @@ class BasePickDropActivityTest {
                 endTag = "{/SetBuchung}"
             )
         }
+    }
+
+    @Test
+    fun pickActivity_detailBarcodeScanByContainedEan_opensMatchingItemDialog() {
+        val intent = Intent(ApplicationProvider.getApplicationContext(), PickListActivity::class.java)
+        intent.putExtra("USERNAME", "tester")
+        val activity = Robolectric.buildActivity(PickListActivity::class.java, intent)
+            .create().start().resume().get()
+
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        activity.findViewById<AutoCompleteTextView>(R.id.etListFilter).setText("L1")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        waitForDetailsLoaded(activity)
+
+        ShadowSystemClock.advanceBy(Duration.ofMillis(300))
+
+        activity.onBarcodeScanned("400000000000")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        val itemDialog = ShadowDialog.getLatestDialog()
+        assertNotNull(itemDialog)
+        assertTrue(itemDialog.isShowing)
+
+        val infoText = itemDialog.findViewById<TextView>(R.id.tvItemInfo)
+        assertNotNull(infoText)
+        assertTrue(infoText.text.toString().contains("123.4567"))
     }
 
     @Test
