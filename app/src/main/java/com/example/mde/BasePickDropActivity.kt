@@ -585,8 +585,14 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                     return
                 }
 
+                val artikelToCheck = if (replacementArtNr.isNullOrBlank()) {
+                    artikelAlt
+                } else {
+                    artikelNeu
+                }
+
                 val artikelObj = DataRepository.artikelListe.find { artikel ->
-                    artikel.artNr.equals(artikelAlt, ignoreCase = true)
+                    artikel.artNr.equals(artikelToCheck, ignoreCase = true)
                 }
 
                 if (artikelObj?.snPflicht == true) {
@@ -870,15 +876,21 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
     }
 
     private fun findArtikelByBarcodeOrArtNr(input: String): Artikel? {
-        if (input.length == 8) {
+        val cleanedInput = input.trim()
+
+        if (isFullArtNr(cleanedInput)) {
             return DataRepository.artikelListe.find { artikel ->
-                artikel.artNr.equals(input, ignoreCase = true)
+                artikel.artNr.equals(cleanedInput, ignoreCase = true)
             }
         }
 
-        return DataRepository.artikelListe.find { artikel ->
-            artikel.EAN.trim().contains(input, ignoreCase = true)
+        if (cleanedInput.length > 8) {
+            return DataRepository.artikelListe.find { artikel ->
+                artikel.EAN.trim().equals(cleanedInput, ignoreCase = true)
+            }
         }
+
+        return null
     }
 
     /**
