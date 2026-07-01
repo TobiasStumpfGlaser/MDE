@@ -6,8 +6,10 @@ import android.view.MotionEvent
 import android.view.View
 import android.widget.AutoCompleteTextView
 import android.widget.EditText
+import androidx.appcompat.app.AlertDialog
 import androidx.recyclerview.widget.RecyclerView
 import androidx.test.core.app.ApplicationProvider
+import com.example.mde.model.Artikel
 import io.mockk.Runs
 import io.mockk.clearMocks
 import io.mockk.every
@@ -45,7 +47,7 @@ class BasePickDropActivityTest {
                 "GetDropOverview" -> "{GetDropOverview}\nL1|GN|P100|Projekt 100\n{/GetDropOverview}"
                 "GetPick_L1" -> "{GetPick_L1}\n123.4567|3|1|Test Info\n{/GetPick_L1}"
                 "GetDrop_L1" -> "{GetDrop_L1}\n123.4567|4|1|Test Info\n{/GetDrop_L1}"
-                "GetArtikel" -> "{GetArtikel}\n123.4567|Artikel|A|B|C|D|E|F|ST|1|0|0|0|G|L||||||||\n{/GetArtikel}"
+                "GetArtikel" -> "{GetArtikel}\n123.4567|Artikel|A|B|C|D|E|F|ST|1|0|0|0|G||0|0|4000000000001|SUCH1|LIEF1\n765.4321|Ersatzartikel|A|B|C|D|E|F|ST|1|0|0|0|H||0|0|4001234567892|SUCH2|LIEF2\n{/GetArtikel}"
                 "SetBuchung" -> "{SetBuchung}\nok\n{/SetBuchung}"
                 else -> ""
             }
@@ -324,6 +326,117 @@ class BasePickDropActivityTest {
                 settings = any(),
                 command = "SetBuchung",
                 request = match<String> { it.contains("||+4|") },
+                endTag = "{/SetBuchung}"
+            )
+        }
+    }
+
+    @Test
+    fun pickBooking_changeArticleDialog_resolvesScannedEanToArtikelnummer() {
+        val intent = Intent(ApplicationProvider.getApplicationContext(), PickListActivity::class.java)
+        intent.putExtra("USERNAME", "tester")
+        val activity = Robolectric.buildActivity(PickListActivity::class.java, intent)
+            .create().start().resume().get()
+
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        activity.findViewById<AutoCompleteTextView>(R.id.etListFilter).setText("L1")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        waitForDetailsLoaded(activity)
+
+        ShadowSystemClock.advanceBy(Duration.ofMillis(300))
+
+        val etDetailFilter = activity.findViewById<AutoCompleteTextView>(R.id.etDetailFilter)
+        etDetailFilter.setText("123.4567")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        val itemDialog = ShadowDialog.getLatestDialog()
+        assertNotNull(itemDialog)
+        assertTrue(itemDialog.isShowing)
+
+        itemDialog.findViewById<View>(R.id.btnChangeArticle).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        val changeDialog = ShadowDialog.getLatestDialog() as AlertDialog
+        activity.onBarcodeScanned("4001234567892")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        changeDialog.getButton(AlertDialog.BUTTON_POSITIVE).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        clearMocks(TcpClient, answers = false, recordedCalls = true)
+
+        itemDialog.findViewById<View>(R.id.btnYes).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        verify(timeout = 2000) {
+            TcpClient.sendCommand(
+                context = any(),
+                settings = any(),
+                command = "SetBuchung",
+                request = match<String> { it.contains("123.4567|765.4321|-3|") },
+                endTag = "{/SetBuchung}"
+            )
+        }
+    }
+
+    @Test
+    fun pickBooking_blocksSnPflichtArtikelWithoutSerials() {
+        DataRepository.artikelListe = listOf(
+            Artikel(
+                artNr = "123.4567",
+                bez = "Artikel",
+                lagerorteW1 = listOf("A", "B", "C"),
+                lagerorteW2 = listOf("D", "E", "F"),
+                masseinheit = "ST",
+                bestand = "1",
+                empfBestMenge = 0,
+                bestellTrigger = 0,
+                mindestbestand = 0,
+                grossInfo = "Info",
+                liefBestNr = "LIEF1",
+                snPflicht = true,
+                EAN = "4000000000001",
+                suchZusatz = "SUCH1",
+                bestellt3M = 0,
+                bestellt6M = 0
+            )
+        )
+
+        val intent = Intent(ApplicationProvider.getApplicationContext(), PickListActivity::class.java)
+        intent.putExtra("USERNAME", "tester")
+        val activity = Robolectric.buildActivity(PickListActivity::class.java, intent)
+            .create().start().resume().get()
+
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        activity.findViewById<AutoCompleteTextView>(R.id.etListFilter).setText("L1")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        waitForDetailsLoaded(activity)
+
+        ShadowSystemClock.advanceBy(Duration.ofMillis(300))
+
+        clearMocks(TcpClient, UiLoadingHelper, answers = false, recordedCalls = true)
+
+        activity.findViewById<AutoCompleteTextView>(R.id.etDetailFilter).setText("123.4567")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        val dialog = ShadowDialog.getLatestDialog()
+        assertNotNull(dialog)
+        assertTrue(dialog.isShowing)
+
+        dialog.findViewById<View>(R.id.btnYes).performClick()
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        verify {
+            UiLoadingHelper.showError(activity, "Artikel ist SN-pflichtig – bitte Seriennummern erfassen")
+        }
+        verify(exactly = 0) {
+            TcpClient.sendCommand(
+                context = any(),
+                settings = any(),
+                command = "SetBuchung",
+                request = any(),
                 endTag = "{/SetBuchung}"
             )
         }
