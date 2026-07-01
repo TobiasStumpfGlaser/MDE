@@ -27,7 +27,7 @@ class MainActivity : AppCompatActivity() {
     private lateinit var username: String
     private lateinit var timeoutRunnable: Runnable
 
-    private val allowedOrderUsers = setOf("RKL", "RG", "MRE", "AMA", "SRE")
+    private val allowedOrderUsers = setOf("RKL", "RG", "MRE", "AMA", "SRE", "CBE")
 
     // ── Lifecycle ────────────────────────────────────────────────────────────
 
