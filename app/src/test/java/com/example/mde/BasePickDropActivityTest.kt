@@ -32,6 +32,7 @@ import org.robolectric.Shadows
 import org.robolectric.shadows.ShadowDialog
 import org.robolectric.annotation.Config
 import org.robolectric.shadows.ShadowSystemClock
+import org.robolectric.fakes.RoboMenuItem
 import java.time.Duration
 import android.widget.TextView
 
@@ -159,6 +160,39 @@ class BasePickDropActivityTest {
                 endTag = "{/GetPick_L1}"
             )
         }
+    }
+
+    @Test
+    fun onOptionsItemSelected_withHomeId_whenDetailViewVisible_closesDetailViewAndResetsFilters() {
+        val intent = Intent(ApplicationProvider.getApplicationContext(), PickListActivity::class.java)
+        intent.putExtra("USERNAME", "tester")
+        val activity = Robolectric.buildActivity(PickListActivity::class.java, intent)
+            .create().start().resume().get()
+
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        val etListFilter = activity.findViewById<AutoCompleteTextView>(R.id.etListFilter)
+        val etDetailFilter = activity.findViewById<AutoCompleteTextView>(R.id.etDetailFilter)
+        val etProjectNumber = activity.findViewById<EditText>(R.id.etProjectNumber)
+        val rvList = activity.findViewById<RecyclerView>(R.id.rvList)
+        val rvDetails = activity.findViewById<RecyclerView>(R.id.rvDetails)
+
+        etListFilter.setText("L1")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+        waitForDetailsLoaded(activity)
+
+        etDetailFilter.setText("123.4567")
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        activity.onOptionsItemSelected(RoboMenuItem(android.R.id.home))
+        Shadows.shadowOf(Looper.getMainLooper()).idle()
+
+        assertEquals(View.GONE, rvDetails.visibility)
+        assertEquals(View.VISIBLE, rvList.visibility)
+        assertEquals("", etListFilter.text.toString())
+        assertEquals("", etDetailFilter.text.toString())
+        assertEquals("", etProjectNumber.text.toString())
+        assertTrue(etListFilter.hasFocus())
     }
 
     @Test

@@ -11,6 +11,7 @@ import android.text.TextUtils
 import android.text.TextWatcher
 import android.text.style.StyleSpan
 import android.view.LayoutInflater
+import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
@@ -102,6 +103,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
     private var replacementArtNr: String? = null
 
+    private var ignoreListFilterChanges: Boolean = false
     private var ignoreDetailFilterChanges: Boolean = false
     private var detailDialogOpenOrPending: Boolean = false
 
@@ -217,6 +219,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         setupListFilter()
         setupDetailFilter()
         setupDetailFilterKeyboardBehavior()
+        setupBackButtonForDetailView()
         ensureArtikelLoaded { }
 
         loadList()
@@ -305,6 +308,63 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 showKeyboard(etDetailFilter)
             }
             true
+        }
+    }
+
+    private fun setupBackButtonForDetailView() {
+        supportActionBar?.setDisplayHomeAsUpEnabled(true)
+    }
+
+    private fun closeDetailView() {
+        loadDetailsJob?.cancel()
+        detailsView.visibility = View.GONE
+        etDetailFilter.visibility = View.GONE
+        listView.visibility = View.VISIBLE
+
+        withIgnoredChanges({ ignoreListFilterChanges = it }) {
+            etListFilter.setText("")
+        }
+        listAdapter.updateList(liste)
+
+        withIgnoredChanges({ ignoreDetailFilterChanges = it }) {
+            etDetailFilter.setText("")
+        }
+
+        etProjectNumber.setText("")
+        currentProjektNr = ""
+
+        etListFilter.requestFocus()
+    }
+
+    /** Executes [block] while temporarily changing and then restoring a TextWatcher guard flag. */
+    private inline fun withIgnoredChanges(
+        crossinline setFlag: (Boolean) -> Unit,
+        block: () -> Unit
+    ) {
+        setFlag(true)
+        try {
+            block()
+        } finally {
+            setFlag(false)
+        }
+    }
+
+    override fun onOptionsItemSelected(item: MenuItem): Boolean {
+        return when (item.itemId) {
+            android.R.id.home -> {
+                handleBackNavigation()
+                true
+            }
+
+            else -> super.onOptionsItemSelected(item)
+        }
+    }
+
+    private fun handleBackNavigation() {
+        if (detailsView.visibility == View.VISIBLE) {
+            closeDetailView()
+        } else {
+            finish()
         }
     }
 
@@ -467,9 +527,8 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
 
     private fun setupListFilter() {
         etListFilter.addTextChangedListener(object : TextWatcher {
-            var ignoreChanges = false
             override fun afterTextChanged(s: Editable?) {
-                if (ignoreChanges) return
+                if (ignoreListFilterChanges) return
                 val input = s.toString().trim()
                 val filtered = liste.filter { item ->
                     item.nummer.contains(input, true) ||
@@ -478,13 +537,13 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 }
                 listAdapter.updateList(filtered)
                 if (filtered.size == 1) {
-                    ignoreChanges = true
                     val item = filtered[0]
-                    currentProjektNr = item.projektNr
-                    etListFilter.setText(item.nummer)
-                    etProjectNumber.setText(currentProjektNr)
-                    etListFilter.setSelection(0)
-                    ignoreChanges = false
+                    withIgnoredChanges({ ignoreListFilterChanges = it }) {
+                        currentProjektNr = item.projektNr
+                        etListFilter.setText(item.nummer)
+                        etProjectNumber.setText(currentProjektNr)
+                        etListFilter.setSelection(0)
+                    }
                     listView.visibility = View.GONE
                     loadDetails(item.nummer)
                 } else {
