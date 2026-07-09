@@ -63,4 +63,37 @@ class AppSettings(context: Context) {
     var layoutScale: Float
         get() = prefs.getFloat("layout_scale", 1.0f)
         set(value) = prefs.edit().putFloat("layout_scale", value.coerceIn(0.25f, 2.0f)).apply()
+
+    // -------------------------------------------------------------------------
+    // OTA-Update-Einstellungen
+    // -------------------------------------------------------------------------
+
+    /**
+     * SMB-Basis-URL des Update-Verzeichnisses, z. B. `smb://192.168.1.100/updates`.
+     * Darunter werden `version.json` und die APK-Dateien erwartet.
+     */
+    var otaServerUrl: String
+        get() = prefs.getString("ota_server_url", "")!!
+        set(value) = prefs.edit().putString("ota_server_url", value).apply()
+
+    /** Windows-Domäne für die NTLM-Authentifizierung am Update-Server (kann leer sein). */
+    var otaDomain: String
+        get() = prefs.getString("ota_domain", "")!!
+        set(value) = prefs.edit().putString("ota_domain", value).apply()
+
+    /** Benutzername für die NTLM-Authentifizierung am Update-Server. */
+    var otaUsername: String
+        get() = prefs.getString("ota_username", "")!!
+        set(value) = prefs.edit().putString("ota_username", value).apply()
+
+    /**
+     * Passwort für die NTLM-Authentifizierung am Update-Server.
+     *
+     * **Sicherheitshinweis:** Für Produktionsumgebungen empfiehlt sich die Verwendung von
+     * `EncryptedSharedPreferences` (androidx.security:security-crypto) statt
+     * plaintext SharedPreferences.
+     */
+    var otaPassword: String
+        get() = prefs.getString("ota_password", "")!!
+        set(value) = prefs.edit().putString("ota_password", value).apply()
 }
