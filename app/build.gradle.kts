@@ -18,6 +18,8 @@ android {
         versionName = "6.0"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+
+        buildConfigField("boolean", "OTA_ENABLE", "false")
     }
 
     buildTypes {
@@ -50,6 +52,7 @@ android {
 
 dependencies {
     implementation("com.github.datalogic:datalogic-android-sdk:1.34")
+    implementation("jcifs:jcifs:1.3.17")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.appcompat)

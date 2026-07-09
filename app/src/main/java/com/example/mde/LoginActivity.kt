@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.util.Log
 import android.view.MotionEvent
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
@@ -399,6 +400,37 @@ class LoginActivity : AppCompatActivity() {
         }
 
         val initials = nameToInitials[username] ?: username
+
+        if (BuildConfig.OTA_ENABLE) {
+            checkForUpdatesAndProceed(initials)
+        } else {
+            navigateToMain(initials)
+        }
+    }
+
+    private fun checkForUpdatesAndProceed(initials: String) {
+        ioScope.launch {
+            val updateInfo = try {
+                UpdateManager(this@LoginActivity).checkForUpdates(settings)
+            } catch (e: Exception) {
+                Log.e("LoginActivity", "Update-Check fehlgeschlagen", e)
+                null
+            }
+
+            withContext(Dispatchers.Main) {
+                if (updateInfo != null) {
+                    OtaUpdateHelper(this@LoginActivity, settings)
+                        .showUpdateDialog(updateInfo) {
+                            navigateToMain(initials)
+                        }
+                } else {
+                    navigateToMain(initials)
+                }
+            }
+        }
+    }
+
+    private fun navigateToMain(initials: String) {
         val intent = Intent(this, MainActivity::class.java)
         intent.putExtra("USERNAME", initials)
         startActivity(intent)
