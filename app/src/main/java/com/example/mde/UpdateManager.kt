@@ -35,6 +35,10 @@ open class UpdateManager(private val context: Context) {
 
     companion object {
         private const val TAG = "UpdateManager"
+        /** Maximale erlaubte Dateigröße für version.json (64 KB). */
+        private const val MAX_VERSION_JSON_SIZE = 65_536L
+        /** Maximale erlaubte APK-Größe (150 MB). */
+        private const val MAX_APK_SIZE = 157_286_400L
     }
 
     /**
@@ -56,6 +60,9 @@ open class UpdateManager(private val context: Context) {
 
             Log.d(TAG, "Prüfe Version auf: $versionUrl")
             val smbFile = SmbFile(versionUrl, auth)
+            if (smbFile.length() > MAX_VERSION_JSON_SIZE) {
+                throw IllegalStateException("version.json überschreitet maximale Größe (${smbFile.length()} Bytes)")
+            }
             val versionJson = smbFile.inputStream.bufferedReader().use { it.readText() }
 
             val updateInfo = parseVersionJson(versionJson)
@@ -82,7 +89,13 @@ open class UpdateManager(private val context: Context) {
         val auth = buildAuthentication(settings)
         val smbFile = SmbFile(updateInfo.releaseUrl, auth)
 
-        val apkFile = File(context.cacheDir, "update.apk")
+        val remoteSize = smbFile.length()
+        if (remoteSize > MAX_APK_SIZE) {
+            throw IllegalStateException("APK-Größe ($remoteSize Bytes) überschreitet Maximum ($MAX_APK_SIZE Bytes)")
+        }
+
+        // minSdk = 24 (Android 7.0+): cacheDir ist vollständig durch die App-Sandbox geschützt
+        val apkFile = File(context.cacheDir, "update-${updateInfo.versionCode}.apk")
         smbFile.inputStream.use { input ->
             apkFile.outputStream().use { output ->
                 input.copyTo(output)
@@ -92,10 +105,10 @@ open class UpdateManager(private val context: Context) {
 
         updateInfo.sha256?.let { expectedHash ->
             val actualHash = computeSha256(apkFile)
-            if (!actualHash.equals(expectedHash, ignoreCase = true)) {
+            if (actualHash != expectedHash.lowercase()) {
                 apkFile.delete()
                 throw SecurityException(
-                    "SHA-256-Prüfsumme stimmt nicht überein: erwartet=$expectedHash, tatsächlich=$actualHash"
+                    "SHA-256-Prüfsumme stimmt nicht überein: erwartet=${expectedHash.lowercase()}, tatsächlich=$actualHash"
                 )
             }
             Log.d(TAG, "SHA-256-Prüfsumme verifiziert")

@@ -101,6 +101,10 @@ class UserAdapter(
 
 class LoginActivity : AppCompatActivity() {
 
+    companion object {
+        private const val TAG = "LoginActivity"
+    }
+
     private lateinit var settings: AppSettings
     private lateinit var txtUsername: AutoCompleteTextView
     private lateinit var txtPin: EditText
@@ -413,7 +417,7 @@ class LoginActivity : AppCompatActivity() {
             val updateInfo = try {
                 UpdateManager(this@LoginActivity).checkForUpdates(settings)
             } catch (e: Exception) {
-                Log.e("LoginActivity", "Update-Check fehlgeschlagen", e)
+                Log.e(TAG, "Update-Check fehlgeschlagen", e)
                 null
             }
 

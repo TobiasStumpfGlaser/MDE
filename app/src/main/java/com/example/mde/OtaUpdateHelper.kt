@@ -80,13 +80,23 @@ class OtaUpdateHelper(
                     progressDialog.dismiss()
                     installApk(apkFile)
                 }
+            } catch (e: SecurityException) {
+                Log.e(TAG, "Fehler beim Herunterladen/Installieren des Updates", e)
+                withContext(Dispatchers.Main) {
+                    progressDialog.dismiss()
+                    AlertDialog.Builder(activity)
+                        .setTitle("Update fehlgeschlagen")
+                        .setMessage("Die heruntergeladene Datei konnte nicht verifiziert werden. Bitte wenden Sie sich an den Administrator.")
+                        .setPositiveButton("OK", null)
+                        .show()
+                }
             } catch (e: Exception) {
                 Log.e(TAG, "Fehler beim Herunterladen/Installieren des Updates", e)
                 withContext(Dispatchers.Main) {
                     progressDialog.dismiss()
                     AlertDialog.Builder(activity)
                         .setTitle("Update fehlgeschlagen")
-                        .setMessage("Das Update konnte nicht heruntergeladen werden.\n\nFehler: ${e.message}")
+                        .setMessage("Das Update konnte nicht heruntergeladen werden. Bitte versuchen Sie es später erneut.")
                         .setPositiveButton("OK", null)
                         .show()
                 }
