@@ -1,5 +1,6 @@
 package com.example.mde
 
+import android.view.Window
 import android.content.Intent
 import android.os.Bundle
 import android.os.SystemClock
@@ -613,7 +614,11 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         val mengeIsInteger = mengeValue?.let { value -> isIntegerValue(value) } ?: false
         btnSerials.isEnabled = mengeIsInteger
 
-        val dialog = AlertDialog.Builder(this).setView(dialogView).create()
+        val dialog = AlertDialog.Builder(this)
+            .setView(dialogView)
+            .create()
+
+        attachLogoutHandling(dialog)
 
         dialog.setOnDismissListener {
             detailsView.post { restoreScrollAnchor(dialogAnchor) }
@@ -847,7 +852,7 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
         et.inputType = InputType.TYPE_CLASS_NUMBER or InputType.TYPE_NUMBER_FLAG_DECIMAL
         et.setText(item.menge)
 
-        AlertDialog.Builder(this)
+        val dialog = AlertDialog.Builder(this)
             .setTitle("Menge ändern")
             .setView(et)
             .setPositiveButton("OK") { _, _ ->
@@ -869,7 +874,11 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
                 onAmountChanged()
             }
             .setNegativeButton("Abbrechen", null)
-            .show()
+            .create()
+
+        attachLogoutHandling(dialog)
+
+        dialog.show()
     }
 
     private fun showChangeArticleDialog(item: ListDetail, onArticleChanged: () -> Unit) {
@@ -912,6 +921,8 @@ abstract class BasePickDropActivity : BaseArtikelScanActivity() {
             }
             .setNegativeButton("Abbrechen", null)
             .create()
+
+        attachLogoutHandling(dialog)
 
         serialDialogScanHandler = { scannedBarcode ->
             fun applyScannedArticle() {

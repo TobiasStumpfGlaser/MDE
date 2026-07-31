@@ -1,7 +1,13 @@
 package com.example.mde
 
+import android.content.ActivityNotFoundException
+import android.content.ClipData
 import android.content.Intent
+import android.net.Uri
+import android.os.Build
+import android.provider.Settings
 import android.util.Log
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.FileProvider
@@ -12,61 +18,49 @@ import kotlinx.coroutines.withContext
 import java.io.File
 
 /**
- * Zeigt den Update-Dialog an und startet den Download sowie die Installation der APK.
+ * Zeigt die OTA-Update-Abfrage, lädt die geprüfte APK und übergibt sie an den
+ * Android-Paketinstaller.
  *
- * Verwendungsbeispiel:
- * ```kotlin
- * OtaUpdateHelper(activity, settings).showUpdateDialog(updateInfo) {
- *     // Wird aufgerufen, wenn der Benutzer "Nein" wählt oder den Dialog schließt
- *     navigateToMain()
- * }
- * ```
+ * Die Instanz muss während [AppCompatActivity.onCreate] erzeugt werden, damit
+ * der Activity-Result-Handler für die Berechtigung "Unbekannte Apps
+ * installieren" rechtzeitig registriert ist.
  */
 class OtaUpdateHelper(
     private val activity: AppCompatActivity,
-    private val settings: AppSettings
+    restoredPendingApkPath: String? = null
 ) {
     companion object {
         private const val TAG = "OtaUpdateHelper"
+        private const val OTA_CACHE_DIRECTORY = "ota"
     }
 
-    /**
-     * Zeigt den Update-Dialog.
-     *
-     * @param updateInfo  Informationen zur verfügbaren Version.
-     * @param onContinue  Wird aufgerufen, wenn der Benutzer "Nein" wählt oder der Dialog
-     *                    abgebrochen wird (nur wenn [UpdateInfo.mandatory] `false` ist).
-     */
-    fun showUpdateDialog(updateInfo: UpdateInfo, onContinue: () -> Unit) {
-        val message = buildString {
-            append("Version: ${updateInfo.version}")
-            if (updateInfo.releaseNotes.isNotBlank()) {
-                append("\n\n")
-                append(updateInfo.releaseNotes)
-            }
-        }
+    private var pendingApk: File? = restoredPendingApkPath
+        ?.let(::File)
+        ?.let(::validatedOtaApkOrNull)
+
+    private val unknownSourcesLauncher = activity.registerForActivityResult(
+        ActivityResultContracts.StartActivityForResult()
+    ) {
+        continueInstallAfterPermissionSettings()
+    }
+
+    /** Pfad einer noch ausstehenden APK für die Zustandswiederherstellung. */
+    fun pendingApkPathForState(): String? = pendingApk?.absolutePath
+
+    /** Zeigt ausschließlich die vom Nutzer gewünschte Ja-/Nein-Abfrage. */
+    fun showUpdateDialog(updateInfo: UpdateInfo) {
+        if (activity.isFinishing || activity.isDestroyed) return
 
         AlertDialog.Builder(activity)
             .setTitle("Neue Version verfügbar")
-            .setMessage("Möchten Sie aktualisieren?\n\n$message")
-            .setPositiveButton("Ja") { _, _ ->
-                downloadAndInstall(updateInfo)
-            }
-            .setNegativeButton("Nein") { _, _ ->
-                onContinue()
-            }
-            .setCancelable(!updateInfo.mandatory)
-            .apply {
-                if (!updateInfo.mandatory) {
-                    setOnCancelListener { onContinue() }
-                }
-            }
+            .setMessage("Update durchführen?")
+            .setPositiveButton("Ja") { _, _ -> downloadAndInstall(updateInfo) }
+            .setNegativeButton("Nein", null)
+            .setCancelable(false)
             .show()
     }
 
     private fun downloadAndInstall(updateInfo: UpdateInfo) {
-        val updateManager = UpdateManager(activity)
-
         val progressDialog = AlertDialog.Builder(activity)
             .setTitle("Update wird heruntergeladen")
             .setMessage("Bitte warten...")
@@ -75,46 +69,157 @@ class OtaUpdateHelper(
 
         activity.lifecycleScope.launch(Dispatchers.IO) {
             try {
-                val apkFile = updateManager.downloadApk(updateInfo, settings)
+                val apkFile = UpdateManager(activity).downloadApk(updateInfo)
                 withContext(Dispatchers.Main) {
                     progressDialog.dismiss()
-                    installApk(apkFile)
+                    requestPackageInstall(apkFile)
                 }
-            } catch (e: SecurityException) {
-                Log.e(TAG, "Fehler beim Herunterladen/Installieren des Updates", e)
+            } catch (error: SecurityException) {
+                Log.e(TAG, "OTA-APK konnte nicht verifiziert werden", error)
                 withContext(Dispatchers.Main) {
                     progressDialog.dismiss()
-                    AlertDialog.Builder(activity)
-                        .setTitle("Update fehlgeschlagen")
-                        .setMessage("Die heruntergeladene Datei konnte nicht verifiziert werden. Bitte wenden Sie sich an den Administrator.")
-                        .setPositiveButton("OK", null)
-                        .show()
+                    showError(
+                        "Update fehlgeschlagen",
+                        "Die heruntergeladene Datei konnte nicht verifiziert werden. " +
+                            "Bitte wenden Sie sich an den Administrator."
+                    )
                 }
-            } catch (e: Exception) {
-                Log.e(TAG, "Fehler beim Herunterladen/Installieren des Updates", e)
+            } catch (error: Exception) {
+                Log.e(TAG, "OTA-Update fehlgeschlagen", error)
                 withContext(Dispatchers.Main) {
                     progressDialog.dismiss()
-                    AlertDialog.Builder(activity)
-                        .setTitle("Update fehlgeschlagen")
-                        .setMessage("Das Update konnte nicht heruntergeladen werden. Bitte versuchen Sie es später erneut.")
-                        .setPositiveButton("OK", null)
-                        .show()
+                    showError(
+                        "Update fehlgeschlagen",
+                        "Das Update konnte nicht heruntergeladen oder installiert werden. " +
+                            "Bitte versuchen Sie es später erneut."
+                    )
                 }
             }
         }
     }
 
-    private fun installApk(apkFile: File) {
-        val uri = FileProvider.getUriForFile(
-            activity,
-            "${activity.packageName}.fileprovider",
-            apkFile
-        )
-        val intent = Intent(Intent.ACTION_VIEW).apply {
-            setDataAndType(uri, "application/vnd.android.package-archive")
-            addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
-            addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+    private fun requestPackageInstall(apkFile: File) {
+        val validatedApk = validatedOtaApk(apkFile)
+
+        if (!canRequestPackageInstalls()) {
+            pendingApk = validatedApk
+            openUnknownSourcesSettings()
+            return
         }
-        activity.startActivity(intent)
+
+        launchPackageInstaller(validatedApk)
+    }
+
+    private fun openUnknownSourcesSettings() {
+        val packageUri = Uri.parse("package:${activity.packageName}")
+        val appSpecificSettings = Intent(
+            Settings.ACTION_MANAGE_UNKNOWN_APP_SOURCES,
+            packageUri
+        )
+
+        try {
+            unknownSourcesLauncher.launch(appSpecificSettings)
+        } catch (error: RuntimeException) {
+            Log.w(TAG, "App-spezifische Installationsfreigabe nicht verfügbar", error)
+            try {
+                unknownSourcesLauncher.launch(Intent(Settings.ACTION_SECURITY_SETTINGS))
+            } catch (fallbackError: RuntimeException) {
+                pendingApk = null
+                Log.e(TAG, "Installationsfreigabe konnte nicht geöffnet werden", fallbackError)
+                showError(
+                    "Installation nicht möglich",
+                    "Die Android-Einstellung zum Installieren unbekannter Apps konnte nicht " +
+                        "geöffnet werden."
+                )
+            }
+        }
+    }
+
+    private fun continueInstallAfterPermissionSettings() {
+        val apkFile = pendingApk ?: return
+        pendingApk = null
+
+        if (!canRequestPackageInstalls()) {
+            showError(
+                "Installation nicht freigegeben",
+                "Bitte erlauben Sie dieser App das Installieren unbekannter Apps, " +
+                    "um das Update einzuspielen."
+            )
+            return
+        }
+
+        validatedOtaApkOrNull(apkFile)?.let(::launchPackageInstaller) ?: showError(
+            "Update nicht mehr verfügbar",
+            "Die heruntergeladene Update-Datei ist nicht mehr vorhanden."
+        )
+    }
+
+    private fun launchPackageInstaller(apkFile: File) {
+        try {
+            val uri = FileProvider.getUriForFile(
+                activity,
+                "${activity.packageName}.fileprovider",
+                validatedOtaApk(apkFile)
+            )
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(uri, "application/vnd.android.package-archive")
+                clipData = ClipData.newRawUri("MDE-Update", uri)
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+            }
+            activity.startActivity(intent)
+        } catch (error: ActivityNotFoundException) {
+            Log.e(TAG, "Kein Android-Paketinstaller gefunden", error)
+            showError(
+                "Installation nicht möglich",
+                "Auf diesem Gerät wurde kein Android-Paketinstaller gefunden."
+            )
+        } catch (error: SecurityException) {
+            Log.e(TAG, "Paketinstaller hat den APK-Zugriff abgelehnt", error)
+            showError(
+                "Installation nicht möglich",
+                "Android hat den Zugriff auf die Update-Datei abgelehnt."
+            )
+        } catch (error: IllegalArgumentException) {
+            Log.e(TAG, "Ungültige OTA-Datei oder FileProvider-Konfiguration", error)
+            showError(
+                "Installation nicht möglich",
+                "Die Update-Datei konnte nicht sicher an Android übergeben werden."
+            )
+        }
+    }
+
+    private fun canRequestPackageInstalls(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.O) return true
+        return runCatching { activity.packageManager.canRequestPackageInstalls() }
+            .onFailure { error ->
+                Log.e(TAG, "Installationsberechtigung konnte nicht geprüft werden", error)
+            }
+            .getOrDefault(false)
+    }
+
+    private fun validatedOtaApkOrNull(file: File): File? =
+        runCatching { validatedOtaApk(file) }.getOrNull()
+
+    private fun validatedOtaApk(file: File): File {
+        val otaDirectory = File(activity.cacheDir, OTA_CACHE_DIRECTORY).canonicalFile
+        val apkFile = file.canonicalFile
+        val otaPrefix = otaDirectory.path + File.separator
+
+        require(apkFile.path.startsWith(otaPrefix)) {
+            "Update-Datei liegt außerhalb des geschützten OTA-Cache-Verzeichnisses"
+        }
+        require(apkFile.isFile && apkFile.extension.equals("apk", ignoreCase = true)) {
+            "Update-Datei ist keine vorhandene APK"
+        }
+        return apkFile
+    }
+
+    private fun showError(title: String, message: String) {
+        if (activity.isFinishing || activity.isDestroyed) return
+        AlertDialog.Builder(activity)
+            .setTitle(title)
+            .setMessage(message)
+            .setPositiveButton("OK", null)
+            .show()
     }
 }

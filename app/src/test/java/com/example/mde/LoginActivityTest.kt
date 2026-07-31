@@ -6,6 +6,7 @@ import android.view.MotionEvent
 import android.widget.AutoCompleteTextView
 import android.widget.Button
 import android.widget.EditText
+import android.widget.TextView
 import androidx.test.core.app.ApplicationProvider
 import io.mockk.Runs
 import io.mockk.coEvery
@@ -70,6 +71,25 @@ class LoginActivityTest {
         UserCache.userList.clear()
         UserCache.userPinMap.clear()
         UserCache.nameToInitials.clear()
+    }
+
+    @Test
+    fun currentVersionCheck_isShownOnLoginScreen() {
+        val activity = Robolectric.buildActivity(LoginActivity::class.java)
+            .create()
+            .start()
+            .resume()
+            .get()
+
+        activity.runOnUiThread {
+            activity.showUpdateCheckResult(Result.success(null))
+        }
+
+        val txtVersion = activity.findViewById<TextView>(R.id.txtVersion)
+        assertEquals(
+            "App-Version: ${BuildConfig.VERSION_NAME}\nVersion ist aktuell",
+            txtVersion.text.toString()
+        )
     }
 
     @Test

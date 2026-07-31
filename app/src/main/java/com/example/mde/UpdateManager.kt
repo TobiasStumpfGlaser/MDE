@@ -1,150 +1,399 @@
 package com.example.mde
 
 import android.content.Context
+import android.content.pm.PackageInfo
+import android.content.pm.PackageManager
+import android.os.Build
 import android.util.Log
-import jcifs.smb.NtlmPasswordAuthentication
-import jcifs.smb.SmbFile
 import org.json.JSONObject
+import org.json.JSONTokener
 import java.io.File
+import java.io.FileOutputStream
+import java.io.IOException
+import java.nio.ByteBuffer
+import java.nio.charset.CodingErrorAction
+import java.nio.charset.StandardCharsets
 import java.security.MessageDigest
+import kotlin.math.min
 
 /**
- * Prüft über einen SMB-Share (NTLM-Authentifizierung), ob eine neuere
- * App-Version vorhanden ist, und lädt die APK bei Bedarf herunter.
+ * Checks and downloads application updates from the fixed Kerberos SMB share.
+ * All methods are blocking and must be called on a background dispatcher.
  *
- * Der Update-Server wird über [AppSettings.otaServerUrl] konfiguriert.
- * Auf dem Server muss eine `version.json` mit folgendem Format liegen:
- * ```json
- * {
- *   "latestVersion": "6.1",
- *   "versionCode": 85,
- *   "releaseUrl": "smb://server/updates/app-6.1.apk",
- *   "releaseNotes": "Bugfixes und Performance-Verbesserungen",
- *   "mandatory": false,
- *   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
- * }
- * ```
+ * UI-facing API:
+ * - [checkForUpdates] returns an update only when its `versionCode` is newer.
+ * - [downloadApk] downloads, verifies and atomically publishes a local APK.
  *
- * **Hinweis:** Diese Klasse darf **nicht** auf dem Main-Thread aufgerufen werden.
- *
- * **Sicherheitshinweis:** Diese Implementierung verwendet jcifs 1.3.x mit NTLM-
- * Authentifizierung. Für Produktionsumgebungen empfiehlt sich die Verwendung von
- * jcifs-ng (eu.agno3.jcifs:jcifs-ng) mit NTLMv2-Unterstützung.
+ * A `null` result means "up to date". Network and validation errors are not
+ * hidden as `null`; the UI decides whether an update-check failure is fail-open.
  */
-open class UpdateManager(private val context: Context) {
+class UpdateManager private constructor(
+    private val context: Context,
+    dependencies: Dependencies
+) {
+    private val serverConfig = dependencies.serverConfig
+    private val remoteFiles = dependencies.remoteFiles
+    private val apkVerifier = dependencies.apkVerifier
+    private val installedVersionCode = dependencies.installedVersionCode
+
+    constructor(context: Context) : this(context, createDefaultDependencies(context))
+
+    internal constructor(
+        context: Context,
+        serverConfig: OtaServerConfig,
+        remoteFiles: OtaRemoteFileSource,
+        apkVerifier: OtaApkVerifier,
+        installedVersionCode: Long = BuildConfig.VERSION_CODE.toLong()
+    ) : this(
+        context,
+        Dependencies(serverConfig, remoteFiles, apkVerifier, installedVersionCode)
+    )
+
+    /** Returns a newer server version, or `null` if this app is current. */
+    fun checkForUpdates(): UpdateInfo? {
+        val versionPath = serverConfig.versionFilePath
+        Log.d(TAG, "Prüfe OTA-Version: $versionPath")
+
+        val bytes = remoteFiles.readFile(versionPath, OtaConfig.MAX_VERSION_FILE_BYTES)
+        require(bytes.isNotEmpty()) { "version.json ist leer" }
+        require(bytes.size.toLong() <= OtaConfig.MAX_VERSION_FILE_BYTES) {
+            "version.json überschreitet ${OtaConfig.MAX_VERSION_FILE_BYTES} Bytes"
+        }
+
+        val updateInfo = parseUpdateInfo(decodeUtf8Strict(bytes))
+        Log.d(
+            TAG,
+            "OTA-Server-versionCode=${updateInfo.versionCode}, " +
+                "installiert=$installedVersionCode"
+        )
+        return updateInfo.takeIf { it.versionCode > installedVersionCode }
+    }
+
+    /**
+     * Downloads [updateInfo] into `cacheDir/ota` and returns only a fully
+     * verified `.apk`. The temporary `.part` file is never handed to the UI.
+     */
+    @Throws(IOException::class, SecurityException::class)
+    fun downloadApk(updateInfo: UpdateInfo): File {
+        require(updateInfo.versionCode > installedVersionCode) {
+            "OTA-versionCode ${updateInfo.versionCode} ist nicht neuer als $installedVersionCode"
+        }
+
+        val otaDirectory = File(context.cacheDir, OTA_CACHE_DIRECTORY)
+        ensureDirectory(otaDirectory)
+
+        val finalFile = File(otaDirectory, "update-${updateInfo.versionCode}.apk")
+        val partFile = File(otaDirectory, "update-${updateInfo.versionCode}.apk.part")
+
+        if (finalFile.isFile) {
+            try {
+                verifyLocalApk(finalFile, updateInfo)
+                return finalFile
+            } catch (error: Exception) {
+                deleteChecked(finalFile, "ungültige vorhandene OTA-Datei", error)
+            }
+        }
+        if (finalFile.exists()) {
+            throw IOException("OTA-Ziel ist keine reguläre Datei: ${finalFile.absolutePath}")
+        }
+        if (partFile.exists() && !partFile.delete()) {
+            throw IOException("Alte OTA-Teildatei konnte nicht entfernt werden")
+        }
+
+        try {
+            val downloadLimit = availableDownloadBytes(otaDirectory)
+            val bytesWritten = remoteFiles.downloadFile(
+                path = serverConfig.apkPath(updateInfo.apkFile),
+                destination = partFile,
+                maxBytes = downloadLimit
+            )
+            val localSize = if (partFile.isFile) partFile.length() else -1L
+            if (bytesWritten !in 1..downloadLimit || localSize != bytesWritten) {
+                throw IOException(
+                    "Unvollständiges Update: übertragen=$bytesWritten, lokal=$localSize"
+                )
+            }
+
+            // Native downloadFile flushes its writer. Sync again at the Java
+            // boundary before verification/rename so a returned final file is durable.
+            FileOutputStream(partFile, true).use { it.fd.sync() }
+            verifyLocalApk(partFile, updateInfo)
+
+            if (finalFile.exists() && !finalFile.delete()) {
+                throw IOException("Vorhandenes OTA-Ziel konnte nicht ersetzt werden")
+            }
+            if (!partFile.renameTo(finalFile)) {
+                throw IOException("Verifiziertes Update konnte nicht atomar bereitgestellt werden")
+            }
+            return finalFile
+        } catch (error: Throwable) {
+            if (partFile.exists() && !partFile.delete()) {
+                error.addSuppressed(IOException("OTA-Teildatei konnte nicht entfernt werden"))
+            }
+            throw error
+        }
+    }
+
+    private fun verifyLocalApk(file: File, updateInfo: UpdateInfo) {
+        val fileSize = if (file.isFile) file.length() else -1L
+        if (fileSize !in 1..OtaConfig.MAX_APK_BYTES) {
+            throw SecurityException(
+                "APK-Datei ist leer, fehlt oder überschreitet ${OtaConfig.MAX_APK_BYTES} Bytes"
+            )
+        }
+        apkVerifier.verify(file, updateInfo)
+    }
+
+    private fun ensureDirectory(directory: File) {
+        if (!directory.isDirectory && !directory.mkdirs()) {
+            throw IOException("OTA-Cacheverzeichnis konnte nicht erstellt werden")
+        }
+        if (!directory.isDirectory) {
+            throw IOException("OTA-Cachepfad ist kein Verzeichnis")
+        }
+    }
+
+    private fun availableDownloadBytes(directory: File): Long {
+        val usable = directory.usableSpace
+        // Some virtual/test filesystems report zero for "unknown".
+        if (usable <= 0) return OtaConfig.MAX_APK_BYTES
+
+        val available = usable - MIN_FREE_SPACE_RESERVE
+        if (available < 1) {
+            throw IOException(
+                "Nicht genügend Speicher für das Update: frei=$usable, " +
+                    "Reserve=$MIN_FREE_SPACE_RESERVE"
+            )
+        }
+        return min(OtaConfig.MAX_APK_BYTES, available)
+    }
+
+    private fun deleteChecked(file: File, description: String, cause: Throwable) {
+        if (file.exists() && !file.delete()) {
+            throw IOException("$description konnte nicht entfernt werden", cause)
+        }
+    }
+
+    private data class Dependencies(
+        val serverConfig: OtaServerConfig,
+        val remoteFiles: OtaRemoteFileSource,
+        val apkVerifier: OtaApkVerifier,
+        val installedVersionCode: Long
+    )
 
     companion object {
         private const val TAG = "UpdateManager"
-        /** Maximale erlaubte Dateigröße für version.json (64 KB). */
-        private const val MAX_VERSION_JSON_SIZE = 65_536L
-        /** Maximale erlaubte APK-Größe (150 MB). */
-        private const val MAX_APK_SIZE = 157_286_400L
-    }
+        private const val OTA_CACHE_DIRECTORY = "ota"
+        private const val MIN_FREE_SPACE_RESERVE = 16L * 1024 * 1024
 
-    /**
-     * Prüft, ob eine neuere Version auf dem Update-Server verfügbar ist.
-     *
-     * @param settings App-Einstellungen mit OTA-Konfiguration.
-     * @return [UpdateInfo] wenn eine neuere Version vorhanden ist, sonst `null`.
-     */
-    open fun checkForUpdates(settings: AppSettings): UpdateInfo? {
-        val serverUrl = settings.otaServerUrl.trimEnd('/')
-        if (serverUrl.isEmpty()) {
-            Log.w(TAG, "OTA-Server-URL nicht konfiguriert – Update-Check übersprungen")
-            return null
+        private fun createDefaultDependencies(context: Context): Dependencies {
+            val serverConfig = OtaConfig.requireServerConfig()
+            return Dependencies(
+                serverConfig = serverConfig,
+                remoteFiles = NativeOtaRemoteFileSource(context, serverConfig),
+                apkVerifier = AndroidOtaApkVerifier(context),
+                installedVersionCode = BuildConfig.VERSION_CODE.toLong()
+            )
         }
-
-        return try {
-            val auth = buildAuthentication(settings)
-            val versionUrl = "$serverUrl/version.json"
-
-            Log.d(TAG, "Prüfe Version auf: $versionUrl")
-            val smbFile = SmbFile(versionUrl, auth)
-            if (smbFile.length() > MAX_VERSION_JSON_SIZE) {
-                throw IllegalStateException("version.json überschreitet maximale Größe (${smbFile.length()} Bytes)")
-            }
-            val versionJson = smbFile.inputStream.bufferedReader().use { it.readText() }
-
-            val updateInfo = parseVersionJson(versionJson)
-            Log.d(TAG, "Server-Version: ${updateInfo.versionCode}, App-Version: ${BuildConfig.VERSION_CODE}")
-
-            if (updateInfo.versionCode > BuildConfig.VERSION_CODE) updateInfo else null
-        } catch (e: Exception) {
-            Log.e(TAG, "Fehler beim Update-Check", e)
-            null
-        }
-    }
-
-    /**
-     * Lädt die APK vom Update-Server herunter, verifiziert optional den SHA-256-Hash
-     * und speichert sie im Cache-Verzeichnis.
-     *
-     * @param updateInfo Update-Informationen inkl. Ziel-URL und optionalem SHA-256-Hash.
-     * @param settings App-Einstellungen mit OTA-Konfiguration.
-     * @return Die heruntergeladene und verifizierte APK-Datei.
-     * @throws SecurityException wenn der SHA-256-Hash nicht übereinstimmt.
-     */
-    open fun downloadApk(updateInfo: UpdateInfo, settings: AppSettings): File {
-        Log.d(TAG, "Lade APK herunter: ${updateInfo.releaseUrl}")
-        val auth = buildAuthentication(settings)
-        val smbFile = SmbFile(updateInfo.releaseUrl, auth)
-
-        val remoteSize = smbFile.length()
-        if (remoteSize > MAX_APK_SIZE) {
-            throw IllegalStateException("APK-Größe ($remoteSize Bytes) überschreitet Maximum ($MAX_APK_SIZE Bytes)")
-        }
-
-        // minSdk = 24 (Android 7.0+): cacheDir ist vollständig durch die App-Sandbox geschützt
-        val apkFile = File(context.cacheDir, "update-${updateInfo.versionCode}.apk")
-        smbFile.inputStream.use { input ->
-            apkFile.outputStream().use { output ->
-                input.copyTo(output)
-            }
-        }
-        Log.d(TAG, "APK heruntergeladen: ${apkFile.absolutePath} (${apkFile.length()} Bytes)")
-
-        updateInfo.sha256?.let { expectedHash ->
-            val actualHash = computeSha256(apkFile)
-            if (actualHash != expectedHash.lowercase()) {
-                apkFile.delete()
-                throw SecurityException(
-                    "SHA-256-Prüfsumme stimmt nicht überein: erwartet=${expectedHash.lowercase()}, tatsächlich=$actualHash"
-                )
-            }
-            Log.d(TAG, "SHA-256-Prüfsumme verifiziert")
-        }
-
-        return apkFile
-    }
-
-    private fun buildAuthentication(settings: AppSettings): NtlmPasswordAuthentication {
-        val domain = settings.otaDomain.ifEmpty { null }
-        val username = settings.otaUsername.ifEmpty { null }
-        val password = settings.otaPassword.ifEmpty { null }
-        return NtlmPasswordAuthentication(domain, username, password)
-    }
-
-    private fun parseVersionJson(json: String): UpdateInfo {
-        val obj = JSONObject(json)
-        return UpdateInfo(
-            version = obj.getString("latestVersion"),
-            versionCode = obj.getInt("versionCode"),
-            releaseUrl = obj.getString("releaseUrl"),
-            releaseNotes = obj.optString("releaseNotes", ""),
-            mandatory = obj.optBoolean("mandatory", false),
-            sha256 = if (obj.has("sha256")) obj.getString("sha256") else null
-        )
-    }
-
-    private fun computeSha256(file: File): String {
-        val digest = MessageDigest.getInstance("SHA-256")
-        file.inputStream().use { input ->
-            val buffer = ByteArray(8192)
-            var bytesRead: Int
-            while (input.read(buffer).also { bytesRead = it } != -1) {
-                digest.update(buffer, 0, bytesRead)
-            }
-        }
-        return digest.digest().joinToString("") { "%02x".format(it) }
     }
 }
+
+/** Test seam around the blocking native Kerberos SMB calls. */
+internal interface OtaRemoteFileSource {
+    fun readFile(path: String, maxBytes: Long): ByteArray
+
+    fun downloadFile(
+        path: String,
+        destination: File,
+        maxBytes: Long
+    ): Long
+}
+
+private class NativeOtaRemoteFileSource(
+    private val context: Context,
+    serverConfig: OtaServerConfig
+) : OtaRemoteFileSource {
+    private val kerberosConfig = serverConfig.kerberosConfig()
+
+    override fun readFile(path: String, maxBytes: Long): ByteArray =
+        NativeKerberosSmb.readFile(
+            context = context,
+            config = kerberosConfig,
+            path = path,
+            maxBytes = maxBytes
+        )
+
+    override fun downloadFile(
+        path: String,
+        destination: File,
+        maxBytes: Long
+    ): Long = NativeKerberosSmb.downloadFile(
+        context = context,
+        config = kerberosConfig,
+        path = path,
+        destination = destination,
+        maxBytes = maxBytes
+    )
+}
+
+/** Test seam for Android package metadata and signing-certificate validation. */
+internal fun interface OtaApkVerifier {
+    fun verify(file: File, updateInfo: UpdateInfo)
+}
+
+private class AndroidOtaApkVerifier(private val context: Context) : OtaApkVerifier {
+    override fun verify(file: File, updateInfo: UpdateInfo) {
+        val packageManager = context.packageManager
+        val archive = packageInfoForArchive(packageManager, file)
+            ?: throw SecurityException("Heruntergeladene Datei ist keine lesbare APK")
+        if (archive.packageName != context.packageName) {
+            throw SecurityException(
+                "APK-Paketname ${archive.packageName} stimmt nicht mit ${context.packageName} überein"
+            )
+        }
+        if (packageVersionCode(archive) != updateInfo.versionCode) {
+            throw SecurityException(
+                "APK-versionCode ${packageVersionCode(archive)} stimmt nicht mit " +
+                    "${updateInfo.versionCode} überein"
+            )
+        }
+
+        val installed = packageInfoForInstalled(packageManager, context.packageName)
+        verifySigningRelationship(installed, archive)
+    }
+
+    @Suppress("DEPRECATION")
+    private fun packageInfoForArchive(
+        packageManager: PackageManager,
+        file: File
+    ): PackageInfo? {
+        val flags = signingFlags()
+        return if (Build.VERSION.SDK_INT >= 33) {
+            packageManager.getPackageArchiveInfo(
+                file.absolutePath,
+                PackageManager.PackageInfoFlags.of(flags.toLong())
+            )
+        } else {
+            packageManager.getPackageArchiveInfo(file.absolutePath, flags)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun packageInfoForInstalled(
+        packageManager: PackageManager,
+        packageName: String
+    ): PackageInfo {
+        val flags = signingFlags()
+        return if (Build.VERSION.SDK_INT >= 33) {
+            packageManager.getPackageInfo(
+                packageName,
+                PackageManager.PackageInfoFlags.of(flags.toLong())
+            )
+        } else {
+            packageManager.getPackageInfo(packageName, flags)
+        }
+    }
+
+    @Suppress("DEPRECATION")
+    private fun signingFlags(): Int =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            PackageManager.GET_SIGNING_CERTIFICATES
+        } else {
+            PackageManager.GET_SIGNATURES
+        }
+
+    @Suppress("DEPRECATION")
+    private fun verifySigningRelationship(installed: PackageInfo, archive: PackageInfo) {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            val installedInfo = installed.signingInfo
+                ?: throw SecurityException("Signatur der installierten App ist nicht lesbar")
+            val archiveInfo = archive.signingInfo
+                ?: throw SecurityException("Signatur der Update-APK ist nicht lesbar")
+
+            val installedActive = installedInfo.apkContentsSigners.toCertificateIds()
+            val archiveActive = archiveInfo.apkContentsSigners.toCertificateIds()
+            if (installedInfo.hasMultipleSigners() || archiveInfo.hasMultipleSigners()) {
+                if (installedActive.isEmpty() || installedActive != archiveActive) {
+                    throw SecurityException("APK wurde nicht mit denselben Zertifikaten signiert")
+                }
+                return
+            }
+
+            val archiveHistory = archiveInfo.signingCertificateHistory.toCertificateIds()
+            if (installedActive.size != 1 || installedActive.first() !in archiveHistory) {
+                throw SecurityException("APK-Signatur gehört nicht zur installierten App")
+            }
+        } else {
+            val installedSignatures = installed.signatures.toCertificateIds()
+            val archiveSignatures = archive.signatures.toCertificateIds()
+            if (installedSignatures.isEmpty() || installedSignatures != archiveSignatures) {
+                throw SecurityException("APK wurde nicht mit denselben Zertifikaten signiert")
+            }
+        }
+    }
+
+    private fun Array<out android.content.pm.Signature>?.toCertificateIds(): Set<String> =
+        this.orEmpty().mapTo(linkedSetOf()) { signature ->
+            MessageDigest.getInstance("SHA-256")
+                .digest(signature.toByteArray())
+                .joinToString("") { byte -> "%02x".format(byte) }
+        }
+
+    @Suppress("DEPRECATION")
+    private fun packageVersionCode(packageInfo: PackageInfo): Long =
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.P) {
+            packageInfo.longVersionCode
+        } else {
+            packageInfo.versionCode.toLong()
+        }
+}
+
+internal fun parseUpdateInfo(json: String): UpdateInfo {
+    require(json.toByteArray(StandardCharsets.UTF_8).size <= OtaConfig.MAX_VERSION_FILE_BYTES) {
+        "version.json überschreitet ${OtaConfig.MAX_VERSION_FILE_BYTES} Bytes"
+    }
+
+    val tokener = JSONTokener(json)
+    val root = tokener.nextValue()
+    require(root is JSONObject && tokener.nextClean() == '\u0000') {
+        "version.json muss genau ein JSON-Objekt enthalten"
+    }
+
+    val actualKeys = root.keys().asSequence().toSet()
+    require(actualKeys == VERSION_JSON_KEYS) {
+        val missing = VERSION_JSON_KEYS - actualKeys
+        val unknown = actualKeys - VERSION_JSON_KEYS
+        "Ungültiges version.json-Schema; fehlend=$missing, unbekannt=$unknown"
+    }
+
+    val versionCode = root.strictLong("versionCode")
+    val versionName = root.strictString("versionName")
+    val apkFile = root.strictString("apkFile")
+
+    return UpdateInfo(versionCode, versionName, apkFile)
+}
+
+private val VERSION_JSON_KEYS = setOf(
+    "versionCode",
+    "versionName",
+    "apkFile"
+)
+
+private fun JSONObject.strictString(name: String): String {
+    val value = get(name)
+    require(value is String) { "$name muss eine JSON-Zeichenfolge sein" }
+    return value
+}
+
+private fun JSONObject.strictLong(name: String): Long = when (val value = get(name)) {
+    is Int -> value.toLong()
+    is Long -> value
+    else -> throw IllegalArgumentException("$name muss eine ganze JSON-Zahl sein")
+}
+
+private fun decodeUtf8Strict(bytes: ByteArray): String =
+    StandardCharsets.UTF_8.newDecoder()
+        .onMalformedInput(CodingErrorAction.REPORT)
+        .onUnmappableCharacter(CodingErrorAction.REPORT)
+        .decode(ByteBuffer.wrap(bytes))
+        .toString()

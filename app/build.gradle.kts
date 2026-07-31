@@ -1,3 +1,34 @@
+// Read the custom OTA values verbatim. java.util.Properties would interpret
+// sequences such as the domain separator in `DOMAIN\user` (`\t`, `\n`, ...)
+// as control-character escapes and would therefore corrupt the username.
+val mdeLocalProperties = rootProject.file("local.properties")
+    .takeIf { it.isFile }
+    ?.useLines { lines ->
+        lines.mapNotNull { line ->
+            val separatorIndex = line.indexOf('=')
+            if (separatorIndex <= 0) return@mapNotNull null
+
+            val key = line.substring(0, separatorIndex).trim()
+            if (!key.startsWith("MDE_OTA_")) return@mapNotNull null
+
+            key to line.substring(separatorIndex + 1)
+        }.toMap()
+    }
+    .orEmpty()
+
+fun otaBuildProperty(name: String): String =
+    providers.environmentVariable(name).orNull
+        ?: providers.gradleProperty(name).orNull
+        ?: mdeLocalProperties[name]
+        ?: ""
+
+fun buildConfigString(value: String): String = "\"" + value
+    .replace("\\", "\\\\")
+    .replace("\"", "\\\"")
+    .replace("\r", "\\r")
+    .replace("\n", "\\n")
+    .replace("\t", "\\t") + "\""
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -14,12 +45,26 @@ android {
         applicationId = "com.example.mde"
         minSdk = 24
         targetSdk = 36
-        versionCode = 84
-        versionName = "6.0"
+        versionCode = 85
+        versionName = "6.1"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
 
-        buildConfigField("boolean", "OTA_ENABLE", "false")
+        // MDE_OTA_USERNAME and MDE_OTA_PASSWORD are read at build time from
+        // local.properties, -P Gradle properties or environment variables.
+        // local.properties is ignored by Git, but the resulting values are
+        // necessarily embedded in the APK and must belong to a read-only user.
+        buildConfigField("boolean", "OTA_ENABLE", "true")
+        buildConfigField(
+            "String",
+            "OTA_USERNAME",
+            buildConfigString(otaBuildProperty("MDE_OTA_USERNAME"))
+        )
+        buildConfigField(
+            "String",
+            "OTA_PASSWORD",
+            buildConfigString(otaBuildProperty("MDE_OTA_PASSWORD"))
+        )
     }
 
     buildTypes {
@@ -43,6 +88,19 @@ android {
         viewBinding = true
         compose = true
     }
+    packaging {
+        resources {
+            excludes += setOf(
+                "META-INF/INDEX.LIST",
+                "META-INF/DEPENDENCIES",
+                "META-INF/LICENSE",
+                "META-INF/LICENSE.txt",
+                "META-INF/NOTICE",
+                "META-INF/NOTICE.txt",
+                "META-INF/io.netty.versions.properties"
+            )
+        }
+    }
     testOptions {
         unitTests {
             isIncludeAndroidResources = true
@@ -52,7 +110,9 @@ android {
 
 dependencies {
     implementation("com.github.datalogic:datalogic-android-sdk:1.34")
-    implementation("jcifs:jcifs:1.3.17")
+    // SMB2/3 support for the explicitly requested NTLM path and OTA updates.
+    // True Kerberos on Android is provided by app/src/main/jniLibs.
+    implementation("eu.agno3.jcifs:jcifs-ng:2.1.10")
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.appcompat)
@@ -86,6 +146,11 @@ dependencies {
     androidTestImplementation(libs.androidx.compose.ui.test.junit4)
     debugImplementation(libs.androidx.compose.ui.tooling)
     debugImplementation(libs.androidx.compose.ui.test.manifest)
+
+    //OTA
+    implementation("org.glassfish.grizzly:grizzly-http-server:4.0.2")
+    implementation("org.apache.kerby:kerby-kdc:2.0.3")
+    implementation("org.apache.kerby:kerby-asn1:2.0.3")
 }
 
 tasks.register<JacocoReport>("jacocoTestReport") {

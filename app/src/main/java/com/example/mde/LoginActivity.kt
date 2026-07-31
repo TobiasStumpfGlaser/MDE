@@ -4,6 +4,7 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
+import android.text.InputType
 import android.util.Log
 import android.view.MotionEvent
 import android.view.WindowManager
@@ -14,6 +15,7 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Filter
 import android.widget.ImageButton
+import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -103,6 +105,21 @@ class LoginActivity : AppCompatActivity() {
 
     companion object {
         private const val TAG = "LoginActivity"
+        private const val STATE_PENDING_OTA_APK = "pending_ota_apk"
+        private const val VERSION_STATUS_CHECKING = "Versionsprüfung läuft …"
+        private const val VERSION_STATUS_CURRENT = "Version ist aktuell"
+        private const val VERSION_STATUS_FAILED = "Versionsprüfung fehlgeschlagen"
+        private const val VERSION_STATUS_NOT_CONFIGURED =
+            "Versionsprüfung nicht konfiguriert"
+        private const val VERSION_STATUS_DISABLED = "Versionsprüfung deaktiviert"
+        private const val VERSION_STATUS_INSTALL_PENDING =
+            "Updateinstallation wird fortgesetzt"
+        private const val KERBEROS_TEST_SERVER = "w2-fs-wks"
+        private const val KERBEROS_TEST_CONNECT_HOST =
+            "w2-fs-wks.werkstatt.brainware-solutions.de"
+        private const val KERBEROS_TEST_SHARE = "transfer"
+        private const val KERBEROS_TEST_FILE = "Temp/Tobias S/AppTest.txt"
+        private const val KERBEROS_TEST_MAX_BYTES = 256L * 1024
     }
 
     private lateinit var settings: AppSettings
@@ -111,6 +128,8 @@ class LoginActivity : AppCompatActivity() {
     private lateinit var btnLogin: Button
     private lateinit var btnReload: ImageButton
     private lateinit var userAdapter: UserAdapter
+    private lateinit var otaUpdateHelper: OtaUpdateHelper
+    private lateinit var txtVersion: TextView
 
     private val userList get() = UserCache.userList
     private val userPinMap get() = UserCache.userPinMap
@@ -132,6 +151,10 @@ class LoginActivity : AppCompatActivity() {
         }
 
         super.onCreate(savedInstanceState)
+        otaUpdateHelper = OtaUpdateHelper(
+            activity = this,
+            restoredPendingApkPath = savedInstanceState?.getString(STATE_PENDING_OTA_APK)
+        )
         TcpLogHelper.cleanupOldLogs(this)
 
         handler = Handler(Looper.getMainLooper())
@@ -169,8 +192,8 @@ class LoginActivity : AppCompatActivity() {
         btnLogin = findViewById(R.id.btnLogin)
         btnReload = findViewById(R.id.btnReload)
 
-        val txtVersion = findViewById<TextView>(R.id.txtVersion)
-        txtVersion.text = "App-Version: ${BuildConfig.VERSION_NAME}"
+        txtVersion = findViewById(R.id.txtVersion)
+        showVersionStatus()
 
         val txtHeader = findViewById<TextView>(R.id.txtHeader)
         txtHeader.text = "BW MDE - Werk: ${settings.werkNummer}"
@@ -187,6 +210,17 @@ class LoginActivity : AppCompatActivity() {
         btnReload.setOnClickListener { loadUserList() }
 
         loadUserList()
+
+        when {
+            !BuildConfig.OTA_ENABLE -> showVersionStatus(VERSION_STATUS_DISABLED)
+            otaUpdateHelper.pendingApkPathForState() != null ->
+                showVersionStatus(VERSION_STATUS_INSTALL_PENDING)
+            OtaConfig.isConfigured -> checkForUpdatesOnStartup()
+            else -> {
+                showVersionStatus(VERSION_STATUS_NOT_CONFIGURED)
+                Log.w(TAG, "OTA-Check übersprungen: Serverpfad oder Build-Zugangsdaten fehlen")
+            }
+        }
     }
 
     private fun showScannerErrorDialog() {
@@ -205,6 +239,13 @@ class LoginActivity : AppCompatActivity() {
     override fun onDestroy() {
         super.onDestroy()
         ioScope.cancel()
+    }
+
+    override fun onSaveInstanceState(outState: Bundle) {
+        otaUpdateHelper.pendingApkPathForState()?.let { path ->
+            outState.putString(STATE_PENDING_OTA_APK, path)
+        }
+        super.onSaveInstanceState(outState)
     }
 
     override fun onResume() {
@@ -405,31 +446,52 @@ class LoginActivity : AppCompatActivity() {
 
         val initials = nameToInitials[username] ?: username
 
-        if (BuildConfig.OTA_ENABLE) {
-            checkForUpdatesAndProceed(initials)
-        } else {
-            navigateToMain(initials)
-        }
+        navigateToMain(initials)
     }
 
-    private fun checkForUpdatesAndProceed(initials: String) {
+    private fun checkForUpdatesOnStartup() {
+        showVersionStatus(VERSION_STATUS_CHECKING)
+
         ioScope.launch {
-            val updateInfo = try {
-                UpdateManager(this@LoginActivity).checkForUpdates(settings)
-            } catch (e: Exception) {
-                Log.e(TAG, "Update-Check fehlgeschlagen", e)
-                null
+            val result = runCatching {
+                UpdateManager(this@LoginActivity).checkForUpdates()
+            }
+
+            result.exceptionOrNull()?.let { error ->
+                Log.e(TAG, "Update-Check fehlgeschlagen; Anmeldung bleibt verfügbar", error)
             }
 
             withContext(Dispatchers.Main) {
-                if (updateInfo != null) {
-                    OtaUpdateHelper(this@LoginActivity, settings)
-                        .showUpdateDialog(updateInfo) {
-                            navigateToMain(initials)
-                        }
-                } else {
-                    navigateToMain(initials)
+                if (!isFinishing && !isDestroyed) {
+                    showUpdateCheckResult(result)
                 }
+            }
+        }
+    }
+
+    internal fun showUpdateCheckResult(result: Result<UpdateInfo?>) {
+        result.fold(
+            onSuccess = { updateInfo ->
+                if (updateInfo == null) {
+                    showVersionStatus(VERSION_STATUS_CURRENT)
+                } else {
+                    showVersionStatus("Neue Version ${updateInfo.versionName} verfügbar")
+                    otaUpdateHelper.showUpdateDialog(updateInfo)
+                }
+            },
+            onFailure = {
+                showVersionStatus(VERSION_STATUS_FAILED)
+            }
+        )
+    }
+
+    private fun showVersionStatus(status: String? = null) {
+        txtVersion.text = buildString {
+            append("App-Version: ")
+            append(BuildConfig.VERSION_NAME)
+            if (!status.isNullOrBlank()) {
+                append('\n')
+                append(status)
             }
         }
     }
@@ -442,8 +504,112 @@ class LoginActivity : AppCompatActivity() {
         finish()
     }
 
+    /**
+     * Asks for AD credentials without persisting them and reads the configured
+     * test file through Kerberos/SMB. The normal MDE user/PIN is deliberately
+     * not reused because it is not an Active Directory credential.
+     */
+    private fun showKerberosFileTestDialog() {
+        val padding = (24 * resources.displayMetrics.density).toInt()
+        val usernameInput = EditText(this).apply {
+            hint = "AD-Benutzername"
+            inputType = InputType.TYPE_CLASS_TEXT
+            isSingleLine = true
+        }
+        val passwordInput = EditText(this).apply {
+            hint = "AD-Passwort"
+            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
+            isSingleLine = true
+        }
+        val inputLayout = LinearLayout(this).apply {
+            orientation = LinearLayout.VERTICAL
+            setPadding(padding, padding / 2, padding, 0)
+            addView(usernameInput)
+            addView(passwordInput)
+        }
+
+        val dialog = AlertDialog.Builder(this)
+            .setTitle("Kerberos-Dateitest")
+            .setMessage(
+                "Ziel: \\\\$KERBEROS_TEST_SERVER\\$KERBEROS_TEST_SHARE\\" +
+                    KERBEROS_TEST_FILE.replace('/', '\\')
+            )
+            .setView(inputLayout)
+            .setNegativeButton("Abbrechen", null)
+            .setPositiveButton("Test starten", null)
+            .create()
+
+        dialog.setOnShowListener {
+            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
+                val username = usernameInput.text.toString().trim()
+                val password = passwordInput.text.toString()
+                when {
+                    username.isEmpty() -> usernameInput.error = "AD-Benutzername fehlt"
+                    password.isEmpty() -> passwordInput.error = "AD-Passwort fehlt"
+                    else -> {
+                        passwordInput.text.clear()
+                        dialog.dismiss()
+                        runKerberosFileTest(username, password)
+                    }
+                }
+            }
+        }
+        dialog.show()
+    }
+
+    private fun runKerberosFileTest(username: String, password: String) {
+        UiLoadingHelper.show(
+            this,
+            "Kerberos-Anmeldung und SMB-Dateizugriff werden geprüft...",
+            UiLoadingHelper.LoadingStatus.LOADING
+        )
+
+        ioScope.launch {
+            val result = runCatching {
+                NativeKerberosSmb.readFile(
+                    context = this@LoginActivity,
+                    config = KerberosSmbConfig(
+                        server = KERBEROS_TEST_SERVER,
+                        connectHost = KERBEROS_TEST_CONNECT_HOST,
+                        share = KERBEROS_TEST_SHARE,
+                        username = username,
+                        password = password
+                    ),
+                    path = KERBEROS_TEST_FILE,
+                    maxBytes = KERBEROS_TEST_MAX_BYTES
+                ).toString(Charsets.UTF_8).removePrefix("\uFEFF")
+            }
+
+            withContext(Dispatchers.Main) {
+                UiLoadingHelper.hide()
+                result.fold(
+                    onSuccess = { content ->
+                        AlertDialog.Builder(this@LoginActivity)
+                            .setTitle("AppTest.txt")
+                            .setMessage(content.ifEmpty { "(Datei ist leer)" })
+                            .setPositiveButton("OK", null)
+                            .show()
+                    },
+                    onFailure = { error ->
+                        Log.e(TAG, "Kerberos-Dateitest fehlgeschlagen", error)
+                        AlertDialog.Builder(this@LoginActivity)
+                            .setIcon(android.R.drawable.ic_dialog_alert)
+                            .setTitle("Kerberos-Dateitest fehlgeschlagen")
+                            .setMessage(
+                                "${error.javaClass.simpleName}: " +
+                                    (error.localizedMessage ?: "Unbekannter Fehler")
+                            )
+                            .setPositiveButton("OK", null)
+                            .show()
+                    }
+                )
+            }
+        }
+    }
+
     override fun onCreateOptionsMenu(menu: android.view.Menu?): Boolean {
         menuInflater.inflate(R.menu.login_menu, menu)
+        menu?.findItem(R.id.menu_kerberos_test)?.isVisible = BuildConfig.DEBUG
         return true
     }
 
@@ -451,6 +617,11 @@ class LoginActivity : AppCompatActivity() {
         return when (item.itemId) {
             R.id.menu_settings -> {
                 startActivity(Intent(this, SettingsActivity::class.java))
+                true
+            }
+
+            R.id.menu_kerberos_test -> {
+                showKerberosFileTestDialog()
                 true
             }
 

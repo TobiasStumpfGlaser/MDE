@@ -20,6 +20,7 @@ import android.view.MenuItem
 import android.view.MotionEvent
 import android.view.View
 import android.view.ViewGroup
+import android.view.Window
 import android.view.WindowManager
 import android.view.inputmethod.InputMethodManager
 import android.widget.ArrayAdapter
@@ -551,6 +552,19 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
     }
 
+    protected fun attachLogoutHandling(dialog: AlertDialog) {
+        val originalCallback = dialog.window?.callback ?: return
+
+        dialog.setOnShowListener {
+            dialog.window?.callback = object : Window.Callback by originalCallback {
+                override fun dispatchTouchEvent(event: MotionEvent): Boolean {
+                    resetLogoutTimer()
+                    return originalCallback.dispatchTouchEvent(event)
+                }
+            }
+        }
+    }
+
     protected fun showSerialDialog(
         maxMenge: Int,
         onSerialsConfirmed: (serials: List<String>, isCharge: Boolean) -> Unit
@@ -577,6 +591,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         builder.setNeutralButton("Charge", null)
 
         val dialog = builder.create()
+        attachLogoutHandling(dialog)
         dialog.show()
 
         etSerial.requestFocus()
@@ -598,6 +613,7 @@ abstract class BaseArtikelScanActivity : AppCompatActivity() {
         }
 
         fun tryAddSerial(input: String) {
+            resetLogoutTimer()
             when {
                 input.length <= 3 -> onSerialError("Seriennummer Format falsch")
                 serials.contains(input) -> onSerialError("Seriennummer bereits vorhanden")

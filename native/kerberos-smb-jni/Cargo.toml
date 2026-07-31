@@ -1,0 +1,23 @@
+[package]
+name = "mde-kerberos-smb"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.85"
+publish = false
+license = "MIT OR Apache-2.0"
+
+[lib]
+name = "mde_kerberos_smb"
+crate-type = ["cdylib"]
+
+[dependencies]
+jni = "0.21.1"
+smb2 = { version = "=0.13.1", path = "vendor/smb2" }
+tokio = { version = "1", features = ["rt", "time"] }
+
+[profile.release]
+codegen-units = 1
+lto = "thin"
+opt-level = "z"
+panic = "abort"
+strip = "symbols"

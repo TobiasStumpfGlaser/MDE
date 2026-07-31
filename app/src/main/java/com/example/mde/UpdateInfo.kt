@@ -1,35 +1,39 @@
 package com.example.mde
 
 /**
- * Enthält alle Informationen über eine verfügbare App-Aktualisierung,
- * die aus der `version.json` auf dem Update-Server gelesen werden.
+ * Strictly validated contents of the OTA server's `version.json`.
  *
- * Beispiel-JSON:
+ * Example:
  * ```json
  * {
- *   "latestVersion": "6.1",
  *   "versionCode": 85,
- *   "releaseUrl": "smb://server/updates/app-6.1.apk",
- *   "releaseNotes": "Bugfixes und Performance-Verbesserungen",
- *   "mandatory": false,
- *   "sha256": "e3b0c44298fc1c149afbf4c8996fb92427ae41e4649b934ca495991b7852b855"
+ *   "versionName": "6.1",
+ *   "apkFile": "mde-85.apk"
  * }
  * ```
+ *
+ * Only [versionCode] decides whether an update is newer. [versionName] is
+ * display text. [apkFile] is always relative to [OtaConfig.BASE_PATH].
  */
 data class UpdateInfo(
-    /** Versionsnummer als lesbarer Text, z. B. "6.1". */
-    val version: String,
-    /** Interner Versions-Code (wird mit [BuildConfig.VERSION_CODE] verglichen). */
-    val versionCode: Int,
-    /** SMB-URL zur APK-Datei auf dem Update-Server. */
-    val releaseUrl: String,
-    /** Beschreibung der Änderungen in dieser Version. */
-    val releaseNotes: String,
-    /** Wenn `true`, kann der Benutzer das Update nicht überspringen. */
-    val mandatory: Boolean = false,
-    /**
-     * Erwarteter SHA-256-Hash der APK-Datei (Hex-String, Kleinbuchstaben).
-     * Wenn angegeben, wird die heruntergeladene APK vor der Installation verifiziert.
-     */
-    val sha256: String? = null
-)
+    val versionCode: Long,
+    val versionName: String,
+    val apkFile: String
+) {
+    init {
+        require(versionCode in 1..Int.MAX_VALUE.toLong()) {
+            "versionCode muss zwischen 1 und ${Int.MAX_VALUE} liegen"
+        }
+        require(
+            versionName.isNotBlank() &&
+                versionName == versionName.trim() &&
+                versionName.length <= 64 &&
+                versionName.none { it.isISOControl() }
+        ) {
+            "versionName ist ungültig"
+        }
+        require(apkFile == validateOtaApkPath(apkFile)) {
+            "apkFile ist ungültig"
+        }
+    }
+}
