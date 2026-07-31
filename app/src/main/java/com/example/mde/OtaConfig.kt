@@ -12,19 +12,19 @@ package com.example.mde
  * never be stored in `SharedPreferences` or logged.
  */
 object OtaConfig {
-    //const val SERVER = "vzeiterfassungw2k22"
-    //const val CONNECT_HOST = "vzeiterfassungw2k22.brainware-solutions.de"
-    //const val SHARE = "mde-update"
+    const val SERVER = "vzeiterfassungw2k22"
+    const val CONNECT_HOST = "vzeiterfassungw2k22.brainware-solutions.de"
+    const val SHARE = "mde-update"
 
     /** Relative directory inside [SHARE]; empty means the share root. */
-    //const val BASE_PATH = ""
+    const val BASE_PATH = ""
 
-    const val SERVER = "w2-fs-wks"
-    const val CONNECT_HOST = "w2-fs-wks.werkstatt.brainware-solutions.de"
-    const val SHARE = "transfer"
+    // const val SERVER = "w2-fs-wks"
+    // const val CONNECT_HOST = "w2-fs-wks.werkstatt.brainware-solutions.de"
+    // const val SHARE = "transfer"
 
     /** Relative directory inside [SHARE]. */
-    const val BASE_PATH = "Temp/Tobias S/AppUpdate"
+    // const val BASE_PATH = "Temp/Tobias S/AppUpdate"
 
     const val VERSION_FILE_NAME = "version.json"
     const val MAX_VERSION_FILE_BYTES = 64L * 1024

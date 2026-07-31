@@ -62,10 +62,12 @@ object NativeKerberosSmb {
      * Streams a remote SMB file directly into [destination] without keeping
      * the complete file in either the Kotlin or native heap.
      *
-     * [destination] must be an absolute, canonical `.part` file below one of
-     * the app-private `cacheDir`, `filesDir` or `noBackupFilesDir` roots. A
-     * stale regular `.part` file is removed before the native download starts.
-     * On every failure, the incomplete destination is removed best-effort.
+     * [destination] must be an absolute `.part` file below one of the
+     * app-private `cacheDir`, `filesDir` or `noBackupFilesDir` roots. Android's
+     * equivalent `/data/user/0` and `/data/data` root aliases are accepted,
+     * while symbolic links below those roots are rejected. A stale regular
+     * `.part` file is removed before the native download starts. On every
+     * failure, the incomplete destination is removed best-effort.
      *
      * Calls are blocking and must run on a background thread.
      *
@@ -187,25 +189,31 @@ object NativeKerberosSmb {
         return share
     }
 
-    private fun preparePrivatePartFile(context: Context, destination: File): File {
+    internal fun preparePrivatePartFile(context: Context, destination: File): File {
         require(destination.isAbsolute) { "Download-Zielpfad muss absolut sein" }
         requirePartFileName(destination)
+        require(destination.path.split(File.separatorChar).none { it == "." || it == ".." }) {
+            "Download-Zielpfad darf keine .- oder ..-Segmente enthalten"
+        }
 
         val privateRoots = listOf(
             context.cacheDir,
             context.filesDir,
             context.noBackupFilesDir
-        ).map(File::getCanonicalFile)
+        ).map { root -> PrivateRoot(root.absoluteFile, root.canonicalFile) }
 
         val absoluteDestination = destination.absoluteFile
-        var canonicalDestination = destination.canonicalFile
-        require(absoluteDestination.path == canonicalDestination.path) {
-            "Download-Zielpfad muss kanonisch sein und darf keine symbolischen Links enthalten"
-        }
-        requirePartFileName(canonicalDestination)
-        require(privateRoots.any { root -> canonicalDestination.isStrictChildOf(root) }) {
+        val privateRoot = privateRoots.firstNotNullOfOrNull { root ->
+            absoluteDestination.relativeChildPath(root.absolute)?.let { relativePath ->
+                MatchedPrivateRoot(root, relativePath)
+            } ?: absoluteDestination.relativeChildPath(root.canonical)?.let { relativePath ->
+                MatchedPrivateRoot(root, relativePath)
+            }
+        } ?: throw IllegalArgumentException(
             "Download-Zieldatei muss in einem app-privaten Verzeichnis liegen"
-        }
+        )
+
+        var canonicalDestination = resolveCanonicalDestination(absoluteDestination, privateRoot)
 
         val parent = canonicalDestination.parentFile
             ?: throw IllegalArgumentException("Download-Zieldatei hat kein Elternverzeichnis")
@@ -218,12 +226,25 @@ object NativeKerberosSmb {
 
         // Resolve again after mkdirs, so a pre-existing symlink in the parent
         // path cannot move the destination outside app-private storage.
-        canonicalDestination = destination.canonicalFile
-        require(absoluteDestination.path == canonicalDestination.path) {
-            "Download-Zielpfad muss kanonisch sein und darf keine symbolischen Links enthalten"
+        canonicalDestination = resolveCanonicalDestination(absoluteDestination, privateRoot)
+        return canonicalDestination
+    }
+
+    private fun resolveCanonicalDestination(
+        destination: File,
+        matchedRoot: MatchedPrivateRoot
+    ): File {
+        val canonicalDestination = destination.canonicalFile
+        val expectedDestination = File(
+            matchedRoot.root.canonical,
+            matchedRoot.relativePath
+        ).absoluteFile
+        require(canonicalDestination.path == expectedDestination.path) {
+            "Download-Zielpfad darf unterhalb des privaten Verzeichnisses " +
+                "keine symbolischen Links enthalten"
         }
         requirePartFileName(canonicalDestination)
-        require(privateRoots.any { root -> canonicalDestination.isStrictChildOf(root) }) {
+        require(canonicalDestination.isStrictChildOf(matchedRoot.root.canonical)) {
             "Download-Zieldatei muss in einem app-privaten Verzeichnis liegen"
         }
         return canonicalDestination
@@ -240,6 +261,11 @@ object NativeKerberosSmb {
     private fun File.isStrictChildOf(root: File): Boolean {
         val rootPath = root.path.trimEnd(File.separatorChar) + File.separator
         return path.startsWith(rootPath)
+    }
+
+    private fun File.relativeChildPath(root: File): String? {
+        val rootPath = root.path.trimEnd(File.separatorChar) + File.separator
+        return path.takeIf { it.startsWith(rootPath) }?.substring(rootPath.length)
     }
 
     private fun removeStalePartFile(file: File) {
@@ -275,4 +301,11 @@ object NativeKerberosSmb {
 
     private const val PART_SUFFIX = ".part"
     private const val NO_EXPECTED_SIZE = -1L
+
+    private data class PrivateRoot(val absolute: File, val canonical: File)
+
+    private data class MatchedPrivateRoot(
+        val root: PrivateRoot,
+        val relativePath: String
+    )
 }
