@@ -12,6 +12,9 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
+import java.text.SimpleDateFormat
+import java.util.Calendar
+import java.util.Locale
 
 // ---------------------------------------------------------------------------
 // TcpLogHelper
@@ -55,7 +58,7 @@ class TcpLogHelperTest {
     fun logRequest_createsFileWithContent() {
         TcpLogHelper.logRequest(context, "GetArtikel", "request-body")
 
-        val logFile = File(logDir, "GetArtikel.txt")
+        val logFile = logFile("GetArtikel")
         assertTrue(logFile.exists())
         val content = logFile.readText()
         assertTrue(content.contains("REQUEST"))
@@ -66,7 +69,7 @@ class TcpLogHelperTest {
     fun logResponse_createsFileWithContent() {
         TcpLogHelper.logResponse(context, "GetArtikel", "response-body")
 
-        val logFile = File(logDir, "GetArtikel.txt")
+        val logFile = logFile("GetArtikel")
         assertTrue(logFile.exists())
         val content = logFile.readText()
         assertTrue(content.contains("RESPONSE"))
@@ -78,7 +81,7 @@ class TcpLogHelperTest {
         TcpLogHelper.logRequest(context, "GetArtikel", "erster request")
         TcpLogHelper.logRequest(context, "GetArtikel", "zweiter request")
 
-        val content = File(logDir, "GetArtikel.txt").readText()
+        val content = logContent("GetArtikel")
         assertTrue(content.contains("erster request"))
         assertTrue(content.contains("zweiter request"))
     }
@@ -88,19 +91,129 @@ class TcpLogHelperTest {
         TcpLogHelper.logRequest(context, "GetArtikel", "a")
         TcpLogHelper.logRequest(context, "SetBuchung", "b")
 
-        assertTrue(File(logDir, "GetArtikel.txt").exists())
-        assertTrue(File(logDir, "SetBuchung.txt").exists())
+        assertTrue(logFile("GetArtikel").exists())
+        assertTrue(logFile("SetBuchung").exists())
     }
 
     @Test
     fun clearLogs_afterLogging_deletesLogFiles() {
         TcpLogHelper.logRequest(context, "GetArtikel", "test")
-        assertTrue(File(logDir, "GetArtikel.txt").exists())
+        assertTrue(logFile("GetArtikel").exists())
 
         TcpLogHelper.clearLogs(context)
 
         assertEquals(0, logDir.listFiles()?.size ?: 0)
     }
+
+    @Test
+    fun diagnosticEntries_useSameDirectoryAndDedicatedTypes() {
+        TcpLogHelper.logEvent(context, "OTA_Details", "Ablauf gestartet")
+        TcpLogHelper.logWarning(context, "OTA_Details", "Langsame Antwort")
+        TcpLogHelper.logError(context, "OTA_Details", "Verbindung fehlgeschlagen")
+
+        val content = logContent("OTA_Details")
+        assertTrue(content.contains("EVENT"))
+        assertTrue(content.contains("WARNING"))
+        assertTrue(content.contains("ERROR"))
+        assertTrue(content.contains("Ablauf gestartet"))
+    }
+
+    @Test
+    fun cleanupOldLogs_keepsFullBoundaryDayAndDeletesOlderFiles() {
+        logDir.mkdirs()
+        val boundaryFile = datedLogFile("boundary", daysAgo = 7).apply { writeText("keep") }
+        val expiredFile = datedLogFile("expired", daysAgo = 8).apply { writeText("delete") }
+        val unrelatedFile = File(logDir, "readme.txt").apply { writeText("keep") }
+
+        TcpLogHelper.cleanupOldLogs(context)
+
+        assertTrue(boundaryFile.exists())
+        assertFalse(expiredFile.exists())
+        assertTrue(unrelatedFile.exists())
+    }
+
+    @Test
+    fun otaDiagnosticLog_nestedOperationsReuseIdAndRedactEventText() {
+        val secret = "credential-that-must-not-be-logged"
+        val username = "DOMAIN\\normuser"
+
+        OtaDiagnosticLog.operation(
+            context,
+            "Äußerer Vorgang",
+            secrets = OtaDiagnosticLog.credentialSecrets(username, secret)
+        ) {
+            OtaDiagnosticLog.event(
+                context,
+                "Test/Äußerer Vorgang",
+                "Benutzer=normuser; Wert=$secret\n[FAKE-HEADER]\tEnde"
+            )
+            OtaDiagnosticLog.operation(context, "Innerer Vorgang") {
+                OtaDiagnosticLog.event(context, "Test/Innerer Vorgang", "Inneres Ereignis")
+            }
+        }
+        OtaDiagnosticLog.event(context, "Test/Danach", "Außerhalb")
+
+        val content = logContent(OtaDiagnosticLog.DETAIL_LOG_COMMAND)
+        val operationIds = Regex("Vorgang: ([^\\r\\n]+)")
+            .findAll(content)
+            .map { match -> match.groupValues[1] }
+            .toList()
+        assertFalse(content.contains(secret))
+        assertFalse(content.contains("normuser"))
+        assertTrue(
+            content.contains(
+                "Benutzer=<redacted>; Wert=<redacted>\\n[FAKE-HEADER]\\tEnde"
+            )
+        )
+        assertEquals(1, operationIds.filterNot { it == "ohne-ID" }.distinct().size)
+        assertTrue(operationIds.contains("ohne-ID"))
+    }
+
+    @Test
+    fun otaStatus_containsOnlyLatestCompactResult() {
+        OtaDiagnosticLog.summary(
+            context,
+            OtaDiagnosticLog.SummaryLevel.ERROR,
+            "ALTER FEHLER",
+            listOf("PROBLEM: alt")
+        )
+        OtaDiagnosticLog.summary(
+            context,
+            OtaDiagnosticLog.SummaryLevel.SUCCESS,
+            "OTA OK: APP IST AKTUELL",
+            listOf("SERVER: 6.1 (Code 85)", "MASSNAHME: keine")
+        )
+
+        val status = File(logDir, "${OtaDiagnosticLog.LOG_COMMAND}.txt").readText()
+        assertTrue(status.contains("OTA OK: APP IST AKTUELL"))
+        assertTrue(status.contains("SERVER: 6.1 (Code 85)"))
+        assertFalse(status.contains("ALTER FEHLER"))
+        assertFalse(status.contains("Vorgang:"))
+        assertFalse(status.contains("Thread:"))
+        assertFalse(status.contains("at com.example"))
+    }
+
+    private fun logFile(command: String): File {
+        val matches = logFiles(command)
+        assertTrue("Mindestens eine Tagesdatei für $command erwartet", matches.isNotEmpty())
+        return matches.maxBy(File::lastModified)
+    }
+
+    private fun logContent(command: String): String =
+        logFiles(command).joinToString("\n") { file -> file.readText() }
+
+    private fun datedLogFile(command: String, daysAgo: Int): File {
+        val date = Calendar.getInstance().apply {
+            add(Calendar.DAY_OF_YEAR, -daysAgo)
+        }.time
+        val dateText = SimpleDateFormat("yyyy-MM-dd", Locale.ROOT).format(date)
+        return File(logDir, "${command}_$dateText.txt")
+    }
+
+    private fun logFiles(command: String): List<File> =
+        logDir.listFiles().orEmpty().filter { file ->
+            file.name.startsWith("${command}_") && file.extension == "txt"
+        }
 }
 
 // ---------------------------------------------------------------------------

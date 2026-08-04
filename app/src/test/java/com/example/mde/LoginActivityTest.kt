@@ -36,6 +36,7 @@ class LoginActivityTest {
     private lateinit var settings: AppSettings
     private var previousTimeout = 0
     private var previousDefaultUser = ""
+    private var previousOtaEnabled = false
 
     @Before
     fun setUp() {
@@ -44,9 +45,11 @@ class LoginActivityTest {
 
         previousTimeout = settings.logoutTimeSec
         previousDefaultUser = settings.defaultUser
+        previousOtaEnabled = settings.otaEnabled
 
         settings.logoutTimeSec = 1
         settings.defaultUser = "missing-user"
+        settings.otaEnabled = false
 
         mockkObject(TcpClient)
         every { TcpClient.sendCommand(any(), any(), any(), any(), any()) } returns
@@ -67,6 +70,7 @@ class LoginActivityTest {
 
         settings.logoutTimeSec = previousTimeout
         settings.defaultUser = previousDefaultUser
+        settings.otaEnabled = previousOtaEnabled
 
         UserCache.userList.clear()
         UserCache.userPinMap.clear()
@@ -81,6 +85,7 @@ class LoginActivityTest {
             .resume()
             .get()
 
+        settings.otaEnabled = true
         activity.runOnUiThread {
             activity.showUpdateCheckResult(Result.success(null))
         }
@@ -90,6 +95,18 @@ class LoginActivityTest {
             "App-Version: ${BuildConfig.VERSION_NAME}\nVersion ist aktuell",
             txtVersion.text.toString()
         )
+    }
+
+    @Test
+    fun otaDisabled_hidesVersionCheckStatusButKeepsAppVersion() {
+        val activity = Robolectric.buildActivity(LoginActivity::class.java)
+            .create()
+            .start()
+            .resume()
+            .get()
+
+        val txtVersion = activity.findViewById<TextView>(R.id.txtVersion)
+        assertEquals("App-Version: ${BuildConfig.VERSION_NAME}", txtVersion.text.toString())
     }
 
     @Test
@@ -393,6 +410,7 @@ class LoginActivityTest {
     fun defaultUser_isSelectedAutomatically() {
 
         settings.defaultUser = "User A"
+        UserCache.userList.add("User A")
 
         val activity = Robolectric.buildActivity(LoginActivity::class.java)
             .create()

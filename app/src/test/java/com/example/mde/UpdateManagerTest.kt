@@ -14,11 +14,14 @@ import org.junit.runner.RunWith
 import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
 import java.io.File
+import java.io.IOException
+import kotlin.io.path.createTempDirectory
 
 @RunWith(RobolectricTestRunner::class)
 @Config(sdk = [33])
 class UpdateManagerTest {
     private lateinit var cacheDirectory: File
+    private lateinit var externalFilesDirectory: File
     private lateinit var context: Context
     private lateinit var remote: FakeRemoteFiles
     private lateinit var verifier: RecordingApkVerifier
@@ -29,15 +32,19 @@ class UpdateManagerTest {
         connectHost = "w2-fs-wks.example.test",
         share = "transfer",
         basePath = "AppUpdate",
+        realm = "EXAMPLE.TEST",
+        kdcAddress = "kdc.example.test:88",
         username = "ota-reader",
         password = "not-logged"
     )
 
     @Before
     fun setUp() {
-        cacheDirectory = createTempDir(prefix = "mde-ota-test-")
+        cacheDirectory = createTempDirectory("mde-ota-test-").toFile()
+        externalFilesDirectory = createTempDirectory("mde-ota-log-test-").toFile()
         context = mockk()
         every { context.cacheDir } returns cacheDirectory
+        every { context.getExternalFilesDir(null) } returns externalFilesDirectory
         remote = FakeRemoteFiles()
         verifier = RecordingApkVerifier()
         manager = UpdateManager(
@@ -109,6 +116,8 @@ class UpdateManagerTest {
             connectHost = "vzeiterfassungw2k22.example.test",
             share = "mde-update",
             basePath = "",
+            realm = "EXAMPLE.TEST",
+            kdcAddress = "kdc.example.test:88",
             username = "ota-reader",
             password = "not-logged"
         )
@@ -126,6 +135,74 @@ class UpdateManagerTest {
         assertEquals(85L, result?.versionCode)
         assertEquals("AppUpdate/version.json", remote.lastReadPath)
         assertEquals(OtaConfig.MAX_VERSION_FILE_BYTES, remote.lastReadLimit)
+        val status = statusLogText()
+        assertTrue(status.contains("OTA: UPDATE VERFÜGBAR"))
+        assertTrue(status.contains("SERVER: 6.1 (Code 85)"))
+        assertFalse(status.contains("Vorgang:"))
+        assertFalse(status.contains("Thread:"))
+    }
+
+    @Test
+    fun checkForUpdates_logsCompleteDecisionWithoutManifestOrCredentials() {
+        val manifest = versionJson(
+            versionCode = 85,
+            versionName = "6.1-diagnostic",
+            apkFile = "releases/mde-85.apk"
+        )
+        remote.versionBytes = manifest.toByteArray()
+
+        manager.checkForUpdates()
+
+        val log = diagnosticLogText()
+        assertTrue(log.contains("Stufe: Versionsprüfung"))
+        assertTrue(log.contains("Abruf über Kerberos/SMB gestartet"))
+        assertTrue(log.contains("Strikte UTF-8-Prüfung erfolgreich"))
+        assertTrue(log.contains("Schema geprüft"))
+        assertTrue(log.contains("Update verfügbar"))
+        assertTrue(log.contains("Erfolgreich beendet"))
+        assertFalse(log.contains(manifest))
+        assertFalse(log.contains(serverConfig.username))
+        assertFalse(log.contains(serverConfig.password))
+    }
+
+    @Test
+    fun checkForUpdates_logsRedactedFailureAndRethrowsIt() {
+        remote.readFailure = IOException(
+            "Kerberos-Anmeldung fehlgeschlagen für ${serverConfig.username}:" +
+                serverConfig.password
+        )
+
+        val error = assertFails<IOException> { manager.checkForUpdates() }
+
+        assertTrue(error.message.orEmpty().contains(serverConfig.password))
+        val log = diagnosticLogText()
+        assertTrue(log.contains("ERROR"))
+        assertTrue(log.contains("Kerberos-Anmeldung fehlgeschlagen"))
+        assertTrue(log.contains("<redacted>"))
+        assertFalse(log.contains(serverConfig.username))
+        assertFalse(log.contains(serverConfig.password))
+        val status = statusLogText()
+        assertTrue(status.contains("OTA FEHLER"))
+        assertTrue(status.contains("STELLE: Versionsprüfung"))
+        assertTrue(status.contains("<redacted>"))
+        assertFalse(status.contains(serverConfig.username))
+        assertFalse(status.contains(serverConfig.password))
+        assertFalse(status.contains("at com.example"))
+    }
+
+    @Test
+    fun checkForUpdates_doesNotLogMalformedManifestContent() {
+        val privateManifestContent = "do-not-persist-this-manifest-content"
+        remote.versionBytes = (
+            "{\"versionCode\":85,\"private\":\"$privateManifestContent\" BROKEN"
+        ).toByteArray()
+
+        assertFails<IllegalArgumentException> { manager.checkForUpdates() }
+
+        val log = diagnosticLogText()
+        assertTrue(log.contains("version.json enthält ungültiges JSON"))
+        assertFalse(log.contains(privateManifestContent))
+        assertFalse(log.contains("\"private\""))
     }
 
     @Test
@@ -135,6 +212,11 @@ class UpdateManagerTest {
 
         remote.versionBytes = versionJson(versionCode = 20).toByteArray()
         assertNull(manager.checkForUpdates())
+
+        val status = statusLogText()
+        assertTrue(status.contains("OTA OK: APP IST AKTUELL"))
+        assertTrue(status.contains("SERVER: 6.1 (Code 20)"))
+        assertTrue(status.contains("MASSNAHME: keine"))
     }
 
     @Test
@@ -158,6 +240,14 @@ class UpdateManagerTest {
         assertEquals("AppUpdate/mde-85.apk", remote.lastDownloadPath)
         assertEquals(OtaConfig.MAX_APK_BYTES, remote.lastDownloadLimit)
         assertEquals(1, verifier.calls)
+
+        val log = diagnosticLogText()
+        assertTrue(log.contains("Kerberos/SMB-Download gestartet"))
+        assertTrue(log.contains("Übertragung beendet"))
+        assertTrue(log.contains("Teildatei synchronisiert"))
+        assertTrue(log.contains("APK-Prüfung"))
+        assertTrue(log.contains("Verifizierte APK bereitgestellt"))
+        assertFalse(log.contains(serverConfig.password))
     }
 
     @Test
@@ -230,6 +320,21 @@ class UpdateManagerTest {
     ): String =
         """{"versionCode":$versionCode,"versionName":"$versionName","apkFile":"$apkFile"}"""
 
+    private fun diagnosticLogText(): String {
+        val logDirectory = File(externalFilesDirectory, "tcp_logs")
+        val files = logDirectory.listFiles().orEmpty().filter { file ->
+            file.name.startsWith("${OtaDiagnosticLog.DETAIL_LOG_COMMAND}_") &&
+                file.extension == "txt"
+        }
+        assertTrue("Mindestens ein OTA/Kerberos-Tageslog erwartet", files.isNotEmpty())
+        return files.joinToString("\n") { file -> file.readText() }
+    }
+
+    private fun statusLogText(): String = File(
+        File(externalFilesDirectory, "tcp_logs"),
+        "${OtaDiagnosticLog.LOG_COMMAND}.txt"
+    ).readText()
+
     private inline fun <reified T : Throwable> assertFails(block: () -> Unit): T {
         try {
             block()
@@ -250,10 +355,12 @@ class UpdateManagerTest {
         var lastDownloadPath: String? = null
         var lastDownloadLimit: Long? = null
         var downloadCalls = 0
+        var readFailure: Throwable? = null
 
         override fun readFile(path: String, maxBytes: Long): ByteArray {
             lastReadPath = path
             lastReadLimit = maxBytes
+            readFailure?.let { throw it }
             return versionBytes
         }
 

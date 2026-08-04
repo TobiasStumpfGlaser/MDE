@@ -5,142 +5,242 @@ import java.io.File
 import java.io.IOException
 
 /**
- * Android-compatible Kerberos/SMB2 client backed by a native Rust library.
+ * Android-kompatibler Kerberos-/SMB2-Client auf Basis der nativen Rust-Bibliothek.
  *
- * The native side performs AS, TGS and AP-REQ itself. It does not use JAAS,
- * JGSS or NTLM. Calls are blocking and must run on a background thread.
+ * Die native Seite führt AS, TGS und AP-REQ selbst aus und verwendet weder
+ * JAAS/JGSS noch NTLM. Alle Aufrufe blockieren und gehören auf einen Hintergrund-Thread.
  */
-object NativeKerberosSmb {
-    private val libraryLoaded: Boolean by lazy {
+internal object NativeKerberosSmb {
+    private val nativeLibraryLoaded: Unit by lazy {
         System.loadLibrary("mde_kerberos_smb")
-        true
     }
 
     fun readFile(
         context: Context,
-        config: KerberosSmbConfig,
+        config: OtaServerConfig,
         path: String,
-        maxBytes: Long = 32L * 1024 * 1024,
-        krbConfigAsset: String = "krb5.conf"
-    ): ByteArray {
+        maxBytes: Long
+    ): ByteArray = OtaDiagnosticLog.operation(
+        context = context,
+        name = "Kerberos/SMB-Datei lesen",
+        secrets = OtaDiagnosticLog.credentialSecrets(config.username, config.password)
+    ) {
+        OtaDiagnosticLog.event(
+            context,
+            "Kerberos/SMB-Lesen/Eingabe",
+            "Server=${config.server}; Verbindungsziel=${config.connectHost}:" +
+                "${OtaConfig.SMB_PORT}; " +
+                "Freigabe=${config.share}; Pfad=$path; Limit=$maxBytes Bytes; " +
+                "Realm=${config.realm}; KDC=${config.kdcAddress}; " +
+                "Signierung erforderlich=$REQUIRE_SIGNING; " +
+                "Verbindungs-Timeout=$CONNECT_TIMEOUT_MILLIS ms; " +
+                "Antwort-Timeout=$RESPONSE_TIMEOUT_MILLIS ms; " +
+                "Zugangsdaten=<gesetzt>"
+        )
         require(maxBytes in 1..Int.MAX_VALUE.toLong()) {
             "maxBytes muss zwischen 1 und ${Int.MAX_VALUE} liegen"
         }
 
-        val server = config.server.trim()
-        validateHostName(server, "SMB-Servername")
-        val connectHost = config.connectHost.trim()
-        validateHostName(connectHost, "SMB-Verbindungsadresse")
-        val share = validateShare(config.share)
+        val remotePath = validateRequest(context, config, path, "Kerberos/SMB-Lesen")
+        ensureNativeLibraryLoaded(context)
 
-        val krbConfig = deployKrbConfig(context, krbConfigAsset)
-        val username = normalizeKerberosUsername(config.username)
-        val remotePath = sanitizeSmbPath(path)
-        require(remotePath.isNotEmpty()) { "SMB-Dateipfad darf nicht leer sein" }
-
-        // Trigger the lazy load here so parser/validation unit tests never need
-        // an Android native library.
-        check(libraryLoaded)
-
-        return nativeReadFile(
-            server = server,
-            connectHost = connectHost,
-            share = share,
-            path = remotePath,
-            username = username,
-            password = config.password,
-            realm = krbConfig.defaultRealm,
-            kdcAddress = krbConfig.kdcAddress,
-            requireSigning = config.requireSigning,
-            connectTimeoutMillis = config.connectTimeoutMillis,
-            responseTimeoutMillis = config.responseTimeoutMillis,
-            maxBytes = maxBytes
+        OtaDiagnosticLog.event(
+            context,
+            "Kerberos/SMB-Lesen/Native",
+            "TCP-Verbindung, SMB-Aushandlung, Kerberos-Anmeldung, Freigabe und Dateilesen gestartet"
         )
+        val bytes = runNativeCall(context, config) {
+            nativeReadFile(
+                server = config.server,
+                connectHost = config.connectHost,
+                share = config.share,
+                path = remotePath,
+                username = config.username,
+                password = config.password,
+                realm = config.realm,
+                kdcAddress = config.kdcAddress,
+                requireSigning = REQUIRE_SIGNING,
+                connectTimeoutMillis = CONNECT_TIMEOUT_MILLIS,
+                responseTimeoutMillis = RESPONSE_TIMEOUT_MILLIS,
+                maxBytes = maxBytes
+            )
+        }
+        OtaDiagnosticLog.event(
+            context,
+            "Kerberos/SMB-Lesen/Native",
+            "Alle nativen Stufen erfolgreich (TCP, SMB-Aushandlung, Kerberos AS/TGS/" +
+                "AP-REQ, Freigabe, Dateiinfo und Dateilesen); ${bytes.size} Bytes gelesen"
+        )
+        bytes
     }
 
     /**
-     * Streams a remote SMB file directly into [destination] without keeping
-     * the complete file in either the Kotlin or native heap.
+     * Streamt eine SMB-Datei direkt nach [destination], ohne sie vollständig
+     * im Kotlin- oder nativen Heap zu halten.
      *
-     * [destination] must be an absolute `.part` file below one of the
-     * app-private `cacheDir`, `filesDir` or `noBackupFilesDir` roots. Android's
-     * equivalent `/data/user/0` and `/data/data` root aliases are accepted,
-     * while symbolic links below those roots are rejected. A stale regular
-     * `.part` file is removed before the native download starts. On every
-     * failure, the incomplete destination is removed best-effort.
+     * Das Ziel muss eine absolute `.part`-Datei unter `cacheDir`, `filesDir`
+     * oder `noBackupFilesDir` sein. Symbolische Links unterhalb dieser Wurzeln
+     * werden abgelehnt. Alte beziehungsweise fehlgeschlagene Teildateien werden
+     * nach Möglichkeit entfernt.
      *
-     * Calls are blocking and must run on a background thread.
-     *
-     * @return the number of bytes written to [destination].
+     * @return Anzahl der nach [destination] geschriebenen Bytes.
      */
     @Throws(IOException::class)
     fun downloadFile(
         context: Context,
-        config: KerberosSmbConfig,
+        config: OtaServerConfig,
         path: String,
         destination: File,
-        maxBytes: Long,
-        expectedSizeBytes: Long? = null,
-        krbConfigAsset: String = "krb5.conf"
-    ): Long {
+        maxBytes: Long
+    ): Long = OtaDiagnosticLog.operation(
+        context = context,
+        name = "Kerberos/SMB-Datei herunterladen",
+        secrets = OtaDiagnosticLog.credentialSecrets(config.username, config.password)
+    ) {
+        OtaDiagnosticLog.event(
+            context,
+            "Kerberos/SMB-Download/Eingabe",
+            "Server=${config.server}; Verbindungsziel=${config.connectHost}:" +
+                "${OtaConfig.SMB_PORT}; " +
+                "Freigabe=${config.share}; Pfad=$path; Ziel=${destination.absolutePath}; " +
+                "Limit=$maxBytes Bytes; " +
+                "Realm=${config.realm}; KDC=${config.kdcAddress}; " +
+                "Signierung erforderlich=$REQUIRE_SIGNING; " +
+                "Verbindungs-Timeout=$CONNECT_TIMEOUT_MILLIS ms; " +
+                "Antwort-Timeout=$RESPONSE_TIMEOUT_MILLIS ms; " +
+                "Zugangsdaten=<gesetzt>"
+        )
         require(maxBytes > 0) { "maxBytes muss positiv sein" }
-        require(expectedSizeBytes == null || expectedSizeBytes in 0..maxBytes) {
-            "expectedSizeBytes muss zwischen 0 und maxBytes liegen"
-        }
 
-        val server = config.server.trim()
-        validateHostName(server, "SMB-Servername")
-        val connectHost = config.connectHost.trim()
-        validateHostName(connectHost, "SMB-Verbindungsadresse")
-        val share = validateShare(config.share)
-        val krbConfig = deployKrbConfig(context, krbConfigAsset)
-        val username = normalizeKerberosUsername(config.username)
-        val remotePath = sanitizeSmbPath(path)
-        require(remotePath.isNotEmpty()) { "SMB-Dateipfad darf nicht leer sein" }
+        val remotePath = validateRequest(context, config, path, "Kerberos/SMB-Download")
 
         val partFile = preparePrivatePartFile(context, destination)
+        OtaDiagnosticLog.event(
+            context,
+            "Kerberos/SMB-Download/Zieldatei",
+            "App-privates .part-Ziel geprüft: ${partFile.absolutePath}"
+        )
 
-        // Load before deleting a stale partial download. This preserves the
-        // most useful failure if the native ABI is unavailable.
-        check(libraryLoaded)
+        // Vor dem Löschen einer alten Teildatei laden, damit ein ABI-Fehler
+        // als aussagekräftigste Ursache erhalten bleibt.
+        ensureNativeLibraryLoaded(context)
+        val stalePartFileExisted = partFile.exists()
         removeStalePartFile(partFile)
+        OtaDiagnosticLog.event(
+            context,
+            "Kerberos/SMB-Download/Zieldatei",
+            if (stalePartFileExisted) {
+                "Alte native Teildatei entfernt"
+            } else {
+                "Keine alte native Teildatei vorhanden"
+            }
+        )
 
+        OtaDiagnosticLog.event(
+            context,
+            "Kerberos/SMB-Download/Native",
+            "TCP-Verbindung, SMB-Aushandlung, Kerberos-Anmeldung, Freigabe und Download gestartet"
+        )
         val bytesWritten = try {
-            nativeDownloadFile(
-                server = server,
-                connectHost = connectHost,
-                share = share,
-                path = remotePath,
-                username = username,
-                password = config.password,
-                realm = krbConfig.defaultRealm,
-                kdcAddress = krbConfig.kdcAddress,
-                requireSigning = config.requireSigning,
-                connectTimeoutMillis = config.connectTimeoutMillis,
-                responseTimeoutMillis = config.responseTimeoutMillis,
-                destinationPath = partFile.absolutePath,
-                maxBytes = maxBytes,
-                expectedSizeBytes = expectedSizeBytes ?: NO_EXPECTED_SIZE
-            )
+            runNativeCall(context, config) {
+                nativeDownloadFile(
+                    server = config.server,
+                    connectHost = config.connectHost,
+                    share = config.share,
+                    path = remotePath,
+                    username = config.username,
+                    password = config.password,
+                    realm = config.realm,
+                    kdcAddress = config.kdcAddress,
+                    requireSigning = REQUIRE_SIGNING,
+                    connectTimeoutMillis = CONNECT_TIMEOUT_MILLIS,
+                    responseTimeoutMillis = RESPONSE_TIMEOUT_MILLIS,
+                    destinationPath = partFile.absolutePath,
+                    maxBytes = maxBytes,
+                    expectedSizeBytes = NO_EXPECTED_SIZE
+                )
+            }
         } catch (error: Throwable) {
             removeFailedPartFile(partFile, error)
             throw error
         }
+        OtaDiagnosticLog.event(
+            context,
+            "Kerberos/SMB-Download/Native",
+            "Native Kerberos/SMB-Operation beendet; $bytesWritten Bytes gemeldet"
+        )
 
         val localSize = if (partFile.isFile) partFile.length() else -1L
-        if (bytesWritten < 0 || localSize != bytesWritten ||
-            (expectedSizeBytes != null && bytesWritten != expectedSizeBytes)
-        ) {
+        if (bytesWritten < 0 || localSize != bytesWritten) {
             val error = IOException(
                 "Unvollständiger SMB-Download: native=$bytesWritten Bytes, " +
-                    "lokal=$localSize Bytes" +
-                    (expectedSizeBytes?.let { ", erwartet=$it Bytes" } ?: "")
+                    "lokal=$localSize Bytes"
             )
             removeFailedPartFile(partFile, error)
             throw error
         }
 
-        return bytesWritten
+        OtaDiagnosticLog.event(
+            context,
+            "Kerberos/SMB-Download/Ergebnis",
+            "Alle nativen Stufen erfolgreich (TCP, SMB-Aushandlung, Kerberos AS/TGS/" +
+                "AP-REQ, Freigabe, Dateiinfo und Download); native=$bytesWritten Bytes; " +
+                "lokal=$localSize Bytes"
+        )
+        bytesWritten
+    }
+
+    private fun validateRequest(
+        context: Context,
+        config: OtaServerConfig,
+        path: String,
+        stage: String
+    ): String {
+        val remotePath = validateOtaRelativePath(path, "SMB-Dateipfad")
+        OtaDiagnosticLog.event(
+            context,
+            "$stage/Validierung",
+            "Ziel validiert: //${config.server}/${config.share}/$remotePath; " +
+                "Realm=${config.realm}; KDC=${config.kdcAddress}; Benutzer=<redacted>"
+        )
+        return remotePath
+    }
+
+    private fun ensureNativeLibraryLoaded(context: Context) {
+        OtaDiagnosticLog.event(
+            context,
+            "Kerberos/Native-Bibliothek",
+            "Laden von libmde_kerberos_smb wird geprüft"
+        )
+        nativeLibraryLoaded
+        OtaDiagnosticLog.event(
+            context,
+            "Kerberos/Native-Bibliothek",
+            "Native Bibliothek ist geladen"
+        )
+    }
+
+    private inline fun <T> runNativeCall(
+        context: Context,
+        config: OtaServerConfig,
+        block: () -> T
+    ): T {
+        val networkState = OtaNetworkDiagnostics.capture(context)
+        val startedNanos = System.nanoTime()
+        return try {
+            block()
+        } catch (error: IOException) {
+            OtaNetworkDiagnostics.logFailure(
+                context = context,
+                beforeNativeCall = networkState,
+                smbHost = config.connectHost,
+                kdcAddress = config.kdcAddress,
+                originalError = error,
+                nativeDurationMillis =
+                    (System.nanoTime() - startedNanos).coerceAtLeast(0L) / 1_000_000L
+            )
+            throw error
+        }
     }
 
     private external fun nativeReadFile(
@@ -174,20 +274,6 @@ object NativeKerberosSmb {
         maxBytes: Long,
         expectedSizeBytes: Long
     ): Long
-
-    private fun validateShare(value: String): String {
-        val share = value.trim()
-        require(
-            share.isNotEmpty() &&
-                share.none(Char::isWhitespace) &&
-                '/' !in share &&
-                '\\' !in share &&
-                ':' !in share
-        ) {
-            "Ungültiger SMB-Freigabename: $share"
-        }
-        return share
-    }
 
     internal fun preparePrivatePartFile(context: Context, destination: File): File {
         require(destination.isAbsolute) { "Download-Zielpfad muss absolut sein" }
@@ -224,8 +310,8 @@ object NativeKerberosSmb {
             throw IOException("Download-Zielpfad ist kein Verzeichnis")
         }
 
-        // Resolve again after mkdirs, so a pre-existing symlink in the parent
-        // path cannot move the destination outside app-private storage.
+        // Nach mkdirs erneut kanonisieren, damit ein vorhandener Symlink im
+        // Elternpfad das Ziel nicht aus dem privaten App-Speicher verschiebt.
         canonicalDestination = resolveCanonicalDestination(absoluteDestination, privateRoot)
         return canonicalDestination
     }
@@ -286,21 +372,12 @@ object NativeKerberosSmb {
         }
     }
 
-    private fun validateHostName(value: String, fieldName: String) {
-        require(
-            value.isNotEmpty() &&
-                value.none(Char::isWhitespace) &&
-                '/' !in value &&
-                '\\' !in value &&
-                '@' !in value &&
-                ':' !in value
-        ) {
-            "Ungültige $fieldName: $value"
-        }
-    }
-
     private const val PART_SUFFIX = ".part"
+    // -1 hält die bestehende JNI-ABI stabil; das Manifest liefert keine Sollgröße.
     private const val NO_EXPECTED_SIZE = -1L
+    private const val REQUIRE_SIGNING = true
+    private const val CONNECT_TIMEOUT_MILLIS = 15_000
+    private const val RESPONSE_TIMEOUT_MILLIS = 30_000
 
     private data class PrivateRoot(val absolute: File, val canonical: File)
 

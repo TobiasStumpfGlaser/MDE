@@ -14,3 +14,7 @@
 .cxx
 native/**/target/
 local.properties
+
+# Lokale Android-Buildartefakte (können eingebettete BuildConfig-Werte enthalten)
+/*.apk
+/output-metadata.json

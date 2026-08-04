@@ -14,12 +14,13 @@ import android.widget.Spinner
 import android.widget.TextView
 import androidx.appcompat.app.AppCompatActivity
 import androidx.appcompat.widget.Toolbar
+import java.util.Locale
 import kotlin.math.roundToInt
 
 /**
  * Einstellungs-Activity.
  *
- * Erlaubt das Anpassen von Server-Adresse, Timeouts, Werknummer, Theme sowie
+ * Erlaubt das Anpassen von Server-Adressen, OTA, Timeouts, Werknummer, Theme sowie
  * Schrift- und Layout-Skalierung. Alle Werte werden in [AppSettings] persistiert.
  * Ein Neustart der App via [restartApp] ist nach dem Speichern notwendig,
  * damit Theme- und Skalierungsänderungen wirksam werden.
@@ -71,6 +72,13 @@ class SettingsActivity : AppCompatActivity() {
         val etLogout = findViewById<EditText>(R.id.etLogoutTime)
         val etWerk = findViewById<EditText>(R.id.etWerkNummer)
         val etDefUser = findViewById<EditText>(R.id.etDefaultUser)
+        val cbOtaEnabled = findViewById<CheckBox>(R.id.cbOtaEnabled)
+        val etOtaServer = findViewById<EditText>(R.id.etOtaServer)
+        val etOtaConnectHost = findViewById<EditText>(R.id.etOtaConnectHost)
+        val etOtaShare = findViewById<EditText>(R.id.etOtaShare)
+        val etOtaBasePath = findViewById<EditText>(R.id.etOtaBasePath)
+        val etOtaRealm = findViewById<EditText>(R.id.etOtaRealm)
+        val etOtaKdcAddress = findViewById<EditText>(R.id.etOtaKdcAddress)
         cbClear = findViewById(R.id.cbClearAfterSuccess)
         val btnSave = findViewById<Button>(R.id.btnSave)
         spTheme = findViewById(R.id.spTheme)
@@ -89,13 +97,19 @@ class SettingsActivity : AppCompatActivity() {
         themeAdapter.setDropDownViewResource(android.R.layout.simple_spinner_dropdown_item)
         spTheme.adapter = themeAdapter
 
-        // Laden
         etIp.setText(settings.serverIp)
         etPort.setText(settings.serverPort.toString())
         etTimeout.setText(settings.timeoutS.toString())
         etLogout.setText(settings.logoutTimeSec.toString())
         etWerk.setText(settings.werkNummer)
         etDefUser.setText(settings.defaultUser)
+        cbOtaEnabled.isChecked = settings.otaEnabled
+        etOtaServer.setText(settings.otaServer)
+        etOtaConnectHost.setText(settings.otaConnectHost)
+        etOtaShare.setText(settings.otaShare)
+        etOtaBasePath.setText(settings.otaBasePath)
+        etOtaRealm.setText(settings.otaRealm)
+        etOtaKdcAddress.setText(settings.otaKdcAddress)
         cbClear.isChecked = settings.clearAfterSuccess
 
         spTheme.setSelection(
@@ -106,7 +120,6 @@ class SettingsActivity : AppCompatActivity() {
             }
         )
 
-        // 0.25er Schritte: 0..7 -> 0.25..2.00
         sbFontScale.progress = scaleToStep(settings.fontScale)
         updateFontPreview(stepToScale(sbFontScale.progress))
         sbFontScale.setOnSeekBarChangeListener(object : SeekBar.OnSeekBarChangeListener {
@@ -128,6 +141,23 @@ class SettingsActivity : AppCompatActivity() {
         })
 
         btnSave.setOnClickListener {
+            val otaServer = readValidOtaValue(etOtaServer) {
+                validateOtaHost(it, "OTA-SMB-Server")
+            }
+                ?: return@setOnClickListener
+            val otaConnectHost = readValidOtaValue(etOtaConnectHost) {
+                validateOtaHost(it, "OTA-Connect-Host")
+            }
+                ?: return@setOnClickListener
+            val otaShare = readValidOtaValue(etOtaShare, ::validateOtaShare)
+                ?: return@setOnClickListener
+            val otaBasePath = readValidOtaValue(etOtaBasePath, ::validateOtaBasePath)
+                ?: return@setOnClickListener
+            val otaRealm = readValidOtaValue(etOtaRealm, ::normalizeOtaRealm)
+                ?: return@setOnClickListener
+            val otaKdcAddress = readValidOtaValue(etOtaKdcAddress, ::normalizeOtaKdcAddress)
+                ?: return@setOnClickListener
+
             settings.serverIp = etIp.text.toString()
             settings.serverPort = etPort.text.toString().toIntOrNull() ?: 5000
             settings.timeoutS = etTimeout.text.toString().toIntOrNull() ?: 3000
@@ -135,6 +165,13 @@ class SettingsActivity : AppCompatActivity() {
             settings.werkNummer = etWerk.text.toString()
             settings.defaultUser = etDefUser.text.toString()
             settings.clearAfterSuccess = cbClear.isChecked
+            settings.otaEnabled = cbOtaEnabled.isChecked
+            settings.otaServer = otaServer
+            settings.otaConnectHost = otaConnectHost
+            settings.otaShare = otaShare
+            settings.otaBasePath = otaBasePath
+            settings.otaRealm = otaRealm
+            settings.otaKdcAddress = otaKdcAddress
 
             settings.selectedTheme = when (spTheme.selectedItem.toString()) {
                 "Dunkel" -> "dark"
@@ -142,7 +179,6 @@ class SettingsActivity : AppCompatActivity() {
                 else -> "light"
             }
 
-            // speichern (0.25er Schritte)
             settings.fontScale = stepToScale(sbFontScale.progress)
             settings.layoutScale = stepToScale(sbLayoutScale.progress)
 
@@ -189,12 +225,10 @@ class SettingsActivity : AppCompatActivity() {
      * Wandelt einen SeekBar-Step (0..7) in einen Skalierungsfaktor (0.25..2.00) um.
      * Schrittweite: 0,25.
      */
-    // step 0..7 => scale = 0.25 + step*0.25 => 0.25..2.00
     private fun stepToScale(step: Int): Float =
         (0.25f + (step.coerceIn(0, 7) * 0.25f)).coerceIn(0.25f, 2.0f)
 
     /** Wandelt einen Skalierungsfaktor (0.25..2.00) in den nächstliegenden SeekBar-Step (0..7) um. */
-    // scale -> nearest step (0..7)
     private fun scaleToStep(scale: Float): Int {
         val clamped = scale.coerceIn(0.25f, 2.0f)
         return ((clamped - 0.25f) / 0.25f).roundToInt().coerceIn(0, 7)
@@ -202,12 +236,27 @@ class SettingsActivity : AppCompatActivity() {
 
     /** Aktualisiert die Vorschau-TextView mit dem aktuellen Schriftskalierungsfaktor. */
     private fun updateFontPreview(scale: Float) {
-        tvFontScalePreview.text = "Schriftgröße: ${String.format("%.2f", scale)}x"
+        tvFontScalePreview.text =
+            "Schriftgröße: ${String.format(Locale.getDefault(), "%.2f", scale)}x"
     }
 
     /** Aktualisiert die Vorschau-TextView mit dem aktuellen Layout-Skalierungsfaktor. */
     private fun updateLayoutPreview(scale: Float) {
-        tvLayoutScalePreview.text = "Layout: ${String.format("%.2f", scale)}x"
+        tvLayoutScalePreview.text =
+            "Layout: ${String.format(Locale.getDefault(), "%.2f", scale)}x"
+    }
+
+    private fun readValidOtaValue(
+        editText: EditText,
+        normalize: (String) -> String
+    ): String? {
+        editText.error = null
+        return runCatching { normalize(editText.text.toString()) }
+            .getOrElse { error ->
+                editText.error = error.message
+                editText.requestFocus()
+                null
+            }
     }
 
     private fun resetInactivityTimer() {

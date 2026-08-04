@@ -1,7 +1,7 @@
 package com.example.mde
 
 /**
- * Strictly validated contents of the OTA server's `version.json`.
+ * Strikt validierter Inhalt der OTA-Datei `version.json`.
  *
  * Example:
  * ```json
@@ -12,8 +12,8 @@ package com.example.mde
  * }
  * ```
  *
- * Only [versionCode] decides whether an update is newer. [versionName] is
- * display text. [apkFile] is always relative to [OtaConfig.BASE_PATH].
+ * Nur [versionCode] entscheidet, ob ein Update neuer ist. [versionName] ist
+ * Anzeigetext; [apkFile] liegt relativ zum konfigurierten OTA-Basispfad.
  */
 data class UpdateInfo(
     val versionCode: Long,
@@ -32,8 +32,6 @@ data class UpdateInfo(
         ) {
             "versionName ist ungültig"
         }
-        require(apkFile == validateOtaApkPath(apkFile)) {
-            "apkFile ist ungültig"
-        }
+        validateOtaApkPath(apkFile)
     }
 }

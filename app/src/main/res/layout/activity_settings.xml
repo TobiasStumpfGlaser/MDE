@@ -179,6 +179,126 @@
                 android:paddingStart="16dp"
                 android:paddingEnd="16dp" />
 
+            <CheckBox
+                android:id="@+id/cbOtaEnabled"
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="OTA-Updates aktivieren"
+                android:textColor="?android:attr/textColorPrimary" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:text="OTA SMB-Server (Kerberos/SPN)"
+                android:textColor="?android:attr/textColorPrimary" />
+
+            <EditText
+                android:id="@+id/etOtaServer"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:background="?attr/editTextBackground"
+                android:hint="Logischer SMB-Servername"
+                android:inputType="textUri|textNoSuggestions"
+                android:maxLength="255"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:singleLine="true" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="8dp"
+                android:text="OTA Connect Host (DNS/FQDN oder IPv4)"
+                android:textColor="?android:attr/textColorPrimary" />
+
+            <EditText
+                android:id="@+id/etOtaConnectHost"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:background="?attr/editTextBackground"
+                android:hint="DNS-Name oder IPv4-Adresse"
+                android:inputType="textUri|textNoSuggestions"
+                android:maxLength="255"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:singleLine="true" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="8dp"
+                android:text="OTA SMB-Freigabe"
+                android:textColor="?android:attr/textColorPrimary" />
+
+            <EditText
+                android:id="@+id/etOtaShare"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:background="?attr/editTextBackground"
+                android:hint="Freigabename"
+                android:inputType="textNoSuggestions"
+                android:maxLength="255"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:singleLine="true" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="8dp"
+                android:text="OTA Basispfad in der Freigabe (optional)"
+                android:textColor="?android:attr/textColorPrimary" />
+
+            <EditText
+                android:id="@+id/etOtaBasePath"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:background="?attr/editTextBackground"
+                android:hint="Leer = Wurzel der Freigabe"
+                android:inputType="textNoSuggestions"
+                android:maxLength="512"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:singleLine="true" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="8dp"
+                android:text="OTA Kerberos-Realm"
+                android:textColor="?android:attr/textColorPrimary" />
+
+            <EditText
+                android:id="@+id/etOtaRealm"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:background="?attr/editTextBackground"
+                android:hint="KERBEROS.REALM"
+                android:inputType="textNoSuggestions"
+                android:maxLength="255"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:singleLine="true" />
+
+            <TextView
+                android:layout_width="match_parent"
+                android:layout_height="wrap_content"
+                android:paddingTop="8dp"
+                android:text="OTA Kerberos-KDC"
+                android:textColor="?android:attr/textColorPrimary" />
+
+            <EditText
+                android:id="@+id/etOtaKdcAddress"
+                android:layout_width="match_parent"
+                android:layout_height="56dp"
+                android:background="?attr/editTextBackground"
+                android:hint="kdc.example:88"
+                android:inputType="textUri|textNoSuggestions"
+                android:maxLength="255"
+                android:paddingStart="16dp"
+                android:paddingEnd="16dp"
+                android:singleLine="true" />
+
             <!-- Theme -->
             <TextView
                 android:layout_width="match_parent"

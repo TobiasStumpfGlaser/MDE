@@ -40,6 +40,9 @@ class AppSettingsTest {
         every { editor.putBoolean(any(), any()) } answers {
             store[firstArg()] = secondArg<Boolean>(); editor
         }
+        every { editor.remove(any()) } answers {
+            store.remove(firstArg<String>()); editor
+        }
         every { editor.apply() } returns Unit
         every { editor.commit() } returns true
 
@@ -159,6 +162,97 @@ class AppSettingsTest {
         settings.clearAfterSuccess = true
         settings.clearAfterSuccess = false
         assertFalse(settings.clearAfterSuccess)
+    }
+
+    // ── OTA-Laufzeiteinstellungen ─────────────────────────────────────────────
+
+    @Test
+    fun otaRuntimeSettings_defaultsMatchAppSettings() {
+        assertEquals(AppSettings.DEFAULT_OTA_ENABLED, settings.otaEnabled)
+        assertEquals(AppSettings.DEFAULT_OTA_SERVER, settings.otaServer)
+        assertEquals(AppSettings.DEFAULT_OTA_CONNECT_HOST, settings.otaConnectHost)
+        assertEquals(AppSettings.DEFAULT_OTA_SHARE, settings.otaShare)
+        assertEquals(AppSettings.DEFAULT_OTA_BASE_PATH, settings.otaBasePath)
+        assertEquals(AppSettings.DEFAULT_OTA_REALM, settings.otaRealm)
+        assertEquals(AppSettings.DEFAULT_OTA_KDC_ADDRESS, settings.otaKdcAddress)
+    }
+
+    @Test
+    fun otaRuntimeSettings_storeTrimmedValuesUnderDedicatedKeys() {
+        settings.otaEnabled = false
+        settings.otaServer = "  fileserver  "
+        settings.otaConnectHost = "  fileserver.example.test  "
+        settings.otaShare = "  updates  "
+        settings.otaBasePath = "releases/android"
+        settings.otaRealm = "example.test"
+        settings.otaKdcAddress = "kdc.example.test"
+
+        assertFalse(settings.otaEnabled)
+        assertEquals("fileserver", settings.otaServer)
+        assertEquals("fileserver.example.test", settings.otaConnectHost)
+        assertEquals("updates", settings.otaShare)
+        assertEquals("releases/android", settings.otaBasePath)
+        assertEquals("EXAMPLE.TEST", settings.otaRealm)
+        assertEquals("kdc.example.test:88", settings.otaKdcAddress)
+        verify { editor.putBoolean("ota_enabled", false) }
+        verify { editor.putString("ota_server", "fileserver") }
+        verify { editor.putString("ota_connect_host", "fileserver.example.test") }
+        verify { editor.putString("ota_share", "updates") }
+        verify { editor.putString("ota_base_path", "releases/android") }
+        verify { editor.putString("ota_realm", "EXAMPLE.TEST") }
+        verify { editor.putString("ota_kdc_address", "kdc.example.test:88") }
+    }
+
+    @Test
+    fun otaRuntimeSettings_rejectInvalidHosts() {
+        assertThrows(IllegalArgumentException::class.java) {
+            settings.otaServer = "smb://fileserver"
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            settings.otaConnectHost = "fileserver.example.test:445"
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            settings.otaShare = "invalid share"
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            settings.otaBasePath = "../updates"
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            settings.otaRealm = "https://example.test"
+        }
+        assertThrows(IllegalArgumentException::class.java) {
+            settings.otaKdcAddress = "kdc.example.test:not-a-port"
+        }
+    }
+
+    @Test
+    fun otaRuntimeSettings_invalidStoredValuesFallBackToDefaults() {
+        store["ota_share"] = "invalid share"
+        store["ota_base_path"] = "../updates"
+        store["ota_realm"] = "invalid realm"
+        store["ota_kdc_address"] = "https://kdc.example.test"
+
+        assertEquals(AppSettings.DEFAULT_OTA_SHARE, settings.otaShare)
+        assertEquals(AppSettings.DEFAULT_OTA_BASE_PATH, settings.otaBasePath)
+        assertEquals(AppSettings.DEFAULT_OTA_REALM, settings.otaRealm)
+        assertEquals(AppSettings.DEFAULT_OTA_KDC_ADDRESS, settings.otaKdcAddress)
+    }
+
+    @Test
+    fun obsoletePlaintextOtaSettings_areRemovedOnce() {
+        store["ota_settings_schema_version"] = 0
+        store["ota_server_url"] = "smb://legacy"
+        store["ota_domain"] = "LEGACY"
+        store["ota_username"] = "legacy-user"
+        store["ota_password"] = "legacy-password"
+
+        AppSettings(context)
+
+        assertFalse(store.containsKey("ota_server_url"))
+        assertFalse(store.containsKey("ota_domain"))
+        assertFalse(store.containsKey("ota_username"))
+        assertFalse(store.containsKey("ota_password"))
+        assertEquals(1, store["ota_settings_schema_version"])
     }
 
     // ── selectedTheme ─────────────────────────────────────────────────────────

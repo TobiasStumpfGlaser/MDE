@@ -4,7 +4,6 @@ import android.content.Intent
 import android.os.Bundle
 import android.os.Handler
 import android.os.Looper
-import android.text.InputType
 import android.util.Log
 import android.view.MotionEvent
 import android.view.WindowManager
@@ -15,7 +14,6 @@ import android.widget.Button
 import android.widget.EditText
 import android.widget.Filter
 import android.widget.ImageButton
-import android.widget.LinearLayout
 import android.widget.TextView
 import androidx.appcompat.app.AlertDialog
 import androidx.appcompat.app.AppCompatActivity
@@ -111,15 +109,8 @@ class LoginActivity : AppCompatActivity() {
         private const val VERSION_STATUS_FAILED = "Versionsprüfung fehlgeschlagen"
         private const val VERSION_STATUS_NOT_CONFIGURED =
             "Versionsprüfung nicht konfiguriert"
-        private const val VERSION_STATUS_DISABLED = "Versionsprüfung deaktiviert"
         private const val VERSION_STATUS_INSTALL_PENDING =
             "Updateinstallation wird fortgesetzt"
-        private const val KERBEROS_TEST_SERVER = "w2-fs-wks"
-        private const val KERBEROS_TEST_CONNECT_HOST =
-            "w2-fs-wks.werkstatt.brainware-solutions.de"
-        private const val KERBEROS_TEST_SHARE = "transfer"
-        private const val KERBEROS_TEST_FILE = "Temp/Tobias S/AppTest.txt"
-        private const val KERBEROS_TEST_MAX_BYTES = 256L * 1024
     }
 
     private lateinit var settings: AppSettings
@@ -212,13 +203,56 @@ class LoginActivity : AppCompatActivity() {
         loadUserList()
 
         when {
-            !BuildConfig.OTA_ENABLE -> showVersionStatus(VERSION_STATUS_DISABLED)
-            otaUpdateHelper.pendingApkPathForState() != null ->
+            !settings.otaEnabled -> {
+                OtaDiagnosticLog.event(
+                    this,
+                    "Versionsprüfung/Start",
+                    "Übersprungen: OTA ist in den App-Einstellungen deaktiviert"
+                )
+                OtaDiagnosticLog.summary(
+                    context = this,
+                    level = OtaDiagnosticLog.SummaryLevel.ATTENTION,
+                    title = "OTA DEAKTIVIERT",
+                    lines = listOf(
+                        "STATUS: Versionsprüfung in den App-Einstellungen ausgeschaltet",
+                        "MASSNAHME: keine"
+                    )
+                )
+                showVersionStatus()
+            }
+            otaUpdateHelper.pendingApkPathForState() != null -> {
+                OtaDiagnosticLog.event(
+                    this,
+                    "Versionsprüfung/Start",
+                    "Übersprungen: Eine heruntergeladene APK wartet bereits auf die Installation"
+                )
                 showVersionStatus(VERSION_STATUS_INSTALL_PENDING)
-            OtaConfig.isConfigured -> checkForUpdatesOnStartup()
+            }
+            OtaConfig.isConfigured(settings) -> {
+                OtaDiagnosticLog.event(
+                    this,
+                    "Versionsprüfung/Start",
+                    "Automatische Versionsprüfung beim Login wird gestartet"
+                )
+                checkForUpdatesOnStartup()
+            }
             else -> {
                 showVersionStatus(VERSION_STATUS_NOT_CONFIGURED)
                 Log.w(TAG, "OTA-Check übersprungen: Serverpfad oder Build-Zugangsdaten fehlen")
+                OtaDiagnosticLog.warning(
+                    this,
+                    "Versionsprüfung/Start",
+                    "Übersprungen: Serverpfad oder Build-Zugangsdaten fehlen"
+                )
+                OtaDiagnosticLog.summary(
+                    context = this,
+                    level = OtaDiagnosticLog.SummaryLevel.ERROR,
+                    title = "OTA BLOCKIERT: KONFIGURATION",
+                    lines = listOf(
+                        "PROBLEM: Serverdaten oder Build-Zugangsdaten fehlen",
+                        "MASSNAHME: OTA-Einstellungen und Build-Konfiguration prüfen"
+                    )
+                )
             }
         }
     }
@@ -451,6 +485,11 @@ class LoginActivity : AppCompatActivity() {
 
     private fun checkForUpdatesOnStartup() {
         showVersionStatus(VERSION_STATUS_CHECKING)
+        OtaDiagnosticLog.event(
+            this,
+            "Versionsprüfung/UI",
+            "Status auf '$VERSION_STATUS_CHECKING' gesetzt; Hintergrundprüfung eingeplant"
+        )
 
         ioScope.launch {
             val result = runCatching {
@@ -459,6 +498,16 @@ class LoginActivity : AppCompatActivity() {
 
             result.exceptionOrNull()?.let { error ->
                 Log.e(TAG, "Update-Check fehlgeschlagen; Anmeldung bleibt verfügbar", error)
+                OtaDiagnosticLog.event(
+                    context = this@LoginActivity,
+                    stage = "Versionsprüfung/UI",
+                    message = "Versionsprüfung fehlgeschlagen; Anmeldung bleibt verfügbar; " +
+                        "${error.javaClass.simpleName}: ${error.message ?: "ohne Fehlermeldung"}",
+                    secrets = OtaDiagnosticLog.credentialSecrets(
+                        BuildConfig.OTA_USERNAME,
+                        BuildConfig.OTA_PASSWORD
+                    )
+                )
             }
 
             withContext(Dispatchers.Main) {
@@ -470,16 +519,46 @@ class LoginActivity : AppCompatActivity() {
     }
 
     internal fun showUpdateCheckResult(result: Result<UpdateInfo?>) {
+        if (!settings.otaEnabled) {
+            OtaDiagnosticLog.event(
+                this,
+                "Versionsprüfung/UI",
+                "Ergebnis verworfen: OTA wurde zwischenzeitlich deaktiviert"
+            )
+            showVersionStatus()
+            return
+        }
+
         result.fold(
             onSuccess = { updateInfo ->
                 if (updateInfo == null) {
+                    OtaDiagnosticLog.event(
+                        this,
+                        "Versionsprüfung/UI",
+                        "Ergebnis angezeigt: App ist aktuell"
+                    )
                     showVersionStatus(VERSION_STATUS_CURRENT)
                 } else {
+                    OtaDiagnosticLog.event(
+                        this,
+                        "Versionsprüfung/UI",
+                        "Ergebnis angezeigt: Version ${updateInfo.versionName} " +
+                            "(versionCode=${updateInfo.versionCode}) ist verfügbar",
+                        secrets = OtaDiagnosticLog.credentialSecrets(
+                            BuildConfig.OTA_USERNAME,
+                            BuildConfig.OTA_PASSWORD
+                        )
+                    )
                     showVersionStatus("Neue Version ${updateInfo.versionName} verfügbar")
                     otaUpdateHelper.showUpdateDialog(updateInfo)
                 }
             },
             onFailure = {
+                OtaDiagnosticLog.event(
+                    this,
+                    "Versionsprüfung/UI",
+                    "Fehlerstatus angezeigt"
+                )
                 showVersionStatus(VERSION_STATUS_FAILED)
             }
         )
@@ -504,112 +583,8 @@ class LoginActivity : AppCompatActivity() {
         finish()
     }
 
-    /**
-     * Asks for AD credentials without persisting them and reads the configured
-     * test file through Kerberos/SMB. The normal MDE user/PIN is deliberately
-     * not reused because it is not an Active Directory credential.
-     */
-    private fun showKerberosFileTestDialog() {
-        val padding = (24 * resources.displayMetrics.density).toInt()
-        val usernameInput = EditText(this).apply {
-            hint = "AD-Benutzername"
-            inputType = InputType.TYPE_CLASS_TEXT
-            isSingleLine = true
-        }
-        val passwordInput = EditText(this).apply {
-            hint = "AD-Passwort"
-            inputType = InputType.TYPE_CLASS_TEXT or InputType.TYPE_TEXT_VARIATION_PASSWORD
-            isSingleLine = true
-        }
-        val inputLayout = LinearLayout(this).apply {
-            orientation = LinearLayout.VERTICAL
-            setPadding(padding, padding / 2, padding, 0)
-            addView(usernameInput)
-            addView(passwordInput)
-        }
-
-        val dialog = AlertDialog.Builder(this)
-            .setTitle("Kerberos-Dateitest")
-            .setMessage(
-                "Ziel: \\\\$KERBEROS_TEST_SERVER\\$KERBEROS_TEST_SHARE\\" +
-                    KERBEROS_TEST_FILE.replace('/', '\\')
-            )
-            .setView(inputLayout)
-            .setNegativeButton("Abbrechen", null)
-            .setPositiveButton("Test starten", null)
-            .create()
-
-        dialog.setOnShowListener {
-            dialog.getButton(AlertDialog.BUTTON_POSITIVE).setOnClickListener {
-                val username = usernameInput.text.toString().trim()
-                val password = passwordInput.text.toString()
-                when {
-                    username.isEmpty() -> usernameInput.error = "AD-Benutzername fehlt"
-                    password.isEmpty() -> passwordInput.error = "AD-Passwort fehlt"
-                    else -> {
-                        passwordInput.text.clear()
-                        dialog.dismiss()
-                        runKerberosFileTest(username, password)
-                    }
-                }
-            }
-        }
-        dialog.show()
-    }
-
-    private fun runKerberosFileTest(username: String, password: String) {
-        UiLoadingHelper.show(
-            this,
-            "Kerberos-Anmeldung und SMB-Dateizugriff werden geprüft...",
-            UiLoadingHelper.LoadingStatus.LOADING
-        )
-
-        ioScope.launch {
-            val result = runCatching {
-                NativeKerberosSmb.readFile(
-                    context = this@LoginActivity,
-                    config = KerberosSmbConfig(
-                        server = KERBEROS_TEST_SERVER,
-                        connectHost = KERBEROS_TEST_CONNECT_HOST,
-                        share = KERBEROS_TEST_SHARE,
-                        username = username,
-                        password = password
-                    ),
-                    path = KERBEROS_TEST_FILE,
-                    maxBytes = KERBEROS_TEST_MAX_BYTES
-                ).toString(Charsets.UTF_8).removePrefix("\uFEFF")
-            }
-
-            withContext(Dispatchers.Main) {
-                UiLoadingHelper.hide()
-                result.fold(
-                    onSuccess = { content ->
-                        AlertDialog.Builder(this@LoginActivity)
-                            .setTitle("AppTest.txt")
-                            .setMessage(content.ifEmpty { "(Datei ist leer)" })
-                            .setPositiveButton("OK", null)
-                            .show()
-                    },
-                    onFailure = { error ->
-                        Log.e(TAG, "Kerberos-Dateitest fehlgeschlagen", error)
-                        AlertDialog.Builder(this@LoginActivity)
-                            .setIcon(android.R.drawable.ic_dialog_alert)
-                            .setTitle("Kerberos-Dateitest fehlgeschlagen")
-                            .setMessage(
-                                "${error.javaClass.simpleName}: " +
-                                    (error.localizedMessage ?: "Unbekannter Fehler")
-                            )
-                            .setPositiveButton("OK", null)
-                            .show()
-                    }
-                )
-            }
-        }
-    }
-
     override fun onCreateOptionsMenu(menu: android.view.Menu?): Boolean {
         menuInflater.inflate(R.menu.login_menu, menu)
-        menu?.findItem(R.id.menu_kerberos_test)?.isVisible = BuildConfig.DEBUG
         return true
     }
 
@@ -617,11 +592,6 @@ class LoginActivity : AppCompatActivity() {
         return when (item.itemId) {
             R.id.menu_settings -> {
                 startActivity(Intent(this, SettingsActivity::class.java))
-                true
-            }
-
-            R.id.menu_kerberos_test -> {
-                showKerberosFileTestDialog()
                 true
             }
 

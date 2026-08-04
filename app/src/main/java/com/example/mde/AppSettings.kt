@@ -11,8 +11,35 @@ import android.content.Context
  */
 class AppSettings(context: Context) {
 
+    companion object {
+        internal const val DEFAULT_OTA_ENABLED = true
+        internal const val DEFAULT_OTA_SERVER = "mde-server"
+        internal const val DEFAULT_OTA_CONNECT_HOST =
+            "mde-server.brainware-solutions.de"
+        internal const val DEFAULT_OTA_SHARE = "mde-update"
+        internal const val DEFAULT_OTA_BASE_PATH = ""
+        internal const val DEFAULT_OTA_REALM = "BRAINWARE-SOLUTIONS.DE"
+        internal const val DEFAULT_OTA_KDC_ADDRESS =
+            "werk-1-vdcw2k22.brainware-solutions.de:88"
+
+        private const val PREFERENCES_NAME = "bw_mde_settings"
+        private const val KEY_OTA_ENABLED = "ota_enabled"
+        private const val KEY_OTA_SERVER = "ota_server"
+        private const val KEY_OTA_CONNECT_HOST = "ota_connect_host"
+        private const val KEY_OTA_SHARE = "ota_share"
+        private const val KEY_OTA_BASE_PATH = "ota_base_path"
+        private const val KEY_OTA_REALM = "ota_realm"
+        private const val KEY_OTA_KDC_ADDRESS = "ota_kdc_address"
+        private const val KEY_SETTINGS_SCHEMA_VERSION = "ota_settings_schema_version"
+        private const val SETTINGS_SCHEMA_VERSION = 1
+    }
+
     private val prefs =
-        context.getSharedPreferences("bw_mde_settings", Context.MODE_PRIVATE)
+        context.getSharedPreferences(PREFERENCES_NAME, Context.MODE_PRIVATE)
+
+    init {
+        removeObsoletePlaintextOtaSettings()
+    }
 
     /** IP-Adresse des TCP-Servers. */
     var serverIp: String
@@ -68,32 +95,85 @@ class AppSettings(context: Context) {
     // OTA-Update-Einstellungen
     // -------------------------------------------------------------------------
 
-    /**
-     * SMB-Basis-URL des Update-Verzeichnisses, z. B. `smb://192.168.1.100/updates`.
-     * Darunter werden `version.json` und die APK-Dateien erwartet.
-     */
-    var otaServerUrl: String
-        get() = prefs.getString("ota_server_url", "")!!
-        set(value) = prefs.edit().putString("ota_server_url", value).apply()
+    /** Schaltet die automatische OTA-Versionsprüfung und Updates zur Laufzeit ein oder aus. */
+    var otaEnabled: Boolean
+        get() = prefs.getBoolean(KEY_OTA_ENABLED, DEFAULT_OTA_ENABLED)
+        set(value) = prefs.edit().putBoolean(KEY_OTA_ENABLED, value).apply()
 
-    /** Windows-Domäne für die NTLM-Authentifizierung am Update-Server (kann leer sein). */
-    var otaDomain: String
-        get() = prefs.getString("ota_domain", "")!!
-        set(value) = prefs.edit().putString("ota_domain", value).apply()
+    /** Logischer SMB-Servername für UNC-Pfad und Kerberos-SPN (`cifs/<server>`). */
+    var otaServer: String
+        get() = readOtaValue(KEY_OTA_SERVER, DEFAULT_OTA_SERVER) {
+            validateOtaHost(it, "OTA-SMB-Server")
+        }
+        set(value) = writeOtaValue(KEY_OTA_SERVER, value) {
+            validateOtaHost(it, "OTA-SMB-Server")
+        }
 
-    /** Benutzername für die NTLM-Authentifizierung am Update-Server. */
-    var otaUsername: String
-        get() = prefs.getString("ota_username", "")!!
-        set(value) = prefs.edit().putString("ota_username", value).apply()
+    /** DNS-Name oder IPv4-Adresse, über die das Gerät die SMB-Verbindung aufbaut. */
+    var otaConnectHost: String
+        get() = readOtaValue(KEY_OTA_CONNECT_HOST, DEFAULT_OTA_CONNECT_HOST) {
+            validateOtaHost(it, "OTA-Connect-Host")
+        }
+        set(value) = writeOtaValue(KEY_OTA_CONNECT_HOST, value) {
+            validateOtaHost(it, "OTA-Connect-Host")
+        }
 
-    /**
-     * Passwort für die NTLM-Authentifizierung am Update-Server.
-     *
-     * **Sicherheitshinweis:** Für Produktionsumgebungen empfiehlt sich die Verwendung von
-     * `EncryptedSharedPreferences` (androidx.security:security-crypto) statt
-     * plaintext SharedPreferences.
-     */
-    var otaPassword: String
-        get() = prefs.getString("ota_password", "")!!
-        set(value) = prefs.edit().putString("ota_password", value).apply()
+    /** SMB-Freigabe, in der die OTA-Dateien liegen. */
+    var otaShare: String
+        get() = readOtaValue(KEY_OTA_SHARE, DEFAULT_OTA_SHARE, ::validateOtaShare)
+        set(value) = writeOtaValue(KEY_OTA_SHARE, value, ::validateOtaShare)
+
+    /** Relativer Ordner innerhalb der Freigabe; leer bedeutet Freigabewurzel. */
+    var otaBasePath: String
+        get() = readOtaValue(
+            KEY_OTA_BASE_PATH,
+            DEFAULT_OTA_BASE_PATH,
+            ::validateOtaBasePath
+        )
+        set(value) = writeOtaValue(KEY_OTA_BASE_PATH, value, ::validateOtaBasePath)
+
+    /** Kerberos-Realm; wird kanonisch in Großbuchstaben gespeichert. */
+    var otaRealm: String
+        get() = readOtaValue(KEY_OTA_REALM, DEFAULT_OTA_REALM, ::normalizeOtaRealm)
+        set(value) = writeOtaValue(KEY_OTA_REALM, value, ::normalizeOtaRealm)
+
+    /** Kerberos-KDC als Host mit optionalem Port; ohne Port wird `88` ergänzt. */
+    var otaKdcAddress: String
+        get() = readOtaValue(
+            KEY_OTA_KDC_ADDRESS,
+            DEFAULT_OTA_KDC_ADDRESS,
+            ::normalizeOtaKdcAddress
+        )
+        set(value) = writeOtaValue(KEY_OTA_KDC_ADDRESS, value, ::normalizeOtaKdcAddress)
+
+    private fun readOtaValue(
+        key: String,
+        defaultValue: String,
+        normalize: (String) -> String
+    ): String {
+        val storedValue = prefs.getString(key, defaultValue) ?: defaultValue
+        return runCatching { normalize(storedValue) }
+            .getOrDefault(defaultValue)
+    }
+
+    private fun writeOtaValue(
+        key: String,
+        value: String,
+        normalize: (String) -> String
+    ) {
+        prefs.edit().putString(key, normalize(value)).apply()
+    }
+
+    /** Entfernt einmalig Zugangsdaten und NTLM-Werte des nicht mehr verwendeten OTA-Pfads. */
+    private fun removeObsoletePlaintextOtaSettings() {
+        if (prefs.getInt(KEY_SETTINGS_SCHEMA_VERSION, 0) >= SETTINGS_SCHEMA_VERSION) return
+
+        prefs.edit()
+            .remove("ota_server_url")
+            .remove("ota_domain")
+            .remove("ota_username")
+            .remove("ota_password")
+            .putInt(KEY_SETTINGS_SCHEMA_VERSION, SETTINGS_SCHEMA_VERSION)
+            .apply()
+    }
 }
